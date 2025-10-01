@@ -1,0 +1,13 @@
+/* modal-styles.css */
+.ant-modal-mask {
+    backdrop-filter: blur(12px); 
+    background-color: rgba(0, 0, 0, 0.3); 
+  }
+  
+    .ant-layout-sider {
+  background: #ffff !important; /* gris claro */
+}
+
+.ant-table-cell {
+  padding: 8px 12px !important;
+}
