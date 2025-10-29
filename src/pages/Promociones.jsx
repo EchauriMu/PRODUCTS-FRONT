@@ -1,10 +1,10 @@
 import React from 'react';
+import PromotionsTableCard from '../components/Promotions/PromotionsTableCard';
 
 const Promociones = () => {
   return (
-    <div>
-      <h1>Promociones</h1>
-      <p>Contenido relacionado con las promociones.</p>
+    <div style={{ padding: '1rem' }}>
+      <PromotionsTableCard />
     </div>
   );
 };
