@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
 import Home from './Home';
@@ -10,14 +10,13 @@ import PreciosListas from './PreciosListas';
 import PreciosItems from './PreciosItems';
 import Promociones from './Promociones';
 import Categorias from './Categorias';
-import StepperPage from './StepperPage'; // ✅ Importación agregada
+import StepperPage from './StepperPage';
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <Router>
-      <style>{`
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'var(--sapFontFamily)', width: '100%', overflow: 'hidden' }}>      <style>{`
         /* Reset global para evitar desbordamientos */
         * {
           box-sizing: border-box;
@@ -150,14 +149,6 @@ const Layout = () => {
         }
       `}</style>
 
-      <div style={{ 
-        display: 'flex', 
-        minHeight: '100vh', 
-        fontFamily: 'var(--sapFontFamily)', 
-        width: '100%',
-        overflow: 'hidden'
-      }}>
-        {/* Sidebar Desktop - Fixed */}
         <div className="sidebar-desktop">
           <Sidebar isOpen={false} onClose={() => {}} />
         </div>
@@ -185,14 +176,12 @@ const Layout = () => {
               <Route path="/promociones" element={<Promociones />} />
               <Route path="/categorias" element={<Categorias />} />
               
-              {/* ✅ Nueva ruta agregada */}
               <Route path="/add-products" element={<StepperPage />} />
             </Routes>
           </div>
         </div>
       </div>
-    </Router>
-  );
+  )
 };
 
 export default Layout;

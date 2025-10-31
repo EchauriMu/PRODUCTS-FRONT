@@ -82,12 +82,14 @@ const ComponenteTres = ({ productData, presentations, onSubmit, isSubmitting }) 
               <div style={{ padding: '1rem' }}>
                 <FlexBox justifyContent="SpaceBetween" alignItems="Start">
                   <div style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '0.5rem' }}>
-                      {pres.IdPresentaOK}
+                    <Title level="H6" style={{ marginBottom: '0.25rem' }}>
+                      {pres.NOMBREPRESENTACION}
+                    </Title>
+                    <Text style={{ fontSize: '14px', color: '#666', marginBottom: '0.5rem' }}>
+                      ID: {pres.IdPresentaOK}
                     </Text>
                     <Text style={{ marginBottom: '0.5rem' }}>{pres.Descripcion}</Text>
                     <FlexBox style={{ gap: '1rem', marginTop: '0.5rem' }}>
-                      <Text><strong>Costo:</strong> ${parseFloat(pres.CostoIni || 0).toFixed(2)}</Text>
                       <Text><strong>Archivos:</strong> {pres.files?.length || 0}</Text>
                     </FlexBox>
                     {pres.PropiedadesExtras && Object.keys(pres.PropiedadesExtras).length > 0 && (

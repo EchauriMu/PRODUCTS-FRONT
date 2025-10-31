@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardHeader,
@@ -7,6 +8,7 @@ import {
   TableCell,
   Text,
   Title,
+  Button,
   BusyIndicator,
   MessageStrip,
   FlexBox,
@@ -21,6 +23,7 @@ const ProductsTableCard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const navigate = useNavigate();
 
   // Cargar productos al montar el componente
   useEffect(() => {
@@ -137,7 +140,14 @@ const ProductsTableCard = () => {
           titleText="Lista de Productos"
           subtitleText={`${products.length} productos encontrados`}
           action={
-            <FlexBox alignItems="Center">
+            <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+              <Button
+                icon="add"
+                design="Emphasized"
+                onClick={() => navigate('/add-products')}
+              >
+                Añadir Producto
+              </Button>
               {loading && <BusyIndicator active size="Small" />}
               <Label 
                 style={{ 
@@ -205,12 +215,8 @@ const ProductsTableCard = () => {
                 <TableCell style={{ fontWeight: 'bold' }}>
                   <Text>Categoría</Text>
                 </TableCell>
-                <TableCell style={{ fontWeight: 'bold' }}>
-                  <Text>Unidad Medida</Text>
-                </TableCell>
-                <TableCell style={{ fontWeight: 'bold' }}>
-                  <Text>Código de Barras</Text>
-                </TableCell>
+            
+           
                 <TableCell style={{ fontWeight: 'bold' }}>
                   <Text>Creado Por</Text>
                 </TableCell>
@@ -249,16 +255,7 @@ const ProductsTableCard = () => {
                       <Text style={{ fontWeight: 'bold', color: '#32363a' }}>
                         {product.PRODUCTNAME || 'Sin nombre'}
                       </Text>
-                      <Text
-                        style={{
-                          fontSize: '0.875rem',
-                          color: '#6a6d70',
-                          whiteSpace: 'normal'
-                        }}
-                        title={product.DESSKU}
-                      >
-                        {product.DESSKU || 'Sin descripción'}
-                      </Text>
+                    
                     </FlexBox>
                   </TableCell>
 
@@ -281,24 +278,8 @@ const ProductsTableCard = () => {
                       {formatCategories(product.CATEGORIAS)}
                     </Label>
                   </TableCell>
-                  
-                  <TableCell>
-                    <Text style={{ textAlign: 'center' }}>
-                      {product.IDUNIDADMEDIDA || 'N/A'}
-                    </Text>
-                  </TableCell>
-                  
-                  <TableCell>
-                    <Text 
-                      style={{ 
-                        fontFamily: 'monospace',
-                        fontSize: '0.875rem'
-                      }}
-                    >
-                      {product.BARCODE || 'N/A'}
-                    </Text>
-                  </TableCell>
-                  
+        
+        
                   <TableCell>
                     <Text style={{ fontWeight: '500' }}>
                       {product.REGUSER || 'N/A'}

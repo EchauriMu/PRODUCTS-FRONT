@@ -80,17 +80,16 @@ const StepperContainer = () => {
     try {
       // Desestructuramos productData para excluir SKUID del payload final.
       const { SKUID, ...productPayload } = productData;
-
-      // ✅ Prepara el payload asegurando que PropiedadesExtras sea un string JSON
+      
       const payload = {
-        product: productPayload,
+        product: productData, // Enviamos el productData completo como espera la API
         presentations: presentations.map(p => {
           // Construimos el objeto de presentación explícitamente para que coincida con el body requerido.
           return {
             IdPresentaOK: p.IdPresentaOK,
+            NOMBREPRESENTACION: p.NOMBREPRESENTACION,
             Descripcion: p.Descripcion,
-            CostoIni: parseFloat(p.CostoIni) || 0,
-            PropiedadesExtras: JSON.stringify(p.PropiedadesExtras || {}),
+            PropiedadesExtras: p.PropiedadesExtras, // Ya es un string JSON desde ComponenteDos
             files: p.files || []
           };
         })

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card, 
   CardHeader,
@@ -26,8 +26,9 @@ import ValueState from '@ui5/webcomponents-base/dist/types/ValueState';
 const initialPresentationState = {
   IdPresentaOK: '',
   Descripcion: '',
-  CostoIni: 0,
-  PropiedadesExtras: {},
+  // CostoIni: 0, // Eliminado para que no se envíe a la API
+  NOMBREPRESENTACION: '',
+  PropiedadesExtras: {}, // Se convertirá a string JSON al agregar
   files: [],
 };
 
@@ -36,6 +37,24 @@ const ComponenteDos = ({ presentations, setPresentations, productSKU }) => {
   const [propKey, setPropKey] = useState('');
   const [propValue, setPropValue] = useState('');
   const [toast, setToast] = useState({ show: false, message: '' });
+
+  // Efecto para autogenerar el IdPresentaOK
+  useEffect(() => {
+    if (newPresentation.NOMBREPRESENTACION && productSKU) {
+      // Crea un slug a partir del nombre de la presentación
+      const presentationSlug = newPresentation.NOMBREPRESENTACION
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, '-') // Reemplaza espacios con guiones
+        .replace(/[^A-Z0-9-]/g, ''); // Elimina caracteres no alfanuméricos excepto guiones
+
+      const generatedId = `${productSKU}-${presentationSlug}`;
+      setNewPresentation(prev => ({ ...prev, IdPresentaOK: generatedId }));
+    } else {
+      // Si no hay nombre, se limpia el ID
+      setNewPresentation(prev => ({ ...prev, IdPresentaOK: '' }));
+    }
+  }, [newPresentation.NOMBREPRESENTACION, productSKU]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -58,7 +77,8 @@ const ComponenteDos = ({ presentations, setPresentations, productSKU }) => {
     selectedFiles.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result.split(',')[1];
+        // El API espera el string completo con el prefijo data:
+        const base64String = reader.result; 
         const newFile = {
           fileBase64: base64String,
           FILETYPE: file.type.startsWith('image/') ? 'IMG' : file.type === 'application/pdf' ? 'PDF' : 'OTHER',
@@ -75,11 +95,13 @@ const ComponenteDos = ({ presentations, setPresentations, productSKU }) => {
 
   const handleAddPresentation = () => {
     // Generar un IdPresentaOK si está vacío
-    const presentationToAdd = { ...newPresentation };
-    if (!presentationToAdd.IdPresentaOK) {
-      presentationToAdd.IdPresentaOK = `${productSKU}-${Date.now()}`;
-    }
-    setPresentations(prev => [...prev, presentationToAdd]);
+    const presentationToAdd = { 
+      ...newPresentation,
+      // Convertir PropiedadesExtras a un string JSON como espera la API
+      PropiedadesExtras: JSON.stringify(newPresentation.PropiedadesExtras)
+    };
+
+    setPresentations(prev => [...prev, presentationToAdd]); // Ahora se guarda con PropiedadesExtras como string
     setNewPresentation(initialPresentationState); // Reset form
     setToast({ show: true, message: '✅ Variante guardada' });
     setTimeout(() => {
@@ -103,7 +125,25 @@ const ComponenteDos = ({ presentations, setPresentations, productSKU }) => {
       {/* Columna del Formulario */}
       <Card style={{ flex: 1, marginTop: '20px' }} header={<CardHeader titleText="Añadir Nueva Presentación" />}>
         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <FlexBox direction="Column"><Label>ID Presentación (Opcional)</Label><Input name="IdPresentaOK" value={newPresentation.IdPresentaOK} onInput={handleInputChange} placeholder="Se autogenera si se deja vacío" /></FlexBox>
+          <FlexBox direction="Column">
+            <Label>ID Presentación (Autogenerado)</Label>
+            <Input 
+              name="IdPresentaOK" 
+              value={newPresentation.IdPresentaOK} 
+              disabled // El campo ahora está deshabilitado
+              placeholder="Se genera a partir del nombre" 
+            />
+          </FlexBox>
+          <FlexBox direction="Column">
+            <Label required>Nombre Presentación</Label>
+            <Input
+              name="NOMBREPRESENTACION"
+              value={newPresentation.NOMBREPRESENTACION}
+              onInput={handleInputChange}
+              valueState={!newPresentation.NOMBREPRESENTACION ? ValueState.Error : ValueState.None}
+              valueStateMessage={<span>El nombre es obligatorio.</span>}
+            />
+          </FlexBox>
           <FlexBox direction="Column">
             <Label required>Descripción</Label>
             <TextArea
@@ -115,9 +155,6 @@ const ComponenteDos = ({ presentations, setPresentations, productSKU }) => {
               valueState={!newPresentation.Descripcion ? ValueState.Error : ValueState.None}
               valueStateMessage={<span>La descripción es obligatoria.</span>}
             />
-          </FlexBox>
-          <FlexBox style={{ gap: '1rem' }}>
-            <FlexBox direction="Column" style={{ flex: 1 }}><Label required>Costo Inicial</Label><Input name="CostoIni" type="Number" value={newPresentation.CostoIni} onInput={handleInputChange} /></FlexBox>
           </FlexBox>
 
           <Title level="H5" style={{ marginTop: '1rem' }}>Propiedades Extras</Title>
@@ -148,7 +185,7 @@ const ComponenteDos = ({ presentations, setPresentations, productSKU }) => {
             ))}
           </div>
 
-          <Button design="Emphasized" onClick={handleAddPresentation} style={{ marginTop: '1rem' }} disabled={!newPresentation.Descripcion}>Añadir Presentación a la Lista</Button>
+          <Button design="Emphasized" onClick={handleAddPresentation} style={{ marginTop: '1rem' }} disabled={!newPresentation.Descripcion || !newPresentation.NOMBREPRESENTACION}>Añadir Presentación a la Lista</Button>
         </div>
       </Card>
 
@@ -167,12 +204,12 @@ const ComponenteDos = ({ presentations, setPresentations, productSKU }) => {
               {presentations.map((p, index) => (
                 <Card key={p.IdPresentaOK || index}>
                   <CardHeader
-                    titleText={p.Descripcion}
+                    titleText={p.NOMBREPRESENTACION}
                     subtitleText={`ID: ${p.IdPresentaOK}`}
                     action={<Button icon="delete" design="Transparent" onClick={() => removePresentation(index)} />}
                   />
                   <div style={{ padding: '0 1rem 1rem 1rem', display: 'flex', gap: '1rem', justifyContent: 'space-between' }}>
-                    <ObjectStatus state={ValueState.Success}>Costo: ${parseFloat(p.CostoIni).toFixed(2)}</ObjectStatus>
+                    <Text style={{fontSize: '0.875rem'}}>{p.Descripcion}</Text>
                     <ObjectStatus state={ValueState.Indication01}>{p.files.length} archivos</ObjectStatus>
                   </div>
                 </Card>
