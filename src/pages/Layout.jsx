@@ -10,6 +10,7 @@ import PreciosListas from './PreciosListas';
 import PreciosItems from './PreciosItems';
 import Promociones from './Promociones';
 import Categorias from './Categorias';
+import StepperPage from './StepperPage'; // ✅ Importación agregada
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -82,7 +83,7 @@ const Layout = () => {
         /* Content Area */
         .content-with-sidebar {
           flex: 1;
-          min-width: 0; /* IMPORTANTE: permite que el contenido se encoja */
+          min-width: 0;
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -106,8 +107,6 @@ const Layout = () => {
           .mobile-menu {
             display: none !important;
           }
-          
-         
           .main-content {
             padding: 24px;
           }
@@ -128,28 +127,23 @@ const Layout = () => {
             display: none !important;
           }
           
-          /* Forzar que las grids sean de una columna en mobile */
           .content-grid {
             grid-template-columns: 1fr !important;
           }
           
-          /* Hacer las tablas scrolleables horizontalmente en mobile */
           .ui5-table-wrapper {
             overflow-x: auto !important;
           }
           
-          /* Reducir padding en mobile */
           .main-content {
             padding: 12px;
           }
         }
         
-        /* Fix para tablas que se desbordan */
         table {
           max-width: 100%;
         }
         
-        /* Fix para cards que se desbordan */
         .ui5-card {
           max-width: 100%;
           overflow: hidden;
@@ -190,6 +184,9 @@ const Layout = () => {
               <Route path="/precios-items" element={<PreciosItems />} />
               <Route path="/promociones" element={<Promociones />} />
               <Route path="/categorias" element={<Categorias />} />
+              
+              {/* ✅ Nueva ruta agregada */}
+              <Route path="/add-products" element={<StepperPage />} />
             </Routes>
           </div>
         </div>

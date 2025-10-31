@@ -197,7 +197,10 @@ const ProductsTableCard = () => {
                   <Text>SKU ID</Text>
                 </TableCell>
                 <TableCell style={{ fontWeight: 'bold' }}>
-                  <Text>Descripción</Text>
+                  <Text>Producto</Text>
+                </TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}>
+                  <Text>Marca</Text>
                 </TableCell>
                 <TableCell style={{ fontWeight: 'bold' }}>
                   <Text>Categoría</Text>
@@ -242,24 +245,27 @@ const ProductsTableCard = () => {
                   </TableCell>
                   
                   <TableCell>
-                    <Text 
-                      style={{ fontWeight: '500' }}
-                      title={product.INFOAD}
-                    >
-                      {product.DESSKU || 'Sin descripción'}
-                    </Text>
-                    {product.INFOAD && (
-                      <Text 
-                        style={{ 
-                          fontSize: '0.75rem', 
-                          color: '#666',
-                          display: 'block',
-                          marginTop: '0.25rem'
-                        }}
-                      >
-                        {product.INFOAD.substring(0, 30)}...
+                    <FlexBox direction="Column">
+                      <Text style={{ fontWeight: 'bold', color: '#32363a' }}>
+                        {product.PRODUCTNAME || 'Sin nombre'}
                       </Text>
-                    )}
+                      <Text
+                        style={{
+                          fontSize: '0.875rem',
+                          color: '#6a6d70',
+                          whiteSpace: 'normal'
+                        }}
+                        title={product.DESSKU}
+                      >
+                        {product.DESSKU || 'Sin descripción'}
+                      </Text>
+                    </FlexBox>
+                  </TableCell>
+
+                  <TableCell>
+                    <Text style={{ fontWeight: '500' }}>
+                      {product.MARCA || 'N/A'}
+                    </Text>
                   </TableCell>
                   
                   <TableCell>
