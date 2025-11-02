@@ -13,10 +13,10 @@ import Categorias from './Categorias';
 import StepperPage from './StepperPage';
 
 const Layout = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true); // Inicia abierto en escritorio
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'var(--sapFontFamily)', width: '100%', overflow: 'hidden' }}>      <style>{`
+    <div className={`layout-container ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`} style={{ display: 'flex', minHeight: '100vh', fontFamily: 'var(--sapFontFamily)', width: '100%', overflow: 'hidden' }}>      <style>{`
         /* Reset global para evitar desbordamientos */
         * {
           box-sizing: border-box;
@@ -29,18 +29,11 @@ const Layout = () => {
           width: 100%;
         }
         
-        /* Sidebar Desktop */
-        .sidebar-desktop {
-          display: none;
+        /* Sidebar (Unificado) */
+        .sidebar {
           width: 240px;
           flex-shrink: 0;
-        }
-        
-        .sidebar-desktop .sidebar-content {
-          position: fixed;
-          width: 240px;
-          height: 100vh;
-          overflow-y: auto;
+          transition: margin-left 0.3s ease;
         }
         
         /* Sidebar Mobile */
@@ -86,6 +79,7 @@ const Layout = () => {
           display: flex;
           flex-direction: column;
           overflow: hidden;
+          transition: margin-left 0.3s ease;
         }
         
         .main-content {
@@ -97,24 +91,33 @@ const Layout = () => {
         
         /* Responsive Desktop */
         @media (min-width: 769px) {
-          .sidebar-desktop {
-            display: block !important;
-          }
           .sidebar-mobile {
-            display: none !important;
-          }
-          .mobile-menu {
             display: none !important;
           }
           .main-content {
             padding: 24px;
           }
+          .sidebar-closed .sidebar {
+            margin-left: -240px;
+          }
+          .sidebar-closed .content-with-sidebar {
+            margin-left: 0;
+          }
+          .sidebar .sidebar-content {
+            position: fixed;
+            width: 240px;
+            height: 100vh;
+            overflow-y: auto;
+          }
+          .mobile-overlay, .mobile-close {
+            display: none !important;
+          }
         }
         
         /* Responsive Mobile */
         @media (max-width: 768px) {
-          .mobile-menu {
-            display: block !important;
+          .sidebar {
+            display: none !important;
           }
           .mobile-close {
             display: block !important;
@@ -149,22 +152,21 @@ const Layout = () => {
         }
       `}</style>
 
-        <div className="sidebar-desktop">
-          <Sidebar isOpen={false} onClose={() => {}} />
+        {/* Sidebar para Desktop (se oculta/muestra con margen) */}
+        <div className="sidebar">
+          <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} isMobile={false} />
         </div>
 
         {/* Sidebar Mobile - Overlay */}
         <div className={`sidebar-mobile ${sidebarOpen ? 'open' : ''}`}>
-          <div 
-            className="mobile-overlay" 
-            onClick={() => setSidebarOpen(false)}
-          />
-          <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+          <div className="mobile-overlay" onClick={() => setSidebarOpen(false)} />
+          <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} isMobile={true} />
         </div>
 
         {/* Main Content Area */}
         <div className="content-with-sidebar">
-          <TopBar onMenuClick={() => setSidebarOpen(true)} />
+          {/* El botón ahora alterna el estado del sidebar */}
+          <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
           <div className="main-content">
             <Routes>

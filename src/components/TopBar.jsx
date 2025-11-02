@@ -30,14 +30,11 @@ const TopBar = ({ onMenuClick }) => {
     }}>
       <FlexBox alignItems="Center" style={{ gap: '12px' }}>
         <Icon 
-          name="menu2" 
-          style={{ cursor: 'pointer', display: 'none' }} 
-          className="mobile-menu"
+          name="menu2"
+          style={{ cursor: 'pointer' }}
           onClick={onMenuClick}
         />
-        <Icon name="home" style={{ color: '#757575' }} className="hide-mobile" />
-        <Icon name="navigation-right-arrow" style={{ fontSize: '12px', color: '#BDBDBD' }} className="hide-mobile" />
-        <Text style={{ fontWeight: '600' }}>{breadcrumb}</Text>
+     <Text style={{ fontWeight: '600' }}>{breadcrumb}</Text>
       </FlexBox>
       
       <FlexBox alignItems="Center" style={{ gap: '12px', flexWrap: 'wrap' }}>
