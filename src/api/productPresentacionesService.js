@@ -38,16 +38,15 @@ const productPresentacionesService = {
    * Crear una nueva Presentación (ProcessType=AddOne)
    * payload: { IdPresentaOK, SKUID, NOMBREPRESENTACION, Descripcion, CostoIni, CostoFin, ACTIVED }
    */
-  async addPresentacion(payload, loggedUser = 'SPARDOP') {
+  async addPresentacion(payload) {
     try {
       const params = new URLSearchParams({
-        ProcessType: 'AddOne',
-        LoggedUser: loggedUser
+        ProcessType: 'AddOne'
       }).toString();
 
     const res = await axiosInstance.post(
       `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
-      cleanBody,
+      payload,
       { headers: { 'Content-Type': 'application/json' } }
     );
 
@@ -111,8 +110,7 @@ const productPresentacionesService = {
   async getPresentacionById(idpresentaok) {
     const params = new URLSearchParams({
       ProcessType: 'GetById',
-      idpresentaok,
-      LoggedUser: loggedUser
+      idpresentaok
     }).toString();
     const res = await axiosInstance.post(
       `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`
@@ -124,15 +122,29 @@ const productPresentacionesService = {
   // Helper para obtener los archivos de una presentación
   async getFilesByPresentacionId(idpresentaok, loggedUser = 'SPARDOP') {
     const params = new URLSearchParams({
-      ProcessType: 'GetByIdPresentaOK',
-      idpresentaok,
-      LoggedUser: loggedUser
+      ProcessType: 'GetByIdPresentaOK', // Mantenemos LoggedUser aquí porque es un helper específico
+      idpresentaok,                     // y no queremos depender de la sesión si no es necesario.
+      LoggedUser: loggedUser            // Además, el interceptor no lo duplicará si ya existe.
     }).toString();
     const res = await axiosInstance.post(
       `/ztproducts-files/productsFilesCRUD?${params}` // Apuntando al servicio de archivos
     );
     const dataRes = unwrapCAP(res);
     return Array.isArray(dataRes) ? dataRes : (dataRes ? [dataRes] : []);
+  },
+
+  // Cambia el estado ACTIVED de una presentación
+  async togglePresentacionStatus(idpresentaok, newStatus) {
+    console.log(`Simulando cambio de estado para ${idpresentaok}: ${newStatus}`);
+    try {
+      // En un futuro, esto llamaría al endpoint de actualización real
+
+      const result = await this.updatePresentacion(idpresentaok, { ACTIVED: newStatus });
+      return result;
+    } catch (error) {
+      console.error('Error simulado al cambiar estado:', error);
+      throw new Error('No se pudo cambiar el estado de la presentación.');
+    }
   }
 };
 

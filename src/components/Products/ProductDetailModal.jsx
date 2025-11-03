@@ -8,17 +8,18 @@ import {
   Label,
   Text,
   FlexBox,
-  ObjectStatus,
   Card,
   Icon,
   Carousel,
   Select,
   Option,
   ResponsivePopover,
-  IllustratedMessage
+  IllustratedMessage,
 } from '@ui5/webcomponents-react';
 import ValueState from '@ui5/webcomponents-base/dist/types/ValueState.js';
 import productFilesService from '../../api/productFilesService';
+import PresentationStatus from '../CRUDPresentaciones/PresentationStatus';
+import ProductStatus from './ProductStatus';
 import productPresentacionesService from '../../api/productPresentacionesService';
 
 const ProductDetailModal = ({ product, open, onClose }) => {
@@ -27,6 +28,7 @@ const ProductDetailModal = ({ product, open, onClose }) => {
   const [selectedPresenta, setSelectedPresenta] = useState(null);
   const [files, setFiles] = useState([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
+  const [localProduct, setLocalProduct] = useState(product);
   const [errorFiles, setErrorFiles] = useState(null);
 
   // Popover confirm delete (1 a 1)
@@ -36,6 +38,7 @@ const ProductDetailModal = ({ product, open, onClose }) => {
 
   // Cargar presentaciones al abrir
   useEffect(() => {
+    setLocalProduct(product); // Sincroniza el producto local al abrir/cambiar
     if (open && product?.SKUID) {
       setLoadingFiles(true);
       setErrorFiles(null);
@@ -68,8 +71,6 @@ const ProductDetailModal = ({ product, open, onClose }) => {
     }
   }, [selectedPresenta]);
 
-  if (!product) return null;
-
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -83,17 +84,30 @@ const ProductDetailModal = ({ product, open, onClose }) => {
     }
   };
 
-  const getProductStatus = (p) => {
-    if (p.DELETED) return { state: ValueState.Error, text: 'Eliminado' };
-    if (p.ACTIVED) return { state: ValueState.Success, text: 'Activo' };
-    return { state: ValueState.Warning, text: 'Inactivo' };
-  };
-
   const handlePresentaChange = (e) => {
     const presentaId = e.target.value;
     const presenta = presentaciones.find((p) => p.IdPresentaOK === presentaId);
     setSelectedPresenta(presenta || null);
   };
+
+  const handleProductStatusChange = (updatedProduct) => {
+    setLocalProduct(updatedProduct);
+  }
+
+  const handleStatusChange = (updatedPresentation) => {
+    // Actualiza la presentación en el estado local para reflejar el cambio
+    setPresentaciones(prev =>
+      prev.map(p =>
+        p.IdPresentaOK === updatedPresentation.IdPresentaOK ? updatedPresentation : p
+      )
+    );
+    // Si la presentación actualizada es la seleccionada, actualiza también `selectedPresenta`
+    if (selectedPresenta?.IdPresentaOK === updatedPresentation.IdPresentaOK) {
+      setSelectedPresenta(updatedPresentation);
+    }
+  };
+
+  if (!localProduct) return null;
 
   // === Delete single ===
   const handleDeleteSingle = async () => {
@@ -254,8 +268,6 @@ const ProductDetailModal = ({ product, open, onClose }) => {
     );
   };
 
-  const status = getProductStatus(product);
-
   const openDeletePopover = () => {
   if (!selectedPresenta) return;
   const anchor =
@@ -271,31 +283,29 @@ const ProductDetailModal = ({ product, open, onClose }) => {
       footer={<Bar endContent={<Button design="Emphasized" onClick={onClose}>Cerrar</Button>} />}
       style={{ width: '95vw', maxWidth: '1400px' }}
     >
-      <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', height: 'calc(90vh - 50px)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', height: 'calc(80vh - 50px)' }}>
         {/* Columna Izquierda: Info Producto */}
         <div style={{ background: '#f7f8fa', padding: '1.5rem', borderRight: '1px solid #e5e5e5', overflowY: 'auto' }}>
           <FlexBox direction="Column" style={{ gap: '2rem' }}>
-            {/* Encabezado */}
+            {/* Encabezado y Estado del Producto */}
             <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
-              <FlexBox alignItems="Center" justifyContent="SpaceBetween">
-                <Title level="H3">{product.PRODUCTNAME || 'Sin Nombre'}</Title>
-                <ObjectStatus state={status.state}>{status.text}</ObjectStatus>
-              </FlexBox>
-              <Text style={{ color: '#666', fontStyle: 'italic' }}>{product.DESSKU || 'Sin descripción'}</Text>
+              <Title level="H3" style={{ flexShrink: 1, marginRight: '1rem' }}>{localProduct.PRODUCTNAME || 'Sin Nombre'}</Title>
+              <Text style={{ color: '#666', fontStyle: 'italic', marginBottom: '1rem' }}>{localProduct.DESSKU || 'Sin descripción'}</Text>
+              <ProductStatus product={localProduct} onStatusChange={handleProductStatusChange} />
             </FlexBox>
 
             {/* Detalles */}
             <FlexBox direction="Column" style={{ gap: '1rem' }}>
-              <Title level="H5" style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: '0.5rem' }}>
+              <Title level="H5" style={{ borderTop: '1px solid #e0e0e0', paddingTop: '1rem' }}>
                 Información General
               </Title>
               <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
-                <FlexBox direction="Column"><Label>SKU</Label><Text>{product.SKUID || 'N/A'}</Text></FlexBox>
-                <FlexBox direction="Column"><Label>Marca</Label><Text>{product.MARCA || 'N/A'}</Text></FlexBox>
-                <FlexBox direction="Column"><Label>Código de Barras</Label><Text>{product.BARCODE || 'N/A'}</Text></FlexBox>
-                <FlexBox direction="Column"><Label>Unidad de Medida</Label><Text>{product.IDUNIDADMEDIDA || 'N/A'}</Text></FlexBox>
-                <FlexBox direction="Column"><Label>Categorías</Label><Text>{Array.isArray(product.CATEGORIAS) ? product.CATEGORIAS.join(', ') : (product.CATEGORIAS || 'N/A')}</Text></FlexBox>
-                {product.INFOAD && <FlexBox direction="Column"><Label>Info Adicional</Label><Text>{product.INFOAD}</Text></FlexBox>}
+                <FlexBox direction="Column"><Label>SKU</Label><Text>{localProduct.SKUID || 'N/A'}</Text></FlexBox>
+                <FlexBox direction="Column"><Label>Marca</Label><Text>{localProduct.MARCA || 'N/A'}</Text></FlexBox>
+                <FlexBox direction="Column"><Label>Código de Barras</Label><Text>{localProduct.BARCODE || 'N/A'}</Text></FlexBox>
+                <FlexBox direction="Column"><Label>Unidad de Medida</Label><Text>{localProduct.IDUNIDADMEDIDA || 'N/A'}</Text></FlexBox>
+                <FlexBox direction="Column"><Label>Categorías</Label><Text>{Array.isArray(localProduct.CATEGORIAS) ? localProduct.CATEGORIAS.join(', ') : (localProduct.CATEGORIAS || 'N/A')}</Text></FlexBox>
+                {localProduct.INFOAD && <FlexBox direction="Column"><Label>Info Adicional</Label><Text>{localProduct.INFOAD}</Text></FlexBox>}
               </FlexBox>
             </FlexBox>
 
@@ -307,13 +317,13 @@ const ProductDetailModal = ({ product, open, onClose }) => {
               <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
                 <FlexBox direction="Column">
                   <Label>Creado por</Label>
-                  <Text>{product.REGUSER || 'N/A'}</Text>
-                  <Text style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(product.REGDATE)}</Text>
+                  <Text>{localProduct.REGUSER || 'N/A'}</Text>
+                  <Text style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(localProduct.REGDATE)}</Text>
                 </FlexBox>
                 <FlexBox direction="Column">
                   <Label>Modificado por</Label>
-                  <Text>{product.MODUSER || 'N/A'}</Text>
-                  <Text style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(product.MODDATE)}</Text>
+                  <Text>{localProduct.MODUSER || 'N/A'}</Text>
+                  <Text style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(localProduct.MODDATE)}</Text>
                 </FlexBox>
               </FlexBox>
             </FlexBox>
@@ -327,10 +337,13 @@ const ProductDetailModal = ({ product, open, onClose }) => {
             <FlexBox direction="Column" style={{ gap: '1rem' }}>
               <FlexBox alignItems="Center" justifyContent="SpaceBetween">
                 <Title level="H4">Presentaciones</Title>
-                <FlexBox style={{ gap: '0.5rem' }}>
-                  <Button design="Emphasized" icon="add" onClick={() => navigate(`/products/${product.SKUID}/presentations/add`)}>Insertar</Button>
-                  <Button design="Transparent" icon="edit" onClick={() => navigate(`/products/${product.SKUID}/presentations/select-edit`)} />
-                  <Button design="Negative" icon="delete" ref={delBtnRef} disabled={!selectedPresenta} onClick={openDeletePopover}>Eliminar</Button>
+                <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+                  {selectedPresenta && (
+                    <PresentationStatus presentation={selectedPresenta} onStatusChange={handleStatusChange} />
+                  )}
+                  <Button design="Emphasized" icon="add" onClick={() => navigate(`/products/${localProduct.SKUID}/presentations/add`)}>Insertar</Button>
+                  <Button design="Transparent" icon="edit" onClick={() => navigate(`/products/${localProduct.SKUID}/presentations/select-edit`)} />
+                  <Button design="Negative" icon="delete" ref={delBtnRef} disabled={!selectedPresenta} onClick={openDeletePopover} />
                 </FlexBox>
               </FlexBox>
 
@@ -354,23 +367,7 @@ const ProductDetailModal = ({ product, open, onClose }) => {
 
             {/* Contenido de la Presentación Seleccionada */}
             {selectedPresenta ? (
-              <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
-                {/* Detalles de la Presentación */}
-                <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-                  <Title level="H5">{selectedPresenta.NOMBREPRESENTACION}</Title>
-                  <Text>{selectedPresenta.Descripcion}</Text>
-                  <FlexBox style={{ gap: '2rem', marginTop: '0.5rem' }}>
-                    <Text style={{ fontSize: '1rem', color: '#1976d2' }}>
-                      <Icon name="money-bills" style={{ marginRight: '0.25rem' }} />
-                      Precio: <span style={{ fontWeight: 'bold' }}>${selectedPresenta.Precio}</span>
-                    </Text>
-                    <Text style={{ fontSize: '1rem', color: '#388e3c' }}>
-                      <Icon name="inventory" style={{ marginRight: '0.25rem' }} />
-                      Stock: <span style={{ fontWeight: 'bold' }}>{selectedPresenta.Stock}</span>
-                    </Text>
-                  </FlexBox>
-                </FlexBox>
-
+              <FlexBox direction="Column" style={{ gap: '1.5rem', borderTop: '1px solid #e0e0e0', paddingTop: '1.5rem' }}>
                 {/* Archivos de la Presentación */}
                 <FlexBox direction="Column" style={{ gap: '1rem' }}>
                   <Title level="H6">Archivos Asociados</Title>
@@ -414,11 +411,3 @@ const ProductDetailModal = ({ product, open, onClose }) => {
 };
 
 export default ProductDetailModal;
-/*
-            <FlexBox alignItems="Center" justifyContent="SpaceBetween">
-              <Title level="H5">{product.DESSKU || 'Sin descripción'}</Title>
-              <ObjectStatus state={status.state}>{status.text}</ObjectStatus>
-            </FlexBox>
-            <Text style={{ fontSize: '0.95rem', color: '#666' }}>{product.SKUID}</Text>
-            {product.INFOAD && <Text style={{ fontSize: '0.95rem', color: '#888', fontStyle: 'italic' }}>{product.INFOAD}</Text>}
-*/

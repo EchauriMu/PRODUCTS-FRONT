@@ -128,7 +128,7 @@ export default function AddPresentationPage() {
 
     try {
       setIsSubmitting(true);
-      await productPresentacionesService.addPresentacion(payload, 'EECHAURIM');
+      await productPresentacionesService.addPresentacion(payload);
       setOkMsg('Presentación creada correctamente.');
       setTimeout(() => navigate(-1), 400);
     } catch (err) {
