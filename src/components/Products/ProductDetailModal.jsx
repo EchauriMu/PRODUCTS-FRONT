@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   Bar,
@@ -18,17 +19,16 @@ import {
 import ValueState from '@ui5/webcomponents-base/dist/types/ValueState.js';
 import productFilesService from '../../api/productFilesService';
 import productPresentacionesService from '../../api/productPresentacionesService';
-import PresentaCreateDialog from '../CRUDPresentaciones/PresentaCreateDialog';
-import PresentaPickerDialog from '../CRUDPresentaciones/PresentaPickerDialog';
-import PresentaEditDialog from '../CRUDPresentaciones/PresentaEditDialog';
 
 const ProductDetailModal = ({ product, open, onClose }) => {
+  const navigate = useNavigate();
   const [presentaciones, setPresentaciones] = useState([]);
   const [selectedPresenta, setSelectedPresenta] = useState(null);
   const [files, setFiles] = useState([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [errorFiles, setErrorFiles] = useState(null);
 
+  // Estos estados ya no controlarán modales, pero los dejamos por si se reutiliza la lógica
   const [openCreatePres, setOpenCreatePres] = useState(false);
   const [openPicker, setOpenPicker] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -261,11 +261,11 @@ const ProductDetailModal = ({ product, open, onClose }) => {
   const status = getProductStatus(product);
 
   const openDeletePopover = () => {
-    if (!selectedPresenta) return;
-    // Algunos setups requieren el DOM nativo como opener
-    const openerEl = delBtnRef.current?.getDomRef ? delBtnRef.current.getDomRef() : delBtnRef.current;
-    delPopoverRef.current?.showAt(openerEl);
-  };
+  if (!selectedPresenta) return;
+  const anchor =
+    delBtnRef.current?.getDomRef?.() || delBtnRef.current; // compatible con distintas versiones
+  delPopoverRef.current?.showAt(anchor);
+};
 
   return (
     <Dialog
@@ -315,15 +315,19 @@ const ProductDetailModal = ({ product, open, onClose }) => {
             <FlexBox alignItems="Center" justifyContent="SpaceBetween">
               <Title level="H6">Presentaciones</Title>
               <FlexBox style={{ gap: '0.5rem' }}>
-                <Button design="Emphasized" icon="add" onClick={() => setOpenCreatePres(true)}>Insertar</Button>
-                <Button design="Transparent" icon="edit" onClick={() => setOpenPicker(true)} />
+                <Button design="Emphasized" icon="add" onClick={() => navigate(`/products/${product.SKUID}/presentations/add`)}>Insertar</Button>
+                <Button
+                  design="Transparent"
+                  icon="edit"
+                  onClick={() => navigate(`/products/${product.SKUID}/presentations/select-edit`)}
+                />
                 <Button
                   design="Negative"
                   icon="delete"
                   ref={delBtnRef}
                   disabled={!selectedPresenta}
-                  onClick={openDeletePopover}
-                >
+                  onClick={openDeletePopover}   // ← antes pasabas (e) y e.target; ya no
+                  >
                   Eliminar
                 </Button>
               </FlexBox>
@@ -403,7 +407,7 @@ const ProductDetailModal = ({ product, open, onClose }) => {
       </FlexBox>
 
       {/* Crear */}
-      <PresentaCreateDialog
+      {/* <PresentaCreateDialog
         open={openCreatePres}
         onClose={() => setOpenCreatePres(false)}
         skuid={product?.SKUID}
@@ -413,10 +417,10 @@ const ProductDetailModal = ({ product, open, onClose }) => {
           setPresentaciones((prev) => (prev.some((p) => p.IdPresentaOK === nuevo.IdPresentaOK) ? prev : [...prev, nuevo]));
           setSelectedPresenta(nuevo);
         }}
-      />
+      /> */}
 
       {/* Picker */}
-      <PresentaPickerDialog
+      {/* <PresentaPickerDialog
         open={openPicker}
         onClose={() => setOpenPicker(false)}
         skuid={product?.SKUID}
@@ -434,10 +438,10 @@ const ProductDetailModal = ({ product, open, onClose }) => {
             return prevSel;
           });
         }}
-      />
+      /> */}
 
       {/* Editor */}
-      <PresentaEditDialog
+      {/* <PresentaEditDialog
         open={!!editItem}
         onClose={() => setEditItem(null)}
         presenta={editItem}
@@ -446,10 +450,10 @@ const ProductDetailModal = ({ product, open, onClose }) => {
           setPresentaciones((prev) => prev.map((x) => (x.IdPresentaOK === upd.IdPresentaOK ? { ...x, ...upd } : x)));
           setSelectedPresenta((prevSel) => (prevSel?.IdPresentaOK === upd.IdPresentaOK ? { ...prevSel, ...upd } : prevSel));
         }}
-      />
+      /> */}
 
       {/* Popover confirm delete */}
-      <ResponsivePopover ref={delPopoverRef} placementType="Bottom">
+      <ResponsivePopover ref={delPopoverRef} placementType="Bottom" onAfterClose={() => {}}>
         <Bar startContent={<Title level="H6">Eliminar presentación</Title>} />
         <div style={{ padding: '1rem', maxWidth: 360 }}>
           <Text>¿Seguro que deseas eliminar <b>{selectedPresenta?.Descripcion}</b>?</Text>

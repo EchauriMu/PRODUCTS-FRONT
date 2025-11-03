@@ -39,25 +39,54 @@ const productPresentacionesService = {
    * Crear una nueva Presentación (ProcessType=AddOne)
    * payload: { IdPresentaOK, SKUID, NOMBREPRESENTACION, Descripcion, CostoIni, CostoFin, ACTIVED }
    */
-  async addPresentacion(payload, loggedUser = 'SPARDOP') {
-    try {
-      const params = new URLSearchParams({
-        ProcessType: 'AddOne',
-        LoggedUser: loggedUser
-      }).toString();
+  // ✅ Reemplaza SOLO esta función en productPresentacionesService.js
+// ✅ Reemplaza SOLO esta función
+async addPresentacion(payload, loggedUser = 'SPARDOP') {
+  try {
+    // Tomamos únicamente los campos que el back acepta
+    const {
+      IdPresentaOK,
+      SKUID,
+      NOMBREPRESENTACION,
+      Descripcion,
+      ACTIVED = true,
+      PropiedadesExtras
+    } = payload || {};
 
-      const res = await axiosInstance.post(
-        `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
-        payload
-      );
+    // estos van en query para que CAP los lea en req.data
+    const params = new URLSearchParams({
+      ProcessType: 'AddOne',
+      LoggedUser: loggedUser,
+      IdPresentaOK,
+      SKUID,
+      NOMBREPRESENTACION,
+      Descripcion
+    }).toString();
 
-      const dataRes = unwrapCAP(res);
-      return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
-    } catch (error) {
-      console.error('Error adding presentacion:', error);
-      throw error;
-    }
-  },
+    // cuerpo limpio (sin CostoIni/CostoFin)
+    const cleanBody = {
+      IdPresentaOK,
+      SKUID,
+      NOMBREPRESENTACION,
+      Descripcion,
+      ACTIVED,
+      PropiedadesExtras
+    };
+
+    const res = await axiosInstance.post(
+      `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
+      cleanBody,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    const dataRes = unwrapCAP(res);
+    return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
+  } catch (error) {
+    console.error('Error adding presentacion:', error.response?.data || error);
+    throw error;
+  }
+},
+
 
   /**
    * Actualizar una Presentación (ProcessType=UpdateOne)
@@ -69,7 +98,7 @@ const productPresentacionesService = {
       LoggedUser: loggedUser
     }).toString();
 
-    const res = await axiosInstance.post(
+    const res = await axiosInstance.put( // Usualmente las actualizaciones usan PUT
       `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
       cambios
     );
@@ -111,7 +140,7 @@ const productPresentacionesService = {
   // (Opcional) Si tu back expone ProcessType=GetById, esto refresca una presentación tras editar.
   async getPresentacionById(idpresentaok, loggedUser = 'SPARDOP') {
     const params = new URLSearchParams({
-      ProcessType: 'GetById',
+      ProcessType: 'GetByIdPresentaOK', // Asegúrate que este ProcessType exista en tu backend
       idpresentaok,
       LoggedUser: loggedUser
     }).toString();
@@ -120,6 +149,20 @@ const productPresentacionesService = {
     );
     const dataRes = unwrapCAP(res);
     return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
+  },
+
+  // Helper para obtener los archivos de una presentación
+  async getFilesByPresentacionId(idpresentaok, loggedUser = 'SPARDOP') {
+    const params = new URLSearchParams({
+      ProcessType: 'GetByIdPresentaOK',
+      idpresentaok,
+      LoggedUser: loggedUser
+    }).toString();
+    const res = await axiosInstance.post(
+      `/ztproducts-files/productsFilesCRUD?${params}` // Apuntando al servicio de archivos
+    );
+    const dataRes = unwrapCAP(res);
+    return Array.isArray(dataRes) ? dataRes : (dataRes ? [dataRes] : []);
   }
 };
 
