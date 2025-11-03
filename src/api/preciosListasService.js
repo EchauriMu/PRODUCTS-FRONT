@@ -14,6 +14,11 @@ function unwrapCAP(res) {
  * Servicio CRUD para Listas de Precios — HANNIAALIDELUNA
  */
 const preciosListasService = {
+  commonParams: {
+    DBServer: 'MongoDB',
+    LoggedUser: 'HANNIAALIDELUNA'
+  },
+
   /**
    * 🔹 Obtener todas las listas de precios (ProcessType=GetAll)
    */
@@ -21,7 +26,8 @@ const preciosListasService = {
     try {
       const params = new URLSearchParams({
         ProcessType: 'GetAll',
-        ...this.commonParams
+        LoggedUser: loggedUser,
+        DBServer: this.commonParams.DBServer
       }).toString();
 
       const res = await axiosInstance.post(
