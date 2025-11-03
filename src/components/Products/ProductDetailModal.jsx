@@ -21,6 +21,7 @@ import productFilesService from '../../api/productFilesService';
 import PresentationStatus from '../CRUDPresentaciones/PresentationStatus';
 import ProductStatus from './ProductStatus';
 import productPresentacionesService from '../../api/productPresentacionesService';
+import PresentationPriceViewer from '../CRUDprecios/PresentationPriceViewer';
 
 const ProductDetailModal = ({ product, open, onClose }) => {
   const navigate = useNavigate();
@@ -377,6 +378,13 @@ const ProductDetailModal = ({ product, open, onClose }) => {
                   )}
                   {!loadingFiles && files.length > 0 && renderFilesByType()}
                 </FlexBox>
+
+                {/* Componente para visualizar precios */}
+                <PresentationPriceViewer
+                  skuid={selectedPresenta.SKUID}
+                  idPresentaOK={selectedPresenta.IdPresentaOK}
+                />
+
               </FlexBox>
             ) : (
               !loadingFiles && (

@@ -1,0 +1,42 @@
+import axiosInstance from './axiosInstance';
+
+/** Helper para desenvolver posibles respuestas CAP/OData */
+function unwrapCAP(res) {
+  return (
+    res?.data?.value?.[0]?.data?.[0]?.dataRes ??
+    res?.data?.dataRes ??
+    res?.data ??
+    []
+  );
+}
+
+const preciosItemsService = {
+  /**
+   * Obtener todos los precios de una presentación específica.
+   * @param {string} idPresentaOK - El ID de la presentación.
+   * @returns {Promise<Array>} - Una lista de precios para esa presentación.
+   */
+  async getPricesByIdPresentaOK(idPresentaOK) {
+    if (!idPresentaOK) {
+      return [];
+    }
+    try {
+      const params = new URLSearchParams({
+        ProcessType: 'GetByIdPresentaOK',
+        idPresentaOK
+      }).toString();
+
+      const res = await axiosInstance.post(
+        `/ztprecios-items/preciosItemsCRUD?${params}`
+      );
+
+      const dataRes = unwrapCAP(res);
+      return Array.isArray(dataRes) ? dataRes : (dataRes ? [dataRes] : []);
+    } catch (error) {
+      console.error(`❌ Error al obtener precios para la presentación ${idPresentaOK}:`, error);
+      throw error;
+    }
+  }
+};
+
+export default preciosItemsService;

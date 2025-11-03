@@ -14,20 +14,15 @@ function unwrapCAP(res) {
  * Servicio CRUD para Listas de Precios — HANNIAALIDELUNA
  */
 const preciosListasService = {
-  commonParams: {
-    DBServer: 'MongoDB',
-    LoggedUser: 'HANNIAALIDELUNA'
-  },
+  commonParams: {},
 
   /**
    * 🔹 Obtener todas las listas de precios (ProcessType=GetAll)
    */
-  async getAllListas(loggedUser = this.commonParams.LoggedUser) {
+  async getAllListas() {
     try {
       const params = new URLSearchParams({
         ProcessType: 'GetAll',
-        LoggedUser: loggedUser,
-        DBServer: this.commonParams.DBServer
       }).toString();
 
       const res = await axiosInstance.post(
@@ -46,13 +41,11 @@ const preciosListasService = {
   /**
    * 🔹 Obtener una lista por ID (ProcessType=GetOne)
    */
-  async getListaById(idListaOK, loggedUser = this.commonParams.LoggedUser) {
+  async getListaById(idListaOK) {
     try {
       const params = new URLSearchParams({
         ProcessType: 'GetOne',
         idListaOK,
-        LoggedUser: loggedUser,
-        DBServer: this.commonParams.DBServer
       }).toString();
 
       const res = await axiosInstance.post(
@@ -70,12 +63,10 @@ const preciosListasService = {
   /**
    * 🔹 Crear una nueva lista (ProcessType=AddOne)
    */
-  async create(payload, loggedUser = this.commonParams.LoggedUser) {
+  async create(payload) {
     try {
       const params = new URLSearchParams({
         ProcessType: 'AddOne',
-        LoggedUser: loggedUser,
-        DBServer: this.commonParams.DBServer
       }).toString();
 
       const res = await axiosInstance.post(
@@ -94,13 +85,11 @@ const preciosListasService = {
   /**
    * 🔹 Actualizar una lista existente (ProcessType=UpdateOne)
    */
-  async update(idListaOK, payload, loggedUser = this.commonParams.LoggedUser) {
+  async update(idListaOK, payload) {
     try {
       const params = new URLSearchParams({
         ProcessType: 'UpdateOne',
         idListaOK,
-        LoggedUser: loggedUser,
-        DBServer: this.commonParams.DBServer
       }).toString();
 
       const res = await axiosInstance.post(
@@ -119,13 +108,11 @@ const preciosListasService = {
   /**
    * 🔹 Eliminar (lógicamente) una lista (ProcessType=DeleteLogic)
    */
-  async delete(idListaOK, loggedUser = this.commonParams.LoggedUser) {
+  async delete(idListaOK) {
     try {
       const params = new URLSearchParams({
         ProcessType: 'DeleteLogic',
         idListaOK,
-        LoggedUser: loggedUser,
-        DBServer: this.commonParams.DBServer
       }).toString();
 
       const res = await axiosInstance.post(
@@ -143,13 +130,11 @@ const preciosListasService = {
   /**
    * 🔹 Activar una lista (ProcessType=ActivateOne)
    */
-  async activate(idListaOK, loggedUser = this.commonParams.LoggedUser) {
+  async activate(idListaOK) {
     try {
       const params = new URLSearchParams({
         ProcessType: 'ActivateOne',
         idListaOK,
-        LoggedUser: loggedUser,
-        DBServer: this.commonParams.DBServer
       }).toString();
 
       const res = await axiosInstance.post(
@@ -160,6 +145,31 @@ const preciosListasService = {
       return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
     } catch (error) {
       console.error(`❌ Error al activar la lista de precios con ID ${idListaOK}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * 🔹 Obtener todas las listas donde aparece un SKUID (ProcessType=GetBySKUID)
+   */
+  async getListasBySKUID(skuid) {
+    if (!skuid) {
+      return [];
+    }
+    try {
+      const params = new URLSearchParams({
+        ProcessType: 'GetBySKUID',
+        skuid,
+      }).toString();
+
+      const res = await axiosInstance.post(
+        `/ztprecios-listas/preciosListasCRUD?${params}`
+      );
+
+      const dataRes = unwrapCAP(res);
+      return Array.isArray(dataRes) ? dataRes : (dataRes ? [dataRes] : []);
+    } catch (error) {
+      console.error(`❌ Error al obtener listas por SKUID ${skuid}:`, error);
       throw error;
     }
   }
