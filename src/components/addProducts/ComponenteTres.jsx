@@ -16,7 +16,17 @@ import '@ui5/webcomponents/dist/Assets.js';
 import '@ui5/webcomponents-fiori/dist/Assets.js';
 import '@ui5/webcomponents-icons/dist/AllIcons.js';
 
-const ComponenteTres = ({ productData, presentations, onSubmit, isSubmitting }) => {
+const ComponenteTres = ({ productData, presentations, allCategories = [] }) => {
+  /**
+   * Busca el nombre de una categoría a partir de su ID.
+   * @param {string} catId - El ID de la categoría (ej. "CAT_LAPTOPS").
+   * @returns {string} - El nombre de la categoría (ej. "Laptops") o el ID si no se encuentra.
+   */
+  const getCategoryNameById = (catId) => {
+    const category = allCategories.find(cat => cat.CATID === catId);
+    return category ? category.Nombre : catId;
+  };
+
   return (
     <Card style={{ width: '100%', marginTop: '20px' }}
       header={
@@ -61,8 +71,8 @@ const ComponenteTres = ({ productData, presentations, onSubmit, isSubmitting }) 
 
             <Text style={{ fontWeight: 'bold' }}>Categorías:</Text>
             <FlexBox wrap="Wrap" style={{ gap: '0.5rem' }}>
-              {productData.CATEGORIAS?.map((cat, i) => (
-                <Tag key={i} colorScheme="8">{cat}</Tag>
+              {productData.CATEGORIAS?.map((catId, i) => (
+                <Tag key={i} colorScheme="8">{getCategoryNameById(catId)}</Tag>
               ))}
             </FlexBox>
           </div>
@@ -92,11 +102,22 @@ const ComponenteTres = ({ productData, presentations, onSubmit, isSubmitting }) 
                     <FlexBox style={{ gap: '1rem', marginTop: '0.5rem' }}>
                       <Text><strong>Archivos:</strong> {pres.files?.length || 0}</Text>
                     </FlexBox>
-                    {pres.PropiedadesExtras && Object.keys(pres.PropiedadesExtras).length > 0 && (
+                    {(() => {
+                      let propiedades = pres.PropiedadesExtras;
+                      // Si PropiedadesExtras es un string, intentamos parsearlo como JSON.
+                      if (typeof propiedades === 'string' && propiedades.trim()) {
+                        try {
+                          propiedades = JSON.parse(propiedades);
+                        } catch (e) {
+                          console.error("Error al parsear PropiedadesExtras:", e);
+                          propiedades = {}; // Si falla, lo dejamos como objeto vacío.
+                        }
+                      }
+                      return propiedades && Object.keys(propiedades).length > 0 && (
                       <div style={{ marginTop: '0.5rem' }}>
                         <Label>Propiedades:</Label>
                         <FlexBox wrap="Wrap" style={{ gap: '0.5rem', marginTop: '0.25rem' }}>
-                          {Object.entries(pres.PropiedadesExtras).map(([key, value]) => (
+                          {Object.entries(propiedades).map(([key, value]) => (
                             <Tag key={key} colorScheme="7">
                               <span style={{ fontWeight: 'bold' }}>{key}:</span>
                               &nbsp;
@@ -105,7 +126,8 @@ const ComponenteTres = ({ productData, presentations, onSubmit, isSubmitting }) 
                           ))}
                         </FlexBox>
                       </div>
-                    )}
+                      );
+                    })()}
                   </div>
                   <Tag colorScheme="3">#{index + 1}</Tag>
                 </FlexBox>

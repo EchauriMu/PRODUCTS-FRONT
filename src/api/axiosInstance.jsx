@@ -8,17 +8,24 @@ const axiosInstance = axios.create({
   },
 });
 
-// Interceptor para añadir el parámetro DBServer si es necesario
+// Interceptor para añadir parámetros comunes a todas las peticiones
 axiosInstance.interceptors.request.use(
   (config) => {
-    const dbServer = sessionStorage.getItem('DBServer');
+    // Inicializar params si no existe para evitar errores
+    if (!config.params) {
+      config.params = {};
+    }
 
-    // Si se debe usar CosmosDB, lo añadimos como query parameter
+    // 1. Añadir el parámetro DBServer si está configurado
+    const dbServer = sessionStorage.getItem('DBServer');
     if (dbServer === 'CosmosDB') {
-      if (!config.params) {
-        config.params = {};
-      }
       config.params.DBServer = 'CosmosDB';
+    }
+
+    // 2. Añadir el parámetro LoggedUser si el usuario ha iniciado sesión
+    const loggedUser = sessionStorage.getItem('LoggedUser');
+    if (loggedUser) {
+      config.params.LoggedUser = loggedUser;
     }
 
     return config;

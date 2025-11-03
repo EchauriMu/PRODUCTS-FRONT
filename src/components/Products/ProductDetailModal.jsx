@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   Bar,
@@ -13,25 +14,20 @@ import {
   Carousel,
   Select,
   Option,
-  ResponsivePopover
+  ResponsivePopover,
+  IllustratedMessage
 } from '@ui5/webcomponents-react';
 import ValueState from '@ui5/webcomponents-base/dist/types/ValueState.js';
 import productFilesService from '../../api/productFilesService';
 import productPresentacionesService from '../../api/productPresentacionesService';
-import PresentaCreateDialog from '../CRUDPresentaciones/PresentaCreateDialog';
-import PresentaPickerDialog from '../CRUDPresentaciones/PresentaPickerDialog';
-import PresentaEditDialog from '../CRUDPresentaciones/PresentaEditDialog';
 
 const ProductDetailModal = ({ product, open, onClose }) => {
+  const navigate = useNavigate();
   const [presentaciones, setPresentaciones] = useState([]);
   const [selectedPresenta, setSelectedPresenta] = useState(null);
   const [files, setFiles] = useState([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [errorFiles, setErrorFiles] = useState(null);
-
-  const [openCreatePres, setOpenCreatePres] = useState(false);
-  const [openPicker, setOpenPicker] = useState(false);
-  const [editItem, setEditItem] = useState(null);
 
   // Popover confirm delete (1 a 1)
   const delPopoverRef = useRef(null);
@@ -261,195 +257,145 @@ const ProductDetailModal = ({ product, open, onClose }) => {
   const status = getProductStatus(product);
 
   const openDeletePopover = () => {
-    if (!selectedPresenta) return;
-    // Algunos setups requieren el DOM nativo como opener
-    const openerEl = delBtnRef.current?.getDomRef ? delBtnRef.current.getDomRef() : delBtnRef.current;
-    delPopoverRef.current?.showAt(openerEl);
-  };
+  if (!selectedPresenta) return;
+  const anchor =
+    delBtnRef.current?.getDomRef?.() || delBtnRef.current; // compatible con distintas versiones
+  delPopoverRef.current?.showAt(anchor);
+};
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
       header={<Bar><Title level="H4">Detalle del Producto</Title></Bar>}
-      footer={<Bar endContent={<Button onClick={onClose}>Cerrar</Button>} />}
-      style={{ width: '820px', maxWidth: '98vw', borderRadius: '12px' }}
+      footer={<Bar endContent={<Button design="Emphasized" onClick={onClose}>Cerrar</Button>} />}
+      style={{ width: '95vw', maxWidth: '1400px' }}
     >
-      <FlexBox direction="Column" style={{ padding: '1.5rem', gap: '1.5rem', background: '#f5f7fa' }}>
-        {/* Información principal */}
-        <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)', borderRadius: '10px' }}>
-          <FlexBox direction="Column" style={{ padding: '1rem', gap: '0.5rem' }}>
-            <FlexBox alignItems="Center" justifyContent="SpaceBetween">
-              <Title level="H5">{product.DESSKU || 'Sin descripción'}</Title>
-              <ObjectStatus state={status.state}>{status.text}</ObjectStatus>
+      <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', height: 'calc(90vh - 50px)' }}>
+        {/* Columna Izquierda: Info Producto */}
+        <div style={{ background: '#f7f8fa', padding: '1.5rem', borderRight: '1px solid #e5e5e5', overflowY: 'auto' }}>
+          <FlexBox direction="Column" style={{ gap: '2rem' }}>
+            {/* Encabezado */}
+            <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
+              <FlexBox alignItems="Center" justifyContent="SpaceBetween">
+                <Title level="H3">{product.PRODUCTNAME || 'Sin Nombre'}</Title>
+                <ObjectStatus state={status.state}>{status.text}</ObjectStatus>
+              </FlexBox>
+              <Text style={{ color: '#666', fontStyle: 'italic' }}>{product.DESSKU || 'Sin descripción'}</Text>
             </FlexBox>
-            <Text style={{ fontSize: '0.95rem', color: '#666' }}>{product.SKUID}</Text>
-            {product.INFOAD && <Text style={{ fontSize: '0.95rem', color: '#888', fontStyle: 'italic' }}>{product.INFOAD}</Text>}
+
+            {/* Detalles */}
+            <FlexBox direction="Column" style={{ gap: '1rem' }}>
+              <Title level="H5" style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: '0.5rem' }}>
+                Información General
+              </Title>
+              <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
+                <FlexBox direction="Column"><Label>SKU</Label><Text>{product.SKUID || 'N/A'}</Text></FlexBox>
+                <FlexBox direction="Column"><Label>Marca</Label><Text>{product.MARCA || 'N/A'}</Text></FlexBox>
+                <FlexBox direction="Column"><Label>Código de Barras</Label><Text>{product.BARCODE || 'N/A'}</Text></FlexBox>
+                <FlexBox direction="Column"><Label>Unidad de Medida</Label><Text>{product.IDUNIDADMEDIDA || 'N/A'}</Text></FlexBox>
+                <FlexBox direction="Column"><Label>Categorías</Label><Text>{Array.isArray(product.CATEGORIAS) ? product.CATEGORIAS.join(', ') : (product.CATEGORIAS || 'N/A')}</Text></FlexBox>
+                {product.INFOAD && <FlexBox direction="Column"><Label>Info Adicional</Label><Text>{product.INFOAD}</Text></FlexBox>}
+              </FlexBox>
+            </FlexBox>
+
+            {/* Auditoría */}
+            <FlexBox direction="Column" style={{ gap: '1rem' }}>
+              <Title level="H5" style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: '0.5rem' }}>
+                Auditoría
+              </Title>
+              <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
+                <FlexBox direction="Column">
+                  <Label>Creado por</Label>
+                  <Text>{product.REGUSER || 'N/A'}</Text>
+                  <Text style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(product.REGDATE)}</Text>
+                </FlexBox>
+                <FlexBox direction="Column">
+                  <Label>Modificado por</Label>
+                  <Text>{product.MODUSER || 'N/A'}</Text>
+                  <Text style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(product.MODDATE)}</Text>
+                </FlexBox>
+              </FlexBox>
+            </FlexBox>
           </FlexBox>
-        </Card>
+        </div>
 
-        {/* Detalles */}
-        <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)', borderRadius: '10px' }}>
-          <FlexBox direction="Column" style={{ padding: '1rem', gap: '0.75rem' }}>
-            <Title level="H6">Información del Producto</Title>
-            <FlexBox style={{ gap: '2rem', flexWrap: 'wrap' }}>
-              <FlexBox direction="Column" style={{ gap: '0.15rem', minWidth: '140px' }}>
-                <Label>Código de Barras</Label>
-                <Text>{product.BARCODE || 'N/A'}</Text>
+        {/* Columna Derecha: Presentaciones y Archivos */}
+        <div style={{ padding: '1.5rem', overflowY: 'auto' }}>
+          <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
+            {/* Controles de Presentación */}
+            <FlexBox direction="Column" style={{ gap: '1rem' }}>
+              <FlexBox alignItems="Center" justifyContent="SpaceBetween">
+                <Title level="H4">Presentaciones</Title>
+                <FlexBox style={{ gap: '0.5rem' }}>
+                  <Button design="Emphasized" icon="add" onClick={() => navigate(`/products/${product.SKUID}/presentations/add`)}>Insertar</Button>
+                  <Button design="Transparent" icon="edit" onClick={() => navigate(`/products/${product.SKUID}/presentations/select-edit`)} />
+                  <Button design="Negative" icon="delete" ref={delBtnRef} disabled={!selectedPresenta} onClick={openDeletePopover}>Eliminar</Button>
+                </FlexBox>
               </FlexBox>
-              <FlexBox direction="Column" style={{ gap: '0.15rem', minWidth: '140px' }}>
-                <Label>Unidad de Medida</Label>
-                <Text>{product.IDUNIDADMEDIDA || 'N/A'}</Text>
-              </FlexBox>
-              <FlexBox direction="Column" style={{ gap: '0.15rem', minWidth: '140px' }}>
-                <Label>Categorías</Label>
-                <Text>{Array.isArray(product.CATEGORIAS) ? product.CATEGORIAS.join(', ') : (product.CATEGORIAS || 'N/A')}</Text>
-              </FlexBox>
-            </FlexBox>
-          </FlexBox>
-        </Card>
 
-        {/* Presentaciones */}
-        <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)', borderRadius: '10px' }}>
-          <FlexBox direction="Column" style={{ padding: '1rem', gap: '1rem' }}>
-            <FlexBox alignItems="Center" justifyContent="SpaceBetween">
-              <Title level="H6">Presentaciones</Title>
-              <FlexBox style={{ gap: '0.5rem' }}>
-                <Button design="Emphasized" icon="add" onClick={() => setOpenCreatePres(true)}>Insertar</Button>
-                <Button design="Transparent" icon="edit" onClick={() => setOpenPicker(true)} />
-                <Button
-                  design="Negative"
-                  icon="delete"
-                  ref={delBtnRef}
-                  disabled={!selectedPresenta}
-                  onClick={openDeletePopover}
-                >
-                  Eliminar
-                </Button>
-              </FlexBox>
-            </FlexBox>
+              {loadingFiles && <Text>Cargando presentaciones...</Text>}
+              {errorFiles && <Text style={{ color: '#d32f2f' }}>{errorFiles}</Text>}
 
-            {loadingFiles && <Text>Cargando presentaciones...</Text>}
-            {errorFiles && <Text style={{ color: '#d32f2f' }}>{errorFiles}</Text>}
-            {!loadingFiles && !errorFiles && presentaciones.length === 0 && (
-              <Text style={{ color: '#666' }}>No hay presentaciones asociadas</Text>
-            )}
-            {!loadingFiles && !errorFiles && presentaciones.length > 0 && (
-              <>
-                <Label>Selecciona presentación:</Label>
+              {!loadingFiles && !errorFiles && presentaciones.length > 0 && (
                 <Select
                   value={selectedPresenta?.IdPresentaOK || ''}
                   onChange={handlePresentaChange}
-                  style={{ marginBottom: '1rem', minWidth: '220px' }}
+                  style={{ width: '100%' }}
                 >
                   {presentaciones.map((p) => (
                     <Option key={p.IdPresentaOK} value={p.IdPresentaOK}>
-                      {p.Descripcion}
+                      {p.NOMBREPRESENTACION} ({p.Descripcion})
                     </Option>
                   ))}
                 </Select>
-
-                {selectedPresenta && (
-                  <FlexBox direction="Row" style={{ gap: '2rem', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
-                      <Text style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{selectedPresenta.Descripcion}</Text>
-                      <Text style={{ fontSize: '1rem', color: '#1976d2' }}>
-                        <Icon name="money-bills" style={{ marginRight: '0.25rem' }} />
-                        Precio: <span style={{ fontWeight: 'bold' }}>${selectedPresenta.Precio}</span>
-                      </Text>
-                      <Text style={{ fontSize: '1rem', color: '#388e3c' }}>
-                        <Icon name="inventory" style={{ marginRight: '0.25rem' }} />
-                        Stock: <span style={{ fontWeight: 'bold' }}>{selectedPresenta.Stock}</span>
-                      </Text>
-                    </FlexBox>
-                  </FlexBox>
-                )}
-              </>
-            )}
-          </FlexBox>
-        </Card>
-
-        {/* Archivos */}
-        <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)', borderRadius: '10px' }}>
-          <FlexBox direction="Column" style={{ padding: '1rem', gap: '1rem' }}>
-            <Title level="H6">Archivos de la Presentación</Title>
-            {loadingFiles && <Text>Cargando archivos...</Text>}
-            {errorFiles && <Text style={{ color: '#d32f2f' }}>{errorFiles}</Text>}
-            {!loadingFiles && !errorFiles && files.length === 0 && (
-              <Text style={{ color: '#666' }}>No hay archivos asociados</Text>
-            )}
-            {!loadingFiles && !errorFiles && files.length > 0 && renderFilesByType()}
-          </FlexBox>
-        </Card>
-
-        {/* Auditoría */}
-        <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)', borderRadius: '10px' }}>
-          <FlexBox direction="Column" style={{ padding: '1rem', gap: '1rem' }}>
-            <Title level="H6">Auditoría</Title>
-            <FlexBox style={{ gap: '2rem', flexWrap: 'wrap' }}>
-              <FlexBox direction="Column" style={{ gap: '0.15rem', minWidth: '180px' }}>
-                <Label>Creado por</Label>
-                <Text>{product.REGUSER || 'N/A'}</Text>
-                <Text style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(product.REGDATE)}</Text>
-              </FlexBox>
-              <FlexBox direction="Column" style={{ gap: '0.15rem', minWidth: '180px' }}>
-                <Label>Modificado por</Label>
-                <Text>{product.MODUSER || 'N/A'}</Text>
-                <Text style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(product.MODDATE)}</Text>
-              </FlexBox>
+              )}
             </FlexBox>
+
+            {/* Contenido de la Presentación Seleccionada */}
+            {selectedPresenta ? (
+              <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
+                {/* Detalles de la Presentación */}
+                <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
+                  <Title level="H5">{selectedPresenta.NOMBREPRESENTACION}</Title>
+                  <Text>{selectedPresenta.Descripcion}</Text>
+                  <FlexBox style={{ gap: '2rem', marginTop: '0.5rem' }}>
+                    <Text style={{ fontSize: '1rem', color: '#1976d2' }}>
+                      <Icon name="money-bills" style={{ marginRight: '0.25rem' }} />
+                      Precio: <span style={{ fontWeight: 'bold' }}>${selectedPresenta.Precio}</span>
+                    </Text>
+                    <Text style={{ fontSize: '1rem', color: '#388e3c' }}>
+                      <Icon name="inventory" style={{ marginRight: '0.25rem' }} />
+                      Stock: <span style={{ fontWeight: 'bold' }}>{selectedPresenta.Stock}</span>
+                    </Text>
+                  </FlexBox>
+                </FlexBox>
+
+                {/* Archivos de la Presentación */}
+                <FlexBox direction="Column" style={{ gap: '1rem' }}>
+                  <Title level="H6">Archivos Asociados</Title>
+                  {loadingFiles && <Text>Cargando archivos...</Text>}
+                  {!loadingFiles && files.length === 0 && (
+                    <Text style={{ color: '#666' }}>No hay archivos para esta presentación.</Text>
+                  )}
+                  {!loadingFiles && files.length > 0 && renderFilesByType()}
+                </FlexBox>
+              </FlexBox>
+            ) : (
+              !loadingFiles && (
+                <IllustratedMessage
+                  name="NoData"
+                  titleText="Sin Presentaciones"
+                  subtitleText="Este producto no tiene presentaciones o no se ha seleccionado ninguna."
+                />
+              )
+            )}
           </FlexBox>
-        </Card>
-      </FlexBox>
-
-      {/* Crear */}
-      <PresentaCreateDialog
-        open={openCreatePres}
-        onClose={() => setOpenCreatePres(false)}
-        skuid={product?.SKUID}
-        loggedUser="EECHAURIM"
-        onCreated={(nuevo) => {
-          if (!nuevo) return;
-          setPresentaciones((prev) => (prev.some((p) => p.IdPresentaOK === nuevo.IdPresentaOK) ? prev : [...prev, nuevo]));
-          setSelectedPresenta(nuevo);
-        }}
-      />
-
-      {/* Picker */}
-      <PresentaPickerDialog
-        open={openPicker}
-        onClose={() => setOpenPicker(false)}
-        skuid={product?.SKUID}
-        presentaciones={presentaciones}
-        onPick={(p) => { setEditItem(p); setOpenPicker(false); }}
-        onBulkDeleted={(deletedIds) => {
-          if (!deletedIds?.length) return;
-          setPresentaciones((prev) => prev.filter((x) => !deletedIds.includes(x.IdPresentaOK)));
-          setSelectedPresenta((prevSel) => {
-            if (prevSel && deletedIds.includes(prevSel.IdPresentaOK)) {
-              const remaining = presentaciones.filter((x) => !deletedIds.includes(x.IdPresentaOK));
-              setFiles([]);
-              return remaining[0] || null;
-            }
-            return prevSel;
-          });
-        }}
-      />
-
-      {/* Editor */}
-      <PresentaEditDialog
-        open={!!editItem}
-        onClose={() => setEditItem(null)}
-        presenta={editItem}
-        onUpdated={(upd) => {
-          if (!upd) return;
-          setPresentaciones((prev) => prev.map((x) => (x.IdPresentaOK === upd.IdPresentaOK ? { ...x, ...upd } : x)));
-          setSelectedPresenta((prevSel) => (prevSel?.IdPresentaOK === upd.IdPresentaOK ? { ...prevSel, ...upd } : prevSel));
-        }}
-      />
+        </div>
+      </div>
 
       {/* Popover confirm delete */}
-      <ResponsivePopover ref={delPopoverRef} placementType="Bottom">
+      <ResponsivePopover ref={delPopoverRef} placementType="Bottom" onAfterClose={() => {}}>
         <Bar startContent={<Title level="H6">Eliminar presentación</Title>} />
         <div style={{ padding: '1rem', maxWidth: 360 }}>
           <Text>¿Seguro que deseas eliminar <b>{selectedPresenta?.Descripcion}</b>?</Text>
@@ -468,3 +414,11 @@ const ProductDetailModal = ({ product, open, onClose }) => {
 };
 
 export default ProductDetailModal;
+/*
+            <FlexBox alignItems="Center" justifyContent="SpaceBetween">
+              <Title level="H5">{product.DESSKU || 'Sin descripción'}</Title>
+              <ObjectStatus state={status.state}>{status.text}</ObjectStatus>
+            </FlexBox>
+            <Text style={{ fontSize: '0.95rem', color: '#666' }}>{product.SKUID}</Text>
+            {product.INFOAD && <Text style={{ fontSize: '0.95rem', color: '#888', fontStyle: 'italic' }}>{product.INFOAD}</Text>}
+*/

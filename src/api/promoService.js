@@ -5,13 +5,6 @@ import axiosInstance from './axiosInstance';
  * Configurado para tu API específica con query parameters
  */
 const promoService = {
-  
-  // Parámetros comunes para todas las peticiones
-  commonParams: {
-    DBServer: 'MongoDB',
-    LoggedUser: 'LPANIAGUAG' // Puedes cambiar esto según el usuario logueado
-  },
-
   /**
    * Obtener todas las promociones
    * @returns {Promise} Lista de promociones
@@ -20,8 +13,7 @@ const promoService = {
     try {
       const response = await axiosInstance.post('/ztpromociones/crudPromociones', {}, {
         params: {
-          ProcessType: 'GetAll',
-          ...this.commonParams
+          ProcessType: 'GetAll'
         }
       });
       return response.data;
@@ -41,8 +33,7 @@ const promoService = {
       const response = await axiosInstance.get('/ztpromociones/crudPromociones', {
         params: {
           ProcessType: 'GetOne',
-          idPromoOK: idPromoOK,
-          ...this.commonParams
+          idPromoOK: idPromoOK
         }
       });
       return response.data;
@@ -61,8 +52,7 @@ const promoService = {
     try {
       const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
-          ProcessType: 'AddOne',
-          ...this.commonParams
+          ProcessType: 'AddOne'
         }), promoData);
       return response.data;
     } catch (error) {
@@ -82,8 +72,7 @@ const promoService = {
       const response = await axiosInstance.put('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'UpdateOne',
-          idPromoOK: idPromoOK,
-          ...this.commonParams
+          idPromoOK: idPromoOK
         }), promoData);
       return response.data;
     } catch (error) {
@@ -102,8 +91,7 @@ const promoService = {
       const response = await axiosInstance.delete('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'DeleteLogic',
-          idPromoOK: idPromoOK,
-          ...this.commonParams
+          idPromoOK: idPromoOK
         }));
       return response.data;
     } catch (error) {
@@ -122,8 +110,7 @@ const promoService = {
       const response = await axiosInstance.delete('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'DeleteHard',
-          idPromoOK: idPromoOK,
-          ...this.commonParams
+          idPromoOK: idPromoOK
         }));
       return response.data;
     } catch (error) {
@@ -142,8 +129,7 @@ const promoService = {
       const response = await axiosInstance.put('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'ActivateOne',
-          idPromoOK: idPromoOK,
-          ...this.commonParams
+          idPromoOK: idPromoOK
         }));
       return response.data;
     } catch (error) {

@@ -38,24 +38,27 @@ const productPresentacionesService = {
    * Crear una nueva Presentación (ProcessType=AddOne)
    * payload: { IdPresentaOK, SKUID, NOMBREPRESENTACION, Descripcion, CostoIni, CostoFin, ACTIVED }
    */
-  async addPresentacion(payload) {
+  async addPresentacion(payload, loggedUser = 'SPARDOP') {
     try {
       const params = new URLSearchParams({
-        ProcessType: 'AddOne'
+        ProcessType: 'AddOne',
+        LoggedUser: loggedUser
       }).toString();
 
-      const res = await axiosInstance.post(
-        `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
-        payload
-      );
+    const res = await axiosInstance.post(
+      `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
+      cleanBody,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
 
-      const dataRes = unwrapCAP(res);
-      return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
-    } catch (error) {
-      console.error('Error adding presentacion:', error);
-      throw error;
-    }
-  },
+    const dataRes = unwrapCAP(res);
+    return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
+  } catch (error) {
+    console.error('Error adding presentacion:', error.response?.data || error);
+    throw error;
+  }
+},
+
 
   /**
    * Actualizar una Presentación (ProcessType=UpdateOne)
@@ -66,7 +69,7 @@ const productPresentacionesService = {
       idpresentaok
     }).toString();
 
-    const res = await axiosInstance.post(
+    const res = await axiosInstance.put( // Usualmente las actualizaciones usan PUT
       `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
       cambios
     );
@@ -108,13 +111,28 @@ const productPresentacionesService = {
   async getPresentacionById(idpresentaok) {
     const params = new URLSearchParams({
       ProcessType: 'GetById',
-      idpresentaok
+      idpresentaok,
+      LoggedUser: loggedUser
     }).toString();
     const res = await axiosInstance.post(
       `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`
     );
     const dataRes = unwrapCAP(res);
     return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
+  },
+
+  // Helper para obtener los archivos de una presentación
+  async getFilesByPresentacionId(idpresentaok, loggedUser = 'SPARDOP') {
+    const params = new URLSearchParams({
+      ProcessType: 'GetByIdPresentaOK',
+      idpresentaok,
+      LoggedUser: loggedUser
+    }).toString();
+    const res = await axiosInstance.post(
+      `/ztproducts-files/productsFilesCRUD?${params}` // Apuntando al servicio de archivos
+    );
+    const dataRes = unwrapCAP(res);
+    return Array.isArray(dataRes) ? dataRes : (dataRes ? [dataRes] : []);
   }
 };
 

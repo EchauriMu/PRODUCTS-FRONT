@@ -7,15 +7,13 @@ const productFilesService = {
   /**
    * Obtener archivos por SKUID
    * @param {string} skuid - ID del producto (SKU)
-   * @param {string} loggedUser - Usuario logueado
    * @returns {Promise} Archivos encontrados
    */
-  async getFilesBySKUID(skuid, loggedUser = 'SPARDOP') {
+  async getFilesBySKUID(skuid) {
     try {
       const params = new URLSearchParams({
         ProcessType: 'GetBySKUID',
-        skuid,
-        LoggedUser: loggedUser
+        skuid
       }).toString();
       const response = await axiosInstance.post(`/ztproducts-files/productsFilesCRUD?${params}`);
       // Navega hasta dataRes dentro de la respuesta
@@ -30,15 +28,13 @@ const productFilesService = {
   /**
    * Obtener archivos por IdPresentaOK
    * @param {string} idPresentaOK - ID de la presentación
-   * @param {string} loggedUser - Usuario logueado
    * @returns {Promise} Archivos encontrados
    */
-  async getFilesByIdPresentaOK(idPresentaOK, loggedUser = 'SPARDOP') {
+  async getFilesByIdPresentaOK(idPresentaOK) {
     try {
       const params = new URLSearchParams({
         ProcessType: 'GetByIdPresentaOK',
-        idPresentaOK,
-        LoggedUser: loggedUser
+        idPresentaOK
       }).toString();
       const response = await axiosInstance.post(`/ztproducts-files/productsFilesCRUD?${params}`);
       // Navega hasta dataRes dentro de la respuesta

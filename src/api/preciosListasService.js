@@ -4,11 +4,6 @@ import axiosInstance from './axiosInstance';
  * Servicio CRUD para Listas de Precios — HANNIAALIDELUNA
  */
 const preciosListasService = {
-  commonParams: {
-    DBServer: 'MongoDB',
-    LoggedUser: 'HANNIAALIDELUNA'
-  },
-
   /**
    * Obtener todas las listas de precios
    * Lee correctamente la estructura del backend:
@@ -17,8 +12,7 @@ const preciosListasService = {
   async getAllListas() {
     try {
       const params = new URLSearchParams({
-        ProcessType: 'GetAll',
-        ...this.commonParams
+        ProcessType: 'GetAll'
       }).toString();
 
       const response = await axiosInstance.post(`/ztprecios-listas/preciosListasCRUD?${params}`);

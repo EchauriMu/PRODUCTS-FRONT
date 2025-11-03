@@ -8,15 +8,20 @@ import {
   Icon,
   Button,
   MessageStrip,
+  MultiComboBox,
+  MultiComboBoxItem,
   Text,
   Tag
 } from '@ui5/webcomponents-react';
 import '@ui5/webcomponents/dist/Assets.js';
 import '@ui5/webcomponents-fiori/dist/Assets.js';
 import '@ui5/webcomponents-icons/dist/AllIcons.js';
+import addProductApi from '../../api/addProductApi';
 
 const ComponenteUno = ({ productData, setProductData }) => {
   const [errors, setErrors] = useState({});
+  const [allCategories, setAllCategories] = useState([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
   const skuSuffixRef = useRef(null); // Para almacenar el sufijo único del SKU
   const barcodeRef = useRef(null); // Para almacenar el código de barras único
 
@@ -74,21 +79,33 @@ const ComponenteUno = ({ productData, setProductData }) => {
     }));
   }, [productData.PRODUCTNAME]);
 
-  const handleCategoryAdd = () => {
-    const newCategory = prompt('Ingrese el nombre de la categoría:');
-    if (newCategory && newCategory.trim()) {
-      setProductData(prev => ({
-        ...prev,
-        CATEGORIAS: [...(prev.CATEGORIAS || []), newCategory.trim().toUpperCase()]
-      }));
-    }
-  };
+  // Efecto para cargar las categorías al montar el componente
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const categories = await addProductApi.getAllCategories();
+        setAllCategories(categories);
+      } catch (error) {
+        console.error("Error al cargar categorías", error);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, []);
 
-  const handleCategoryRemove = (index) => {
+  const handleCategoryChange = (event) => {
+    const selectedItems = event.detail.items;
+    const selectedCategoryIds = selectedItems.map(item => item.dataset.catid);
     setProductData(prev => ({
       ...prev,
-      CATEGORIAS: prev.CATEGORIAS.filter((_, i) => i !== index)
+      CATEGORIAS: selectedCategoryIds
     }));
+  };
+
+  const getCategoryNameById = (catId) => {
+    const category = allCategories.find(cat => cat.CATID === catId);
+    return category ? category.Nombre : catId;
   };
 
   return (
@@ -194,27 +211,27 @@ const ComponenteUno = ({ productData, setProductData }) => {
 
         {/* Categorías */}
         <div style={{ marginTop: '2rem' }}>
-          <FlexBox alignItems="Center" justifyContent="SpaceBetween" style={{ marginBottom: '1rem' }}>
-            <Label>Categorías</Label>
-            <Button
-              icon="add"
-              design="Transparent"
-              onClick={handleCategoryAdd}
-            >
-              Agregar Categoría
-            </Button>
-          </FlexBox>
-          
+          <Label>Categorías</Label>
+          <MultiComboBox
+            style={{ width: '100%', marginTop: '0.5rem' }}
+            placeholder={loadingCategories ? "Cargando categorías..." : "Seleccione categorías"}
+            disabled={loadingCategories}
+            // El componente MultiComboBox ya incluye un buscador/filtro por defecto.
+            onSelectionChange={handleCategoryChange}
+          >
+            {allCategories.map((cat) => (
+              <MultiComboBoxItem key={cat.CATID} text={cat.Nombre} data-catid={cat.CATID} />
+            ))}
+          </MultiComboBox>
+
           <FlexBox wrap="Wrap" style={{ gap: '0.5rem' }}>
             {productData.CATEGORIAS?.length > 0 ? (
-              productData.CATEGORIAS.map((cat, index) => (
+              productData.CATEGORIAS.map((catId, index) => (
                 <Tag
                   key={index}
                   colorScheme="8"
-                  interactive
-                  onUi5Click={() => handleCategoryRemove(index)}
                 >
-                  {cat}
+                  {getCategoryNameById(catId)}
                 </Tag>
               ))
             ) : (

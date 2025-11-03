@@ -5,13 +5,6 @@ import axiosInstance from './axiosInstance';
  * Configurado para tu API específica con query parameters
  */
 const productService = {
-  
-  // Parámetros comunes para todas las peticiones
-  commonParams: {
-    DBServer: 'MongoDB',
-    LoggedUser: 'SPARDOP' // Puedes cambiar esto según el usuario logueado
-  },
-
   /**
    * Obtener todos los productos
    * @returns {Promise} Lista de productos
@@ -20,8 +13,7 @@ const productService = {
     try {
       const response = await axiosInstance.post('/ztproducts/crudProducts', {}, {
         params: {
-          ProcessType: 'GetAll',
-          ...this.commonParams
+          ProcessType: 'GetAll'
         }
       });
       return response.data;
@@ -41,8 +33,7 @@ const productService = {
       const response = await axiosInstance.get('/ztproducts/crudProducts', {
         params: {
           ProcessType: 'GetOne',
-          skuid: skuid,
-          ...this.commonParams
+          skuid: skuid
         }
       });
       return response.data;
@@ -61,8 +52,7 @@ const productService = {
     try {
       const response = await axiosInstance.post('/ztproducts/crudProducts?' + 
         new URLSearchParams({
-          ProcessType: 'AddOne',
-          ...this.commonParams
+          ProcessType: 'AddOne'
         }), productData);
       return response.data;
     } catch (error) {
@@ -82,8 +72,7 @@ const productService = {
       const response = await axiosInstance.put('/ztproducts/crudProducts?' + 
         new URLSearchParams({
           ProcessType: 'UpdateOne',
-          skuid: skuid,
-          ...this.commonParams
+          skuid: skuid
         }), productData);
       return response.data;
     } catch (error) {
@@ -102,8 +91,7 @@ const productService = {
       const response = await axiosInstance.delete('/ztproducts/crudProducts?' + 
         new URLSearchParams({
           ProcessType: 'DeleteLogic',
-          skuid: skuid,
-          ...this.commonParams
+          skuid: skuid
         }));
       return response.data;
     } catch (error) {
@@ -122,8 +110,7 @@ const productService = {
       const response = await axiosInstance.delete('/ztproducts/crudProducts?' + 
         new URLSearchParams({
           ProcessType: 'DeleteHard',
-          skuid: skuid,
-          ...this.commonParams
+          skuid: skuid
         }));
       return response.data;
     } catch (error) {
@@ -142,8 +129,7 @@ const productService = {
       const response = await axiosInstance.put('/ztproducts/crudProducts?' + 
         new URLSearchParams({
           ProcessType: 'ActivateOne',
-          skuid: skuid,
-          ...this.commonParams
+          skuid: skuid
         }));
       return response.data;
     } catch (error) {

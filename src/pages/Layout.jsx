@@ -11,6 +11,9 @@ import PreciosItems from './PreciosItems';
 import Promociones from './Promociones';
 import Categorias from './Categorias';
 import StepperPage from './StepperPage';
+import AddPresentationPage from '../components/CRUDPresentaciones/AddPresentationPage';
+import SelectPresentationToEditPage from '../components/CRUDPresentaciones/SelectPresentationToEditPage';
+import EditPresentationPage from '../components/CRUDPresentaciones/EditPresentationPage';
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true); // Inicia abierto en escritorio
@@ -177,8 +180,10 @@ const Layout = () => {
               <Route path="/precios-items" element={<PreciosItems />} />
               <Route path="/promociones" element={<Promociones />} />
               <Route path="/categorias" element={<Categorias />} />
-              
               <Route path="/add-products" element={<StepperPage />} />
+              <Route path="/products/:skuid/presentations/add" element={<AddPresentationPage />} />
+              <Route path="/products/:skuid/presentations/select-edit" element={<SelectPresentationToEditPage />} />
+              <Route path="/products/:skuid/presentations/edit/:presentaId" element={<EditPresentationPage />} />
             </Routes>
           </div>
         </div>
