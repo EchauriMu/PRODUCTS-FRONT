@@ -4,6 +4,7 @@ import {
   Card,
   CardHeader,
   FlexBox,
+  List,
   Button,
   Input,
   Label,
@@ -19,10 +20,7 @@ import {
 import '@ui5/webcomponents/dist/Assets.js';
 import productPresentacionesService from '../../api/productPresentacionesService';
 
-const EditPresentationPage = () => {
-  const { skuid, presentaId } = useParams();
-  const navigate = useNavigate();
-  
+const EditPresentationForm = ({ presentaId, onCancel }) => {
   const [nombrePresentacion, setNombrePresentacion] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [activo, setActivo] = useState(true);
@@ -38,11 +36,13 @@ const EditPresentationPage = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchPresentation = async () => {
+    const fetchPresentationData = async () => {
       setIsLoading(true);
       setError('');
       try {
-        const presentationToEdit = await productPresentacionesService.getPresentacionById(presentaId, 'EECHAURIM');
+        // NOTA: Asegúrate que en 'productPresentacionesService.js', la función 'getPresentacionById'
+        // use el método GET y pase correctamente el LoggedUser.
+        const presentationToEdit = await productPresentacionesService.getPresentacionById(presentaId);
 
         if (presentationToEdit) {
           setNombrePresentacion(presentationToEdit.NombrePresentacion || '');
@@ -60,7 +60,7 @@ const EditPresentationPage = () => {
           }
 
           // Cargar archivos asociados
-          const presentationFiles = await productPresentacionesService.getFilesByPresentacionId(presentaId, 'EECHAURIM');
+          const presentationFiles = await productPresentacionesService.getFilesByPresentacionId(presentaId);
           setFiles(presentationFiles || []);
 
         } else {
@@ -73,8 +73,8 @@ const EditPresentationPage = () => {
       }
     };
 
-    fetchPresentation();
-  }, [skuid, presentaId]);
+    fetchPresentationData();
+  }, [presentaId]);
 
   // Funciones para manejar propiedades y archivos (copiadas de AddPresentationPage)
   const handleAddProperty = () => {
@@ -137,7 +137,7 @@ const EditPresentationPage = () => {
 
       await productPresentacionesService.updatePresentacion(presentaId, updatedData);
       
-      navigate(-1); // Volver a la página anterior
+      onCancel(); // Llama a la función para volver a la lista
 
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Error al actualizar la presentación';
@@ -152,7 +152,7 @@ const EditPresentationPage = () => {
   }
 
   return (
-    <FlexBox justifyContent="Center" style={{ padding: '2rem' }}>
+    <>
       <Card
         header={
           <CardHeader
@@ -224,11 +224,153 @@ const EditPresentationPage = () => {
           {error && <MessageStrip design="Negative" style={{ marginTop: '1rem' }}>{error}</MessageStrip>}
 
           <FlexBox justifyContent="End" style={{ gap: '0.5rem', marginTop: '1rem' }}>
-            <Button design="Transparent" onClick={() => navigate(-1)} disabled={isSubmitting}>Cancelar</Button>
+            <Button design="Transparent" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button>
             <Button design="Emphasized" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : 'Guardar Cambios'}</Button>
           </FlexBox>
         </div>
       </Card>
+    </>
+  );
+};
+
+// --- Componente de Tarjeta Individual para el Grid ---
+const PresentationCard = ({ presentation, onSelect }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Imprime en la consola los datos de esta presentación para depuración.
+  // Revisa la consola del navegador (F12) para ver esta información.
+  console.log('Renderizando tarjeta para:', presentation.idpresentaok, 'con datos:', presentation);
+
+  const imageToShow = presentation.files?.find(f => f.PRINCIPAL === true) || presentation.files?.find(f => f.fileBase64 || f.FILE);
+
+  const cardStyle = {
+    width: '240px',
+    cursor: 'pointer',
+    transition: 'box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out',
+    boxShadow: isHovered ? '0 8px 20px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.08)',
+    transform: isHovered ? 'translateY(-4px)' : 'translateY(0)'
+  };
+
+  return (
+    <Card
+      key={presentation.idpresentaok}
+      onClick={() => onSelect(presentation.idpresentaok)}
+      style={cardStyle}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {imageToShow ? (
+        <img src={imageToShow.fileBase64 || imageToShow.FILE} alt={presentation.NOMBREPRESENTACION} style={{ width: '100%', height: '200px', objectFit: 'cover', borderBottom: '1px solid #eee' }} />
+      ) : (
+        <FlexBox justifyContent="Center" alignItems="Center" style={{ width: '100%', height: '200px', backgroundColor: '#fafafa', borderBottom: '1px solid #eee', flexDirection: 'column', gap: '8px' }}>
+          <Icon name="product" style={{ fontSize: '3rem', color: '#999' }} />
+          <Text style={{color: '#999'}}>Sin Imagen</Text>
+        </FlexBox>
+      )}
+      <div style={{ padding: '1rem' }}>
+        <Title level="H5" wrappingType="Normal" style={{ marginBottom: '0.5rem', minHeight: '44px', lineHeight: '1.3' }}>{presentation.NOMBREPRESENTACION}</Title>
+        <Text style={{ fontSize: '14px', color: '#555', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', minHeight: '38px' }}>
+          {presentation.Descripcion || ''}
+        </Text>
+      </div>
+    </Card>
+  );
+};
+
+// --- Componente de la Lista de Selección (¡NUEVO DISEÑO!) ---
+const SelectPresentationList = ({ skuid, onSelect }) => {
+  const [presentations, setPresentations] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchPresentations = async () => {
+      setIsLoading(true);
+      setError('');
+      try {
+        // Paso 1: Obtener la lista de presentaciones básicas.
+        const data = await productPresentacionesService.getPresentacionesByProductId(skuid);
+
+        // Paso 2: Para cada presentación, obtener sus archivos por separado y fusionar los datos.
+        // Esta es la lógica que usa el formulario de edición y que sabemos que funciona.
+        const presentationsWithFiles = await Promise.all(
+          data.map(async (pres) => {
+            // Usamos la función que ya existe y funciona en el formulario de edición.
+            const presentationFiles = await productPresentacionesService.getFilesByPresentacionId(pres.idpresentaok);
+            return {
+              ...pres, // Copia los datos originales de la presentación
+              files: presentationFiles || [] // Añade los archivos que acabamos de obtener
+            };
+          })
+        );
+        setPresentations(presentationsWithFiles);
+
+      } catch (err) {
+        console.error("Error detallado en fetchPresentations:", err);
+        setError('Error al cargar la lista de presentaciones y sus archivos.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchPresentations();
+  }, [skuid]);
+
+  if (isLoading) {
+    return <BusyIndicator active />;
+  }
+
+  return (
+    <Card
+      header={<CardHeader titleText="Seleccionar Presentación para Editar" subtitleText={`Para producto SKU: ${skuid}`} />}
+      style={{ width: '100%', maxWidth: '1200px', background: '#f9f9f9' }}
+    >
+      {error && <MessageStrip design="Negative" style={{ margin: '1rem' }}>{error}</MessageStrip>}
+      
+      <div style={{ padding: '1.5rem' }}>
+        {presentations.length > 0 ? (
+          <FlexBox justifyContent="Center" wrap="Wrap" style={{ gap: '1.5rem' }}>
+            {presentations.map((pres) => (
+              <PresentationCard key={pres.idpresentaok} presentation={pres} onSelect={onSelect} />
+            ))}
+          </FlexBox>
+        ) : (
+          <FlexBox direction="Column" justifyContent="Center" alignItems="Center" style={{ minHeight: '200px', gap: '1rem' }}>
+            <Icon name="search" style={{ fontSize: '3rem', color: '#888' }} />
+            <Title level="H4">No se encontraron presentaciones</Title>
+            <Text>Este producto no tiene ninguna presentación asociada todavía.</Text>
+          </FlexBox>
+        )}
+      </div>
+    </Card>
+  );
+};
+
+
+// --- Componente Principal que decide qué mostrar ---
+const EditPresentationPage = () => {
+  const { skuid, presentaId } = useParams();
+  const navigate = useNavigate();
+
+  // Decide si estamos en modo selección o edición basado en la URL
+  const isSelectionMode = presentaId === 'select-edit';
+
+  const handleSelectPresentation = (selectedId) => {
+    // Navega a la URL de edición para esa presentación
+    navigate(`/products/${skuid}/presentations/${selectedId}`);
+  };
+
+  const handleCancelEdit = () => {
+    // Vuelve a la página anterior en el historial del navegador
+    navigate(-1);
+  };
+
+  return (
+    <FlexBox justifyContent="Center" style={{ padding: '2rem' }}>
+      {isSelectionMode ? (
+        <SelectPresentationList skuid={skuid} onSelect={handleSelectPresentation} />
+      ) : (
+        <EditPresentationForm presentaId={presentaId} onCancel={handleCancelEdit} />
+      )}
     </FlexBox>
   );
 };
