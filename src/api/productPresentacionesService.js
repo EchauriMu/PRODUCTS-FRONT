@@ -14,12 +14,11 @@ const productPresentacionesService = {
   /**
    * Obtener presentaciones por SKUID (ProcessType=GetBySKUID)
    */
-  async getPresentacionesBySKUID(skuid, loggedUser = 'SPARDOP') {
+  async getPresentacionesBySKUID(skuid) {
     try {
       const params = new URLSearchParams({
         ProcessType: 'GetBySKUID',
-        skuid,
-        LoggedUser: loggedUser
+        skuid
       }).toString();
 
       const res = await axiosInstance.post(
@@ -39,11 +38,10 @@ const productPresentacionesService = {
    * Crear una nueva Presentación (ProcessType=AddOne)
    * payload: { IdPresentaOK, SKUID, NOMBREPRESENTACION, Descripcion, CostoIni, CostoFin, ACTIVED }
    */
-  async addPresentacion(payload, loggedUser = 'SPARDOP') {
+  async addPresentacion(payload) {
     try {
       const params = new URLSearchParams({
-        ProcessType: 'AddOne',
-        LoggedUser: loggedUser
+        ProcessType: 'AddOne'
       }).toString();
 
       const res = await axiosInstance.post(
@@ -62,11 +60,10 @@ const productPresentacionesService = {
   /**
    * Actualizar una Presentación (ProcessType=UpdateOne)
    */
-  async updatePresentacion(idpresentaok, cambios, loggedUser = 'SPARDOP') {
+  async updatePresentacion(idpresentaok, cambios) {
     const params = new URLSearchParams({
       ProcessType: 'UpdateOne',
-      idpresentaok,
-      LoggedUser: loggedUser
+      idpresentaok
     }).toString();
 
     const res = await axiosInstance.post(
@@ -81,11 +78,10 @@ const productPresentacionesService = {
   /**
    * Eliminar (lógico) una Presentación (ProcessType=DeleteLogic)
    */
-  async deletePresentacion(idpresentaok, loggedUser = 'SPARDOP') {
+  async deletePresentacion(idpresentaok) {
     const params = new URLSearchParams({
       ProcessType: 'DeleteLogic',
-      idpresentaok,
-      LoggedUser: loggedUser
+      idpresentaok
     }).toString();
 
     const res = await axiosInstance.post(
@@ -100,20 +96,19 @@ const productPresentacionesService = {
    * Helper: Eliminar varias presentaciones (llama DeleteLogic en paralelo)
    * Devuelve un arreglo con los resultados en el mismo orden que los IDs.
    */
-  async deletePresentacionesBulk(ids = [], loggedUser = 'SPARDOP') {
+  async deletePresentacionesBulk(ids = []) {
     if (!Array.isArray(ids) || ids.length === 0) return [];
     const results = await Promise.all(
-      ids.map((id) => this.deletePresentacion(id, loggedUser))
+      ids.map((id) => this.deletePresentacion(id))
     );
     return results;
   },
 
   // (Opcional) Si tu back expone ProcessType=GetById, esto refresca una presentación tras editar.
-  async getPresentacionById(idpresentaok, loggedUser = 'SPARDOP') {
+  async getPresentacionById(idpresentaok) {
     const params = new URLSearchParams({
       ProcessType: 'GetById',
-      idpresentaok,
-      LoggedUser: loggedUser
+      idpresentaok
     }).toString();
     const res = await axiosInstance.post(
       `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`
