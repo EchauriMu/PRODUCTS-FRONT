@@ -1,10 +1,10 @@
 import React from 'react';
+import CategoriasTableCard from '../components/Categorias/CategoriasTableCard';
 
 const Categorias = () => {
   return (
-    <div>
-      <h1>Categorías</h1>
-      <p>Contenido relacionado con las categorías.</p>
+    <div style={{ padding: '1rem' }}>
+      <CategoriasTableCard />
     </div>
   );
 };

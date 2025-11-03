@@ -1,0 +1,213 @@
+import React, { useEffect, useState } from "react";
+import {
+  Dialog,
+  Bar,
+  Button,
+  Title,
+  Label,
+  Text,
+  FlexBox,
+  Input,
+  MessageStrip,
+  BusyIndicator,
+} from "@ui5/webcomponents-react";
+import categoriasService from "../../api/categoriasService";
+
+const CategoriaDetailModal = ({ category, open, onClose }) => {
+  const isEdit = !!category?.CATID;
+  const [formData, setFormData] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const generateCATID = (nombre) =>
+    !nombre ? "" : `CAT_${nombre.trim().toUpperCase().replace(/\s+/g, "_")}`;
+
+  useEffect(() => {
+    if (!open) return;
+    if (isEdit) {
+      setFormData(category);
+    } else {
+      setFormData({
+        CATID: "",
+        Nombre: "",
+        PadreCATID: "",
+        ACTIVED: true,
+      });
+    }
+  }, [open, isEdit, category]);
+
+  const handleChange = (key, value) => {
+    setFormData((prev) => {
+      const draft = { ...prev, [key]: value };
+      if (key === "Nombre" && !isEdit) draft.CATID = generateCATID(value);
+      return draft;
+    });
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      if (isEdit) {
+        await categoriasService.UpdateOneZTCategoria(formData.CATID, {
+          PadreCATID: formData.PadreCATID || "",
+          ACTIVED: formData.ACTIVED,
+        });
+      } else {
+        await categoriasService.AddOneZTCategoria(formData);
+      }
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleActive = async () => {
+    if (!isEdit) return;
+    setLoading(true);
+    try {
+      const next = !formData.ACTIVED;
+      await categoriasService.UpdateOneZTCategoria(formData.CATID, {
+        ACTIVED: next,
+      });
+      setFormData((p) => ({ ...p, ACTIVED: next }));
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!isEdit) return;
+    if (!confirm("¿Eliminar permanentemente esta categoría?")) return;
+    setLoading(true);
+    try {
+      await categoriasService.DeleteHardZTCategoria(formData.CATID);
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      style={{
+        width: "540px",
+        borderRadius: 12,
+        overflow: "visible",
+      }}
+      footer={
+        <Bar
+          design="Footer"
+          endContent={
+            <>
+              {isEdit && (
+                <Button
+                  design={formData.ACTIVED ? "Positive" : "Attention"}
+                  icon={formData.ACTIVED ? "accept" : "cancel"}
+                  onClick={handleToggleActive}
+                >
+                  {formData.ACTIVED ? "Activo" : "Inactivo"}
+                </Button>
+              )}
+              {isEdit && (
+                <Button design="Negative" icon="delete" onClick={handleDelete}>
+                  Eliminar
+                </Button>
+              )}
+              <Button design="Transparent" icon="decline" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button
+                design="Emphasized"
+                icon="save"
+                onClick={handleSave}
+                disabled={loading}
+              >
+                {loading ? <BusyIndicator active size="Small" /> : "Guardar"}
+              </Button>
+            </>
+          }
+        />
+      }
+    >
+      {/* 🔹 Encabezado tipo SAP Fiori */}
+      <div
+        style={{
+          width: "100%",
+          textAlign: "center",
+          padding: "0.5rem 0 1rem 0",
+          borderBottom: "1px solid #e0e0e0",
+        }}
+      >
+        <Title level="H4" style={{ fontWeight: "600", color: "#0a6ed1" }}>
+          {isEdit ? "Detalle de Categoría" : "Nueva Categoría"}
+        </Title>
+      </div>
+
+      {/* 🔹 Contenedor del formulario */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "1.5rem",
+          backgroundColor: "#f9fafb",
+          borderRadius: "10px",
+          marginTop: "1rem",
+          marginBottom: "1rem",
+        }}
+      >
+        {error && (
+          <MessageStrip
+            type="Negative"
+            style={{ width: "92%", marginBottom: 12 }}
+          >
+            {error}
+          </MessageStrip>
+        )}
+
+        {/* Campos */}
+        <div style={{ width: "85%", marginBottom: 18 }}>
+          <Label>Identificador (CATID)</Label>
+          <Input
+            value={formData.CATID || ""}
+            disabled
+            style={{ width: "100%", marginTop: 6 }}
+          />
+        </div>
+
+        {!isEdit && (
+          <div style={{ width: "85%", marginBottom: 18 }}>
+            <Label>Nombre de la Categoría</Label>
+            <Input
+              value={formData.Nombre || ""}
+              onInput={(e) => handleChange("Nombre", e.target.value)}
+              placeholder="Ej: Electrónica"
+              style={{ width: "100%", marginTop: 6 }}
+            />
+          </div>
+        )}
+
+        <div style={{ width: "85%" }}>
+          <Label>Categoría Padre</Label>
+          <Input
+            value={formData.PadreCATID || ""}
+            onInput={(e) => handleChange("PadreCATID", e.target.value)}
+            placeholder="Ej: CAT_ELECTRO"
+            style={{ width: "100%", marginTop: 6 }}
+          />
+        </div>
+      </div>
+    </Dialog>
+  );
+};
+
+export default CategoriaDetailModal;
