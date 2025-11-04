@@ -12,7 +12,8 @@ import {
   FlexBox,
   Label,
   Button,
-  ObjectStatus
+  ObjectStatus,
+  CheckBox
 } from '@ui5/webcomponents-react';
 import categoriasService from '../../api/categoriasService';
 import CategoriaDetailModal from './CategoriaDetailModal';
@@ -21,11 +22,32 @@ const CategoriasTableCard = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedCategories, setSelectedCategories] = useState(new Set());
+  const [modalCategory, setModalCategory] = useState(null);
 
   useEffect(() => {
     loadCategories();
   }, []);
+
+  const handleSelectAll = (event) => {
+    if (event.target.checked) {
+      setSelectedCategories(new Set(categories.map(cat => cat.CATID)));
+    } else {
+      setSelectedCategories(new Set());
+    }
+  };
+
+  const handleSelectCategory = (catId) => {
+    setSelectedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(catId)) {
+        next.delete(catId);
+      } else {
+        next.add(catId);
+      }
+      return next;
+    });
+  };
 
   // Cargar categorías desde la API
   const loadCategories = async () => {
@@ -83,8 +105,12 @@ setCategories(list);
     setSelectedCategory(cat);
   }, []);
 
+  const handleRowDoubleClick = useCallback((cat) => {
+    setModalCategory(cat);
+  }, []);
+
   const handleCloseModal = useCallback(() => {
-    setSelectedCategory(null);
+    setModalCategory(null);
     loadCategories();
   }, []);
 
@@ -96,13 +122,104 @@ setCategories(list);
           subtitleText={`${categories.length} categorías encontradas`}
           action={
             <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
-              <Button
-                icon="add"
-                design="Emphasized"
-                onClick={() => setSelectedCategory({})}
-              >
-                Añadir Categoría
-              </Button>
+              <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+                <Button
+                  icon="add"
+                  design="Emphasized"
+                  onClick={() => setModalCategory({})}
+                >
+                  Añadir Categoría
+                </Button>
+                
+                {/* Botón de Editar */}
+                <Button
+                  icon="edit"
+                  design="Transparent"
+                  disabled={selectedCategories.size !== 1}
+                  onClick={() => {
+                    const catId = Array.from(selectedCategories)[0];
+                    const category = categories.find(c => c.CATID === catId);
+                    if (category) setModalCategory(category);
+                  }}
+                >
+                  Editar
+                </Button>
+
+                {/* Botón de Activar/Desactivar */}
+                <Button
+                  icon="accept"
+                  design="Positive"
+                  disabled={selectedCategories.size === 0 || loading}
+                  onClick={async () => {
+                    if (!confirm(`¿Activar ${selectedCategories.size} categorías?`)) return;
+                    setLoading(true);
+                    try {
+                      for (const catId of selectedCategories) {
+                        await categoriasService.UpdateOneZTCategoria(catId, {
+                          ACTIVED: true,
+                        });
+                      }
+                      await loadCategories();
+                      setSelectedCategories(new Set());
+                    } catch (err) {
+                      setError(err.response?.data?.message || err.message);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  Activar
+                </Button>
+
+                <Button
+                  icon="cancel"
+                  design="Attention"
+                  disabled={selectedCategories.size === 0 || loading}
+                  onClick={async () => {
+                    if (!confirm(`¿Desactivar ${selectedCategories.size} categorías?`)) return;
+                    setLoading(true);
+                    try {
+                      for (const catId of selectedCategories) {
+                        await categoriasService.UpdateOneZTCategoria(catId, {
+                          ACTIVED: false,
+                        });
+                      }
+                      await loadCategories();
+                      setSelectedCategories(new Set());
+                    } catch (err) {
+                      setError(err.response?.data?.message || err.message);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  Desactivar
+                </Button>
+
+                {/* Botón de Eliminar */}
+                <Button
+                  icon="delete"
+                  design="Negative"
+                  disabled={selectedCategories.size === 0 || loading}
+                  onClick={async () => {
+                    if (!confirm(`¿Eliminar permanentemente ${selectedCategories.size} categorías?`)) return;
+                    setLoading(true);
+                    try {
+                      for (const catId of selectedCategories) {
+                        await categoriasService.DeleteHardZTCategoria(catId);
+                      }
+                      await loadCategories();
+                      setSelectedCategories(new Set());
+                    } catch (err) {
+                      setError(err.response?.data?.message || err.message);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  Eliminar
+                </Button>
+              </FlexBox>
               {loading && <BusyIndicator active size="Small" />}
               <Label
                 style={{
@@ -150,6 +267,13 @@ setCategories(list);
             noDataText="No hay categorías para mostrar"
             headerRow={
               <TableRow>
+                <TableCell>
+                  <CheckBox
+                    checked={selectedCategories.size === categories.length}
+                    onChange={handleSelectAll}
+                    style={{ margin: 0 }}
+                  />
+                </TableCell>
                 <TableCell><Text style={{ fontWeight: 'bold' }}>CATID</Text></TableCell>
                 <TableCell><Text style={{ fontWeight: 'bold' }}>Nombre</Text></TableCell>
                 <TableCell><Text style={{ fontWeight: 'bold' }}>Padre</Text></TableCell>
@@ -164,10 +288,20 @@ setCategories(list);
               return (
                 <TableRow
                   key={cat.CATID || index}
-                  onClick={() => handleRowClick(cat)}
-                  style={{ cursor: 'pointer' }}
+                  onDoubleClick={() => handleRowDoubleClick(cat)}
+                  style={{ 
+                    cursor: 'pointer',
+                    backgroundColor: selectedCategories.has(cat.CATID) ? '#f0f7ff' : 'transparent'
+                  }}
                   className="ui5-table-row-hover"
                 >
+                  <TableCell>
+                    <CheckBox
+                      checked={selectedCategories.has(cat.CATID)}
+                      onChange={() => handleSelectCategory(cat.CATID)}
+                      style={{ margin: 0 }}
+                    />
+                  </TableCell>
                   <TableCell><Text>{cat.CATID || `CAT-${index + 1}`}</Text></TableCell>
                   <TableCell><Text>{cat.Nombre || 'Sin nombre'}</Text></TableCell>
                   <TableCell><Label>{cat.PadreCATID || 'N/A'}</Label></TableCell>
@@ -183,8 +317,8 @@ setCategories(list);
 
       {/* Modal Detalle Categoría */}
       <CategoriaDetailModal
-        category={selectedCategory}
-        open={!!selectedCategory}
+        category={modalCategory}
+        open={!!modalCategory}
         onClose={handleCloseModal}
       />
     </Card>

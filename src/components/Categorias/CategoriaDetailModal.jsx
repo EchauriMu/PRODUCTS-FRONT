@@ -10,6 +10,9 @@ import {
   Input,
   MessageStrip,
   BusyIndicator,
+  MultiComboBox,
+  MultiComboBoxItem,
+  Tag
 } from "@ui5/webcomponents-react";
 import categoriasService from "../../api/categoriasService";
 
@@ -18,22 +21,63 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [availableCategories, setAvailableCategories] = useState([]);
 
   const generateCATID = (nombre) =>
     !nombre ? "" : `CAT_${nombre.trim().toUpperCase().replace(/\s+/g, "_")}`;
 
   useEffect(() => {
-    if (!open) return;
-    if (isEdit) {
-      setFormData(category);
-    } else {
-      setFormData({
-        CATID: "",
-        Nombre: "",
-        PadreCATID: "",
-        ACTIVED: true,
-      });
-    }
+    const loadData = async () => {
+      if (!open) return;
+      
+      try {
+        // Cargar categorías disponibles
+        const response = await categoriasService.GetAllZTCategorias();
+        // Extraer el array de categorías de la respuesta
+        const todasLasCategorias = response?.data?.[0]?.dataRes || [];
+        
+        if (!Array.isArray(todasLasCategorias)) {
+          setAvailableCategories([]);
+          return;
+        }
+
+        // Encontrar las categorías que son padres (tienen hijos)
+        const categoriasConHijos = new Set(
+          todasLasCategorias
+            .filter(cat => cat.PadreCATID) // Filtrar las que tienen padre
+            .map(cat => cat.PadreCATID) // Obtener los IDs de los padres
+        );
+
+        // Filtrar las categorías que pueden ser padre:
+        // 1. O bien ya son padres de otras categorías
+        // 2. O bien no tienen padre (son categorías raíz)
+        // 3. Y no son la categoría actual que estamos editando
+        const categoriasDisponibles = todasLasCategorias.filter(cat => 
+          // No mostrar la categoría actual si estamos en modo edición
+          (!isEdit || cat.CATID !== category.CATID) &&
+          // Mostrar solo si es una categoría raíz o ya es padre de otra categoría
+          (!cat.PadreCATID || categoriasConHijos.has(cat.CATID))
+        );
+        
+        setAvailableCategories(categoriasDisponibles);
+
+        if (isEdit) {
+          setFormData(category);
+        } else {
+          setFormData({
+            CATID: "",
+            Nombre: "",
+            PadreCATID: "",
+            ACTIVED: true,
+          });
+        }
+      } catch (err) {
+        console.error('Error al cargar categorías:', err);
+        setError('Error al cargar las categorías disponibles');
+      }
+    };
+
+    loadData();
   }, [open, isEdit, category]);
 
   const handleChange = (key, value) => {
@@ -124,20 +168,6 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
           design="Footer"
           endContent={
             <>
-              {isEdit && (
-                <Button
-                  design={formData.ACTIVED ? "Positive" : "Attention"}
-                  icon={formData.ACTIVED ? "accept" : "cancel"}
-                  onClick={handleToggleActive}
-                >
-                  {formData.ACTIVED ? "Activo" : "Inactivo"}
-                </Button>
-              )}
-              {isEdit && (
-                <Button design="Negative" icon="delete" onClick={handleDelete}>
-                  Eliminar
-                </Button>
-              )}
               <Button design="Transparent" icon="decline" onClick={onClose}>
                 Cancelar
               </Button>
@@ -214,12 +244,34 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
 
         <div style={{ width: "85%" }}>
           <Label>Categoría Padre</Label>
-          <Input
+          <MultiComboBox
             value={formData.PadreCATID || ""}
-            onInput={(e) => handleChange("PadreCATID", e.target.value)}
-            placeholder="Ej: CAT_ELECTRO"
+            onSelectionChange={(e) => {
+              const selectedItems = e.detail.items;
+              // Tomamos solo el primer item ya que solo queremos una categoría padre
+              const selectedCatId = selectedItems.length > 0 ? selectedItems[0].dataset.catid : "";
+              handleChange("PadreCATID", selectedCatId);
+            }}
+            placeholder="Selecciona una categoría padre"
             style={{ width: "100%", marginTop: 6 }}
-          />
+          >
+            {availableCategories.map((cat) => (
+              <MultiComboBoxItem
+                key={cat.CATID}
+                text={`${cat.Nombre} (${cat.CATID})`}
+                data-catid={cat.CATID}
+                selected={formData.PadreCATID === cat.CATID}
+              />
+            ))}
+          </MultiComboBox>
+
+          {formData.PadreCATID && (
+            <FlexBox wrap="Wrap" style={{ gap: "0.5rem", marginTop: "0.5rem" }}>
+              <Tag colorScheme="8">
+                {availableCategories.find(cat => cat.CATID === formData.PadreCATID)?.Nombre || formData.PadreCATID}
+              </Tag>
+            </FlexBox>
+          )}
         </div>
       </div>
     </Dialog>
