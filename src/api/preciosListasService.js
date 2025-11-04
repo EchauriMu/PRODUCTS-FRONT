@@ -1,3 +1,4 @@
+
 import axiosInstance from './axiosInstance';
 
 /** Helper para desenvolver posibles respuestas CAP/OData */
@@ -17,12 +18,58 @@ const preciosListasService = {
   commonParams: {},
 
   /**
+   * 🔹 Desactivar lógicamente una lista (ProcessType=DeleteLogic)
+   */
+  async deleteLogic(idListaOK) {
+    try {
+      const params = new URLSearchParams({
+        ProcessType: 'DeleteLogic',
+        IDLISTAOK: idListaOK
+      }).toString();
+      
+      const res = await axiosInstance.post(
+        `/ztprecios-listas/preciosListasCRUD?${params}`
+      );
+      
+      if (res.status !== 200) {
+        throw new Error(`Error del servidor: ${res.status}`);
+      }
+      return true;
+    } catch (error) {
+      console.error('❌ Error al desactivar la lista:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 🔹 Desactivar lógicamente una lista (ProcessType=DeleteLogic)
+   */
+  async deleteLogic(idListaOK) {
+    try {
+      const params = new URLSearchParams({
+        ProcessType: 'DeleteLogic',
+        IDLISTAOK: idListaOK
+      }).toString();
+      const res = await axiosInstance.post(
+        `/ztprecios-listas/preciosListasCRUD?${params}`
+      );
+      if (res.status !== 200) {
+        throw new Error(`Error del servidor: ${res.status}`);
+      }
+      return true;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
    * 🔹 Obtener todas las listas de precios (ProcessType=GetAll)
    */
   async getAllListas() {
     try {
       const params = new URLSearchParams({
         ProcessType: 'GetAll',
+        ShowInactive: 'true'  // Incluir registros inactivos
       }).toString();
 
       const res = await axiosInstance.post(
@@ -30,8 +77,9 @@ const preciosListasService = {
       );
 
       const dataRes = unwrapCAP(res);
-      // Garantiza un arreglo
-      return Array.isArray(dataRes) ? dataRes : (dataRes ? [dataRes] : []);
+      // Garantiza un arreglo y no filtra por estado
+      const listas = Array.isArray(dataRes) ? dataRes : (dataRes ? [dataRes] : []);
+      return listas;
     } catch (error) {
       console.error('❌ Error al obtener las listas de precios:', error);
       throw error;
@@ -45,7 +93,7 @@ const preciosListasService = {
     try {
       const params = new URLSearchParams({
         ProcessType: 'GetOne',
-        idListaOK,
+        IDLISTAOK: idListaOK
       }).toString();
 
       const res = await axiosInstance.post(
@@ -69,9 +117,25 @@ const preciosListasService = {
         ProcessType: 'AddOne'
       }).toString();
 
+      // Asegurar que el payload tenga solo los campos necesarios
+      const cleanPayload = {
+        IDLISTAOK: payload.IDLISTAOK,
+        IDINSTITUTOOK: payload.IDINSTITUTOOK || '',
+        IDLISTABK: payload.IDLISTABK || '',
+        DESLISTA: payload.DESLISTA || ''
+      };
+
+      // Agregar campos opcionales solo si están presentes
+      if (payload.SKUSIDS) cleanPayload.SKUSIDS = payload.SKUSIDS;
+      if (payload.FECHAEXPIRAINI) cleanPayload.FECHAEXPIRAINI = payload.FECHAEXPIRAINI;
+      if (payload.FECHAEXPIRAFIN) cleanPayload.FECHAEXPIRAFIN = payload.FECHAEXPIRAFIN;
+      if (payload.IDTIPOLISTAOK) cleanPayload.IDTIPOLISTAOK = payload.IDTIPOLISTAOK;
+      if (payload.IDTIPOGENERALISTAOK) cleanPayload.IDTIPOGENERALISTAOK = payload.IDTIPOGENERALISTAOK;
+      if (payload.IDTIPOFORMULAOK) cleanPayload.IDTIPOFORMULAOK = payload.IDTIPOFORMULAOK;
+
       const res = await axiosInstance.post(
         `/ztprecios-listas/preciosListasCRUD?${params}`,
-        payload
+        cleanPayload
       );
 
       const dataRes = unwrapCAP(res);
@@ -87,19 +151,48 @@ const preciosListasService = {
    */
   async update(idListaOK, payload) {
     try {
+      console.log('📝 Actualizando lista de precios:', { idListaOK, payload });
+      
+      // Crear payload con solo los campos necesarios, como en Postman
+      const cleanPayload = {
+        IDLISTAOK: idListaOK,
+        IDINSTITUTOOK: payload.IDINSTITUTOOK || '',
+        IDLISTABK: payload.IDLISTABK || '',
+        DESLISTA: payload.DESLISTA || ''
+      };
+
+      // Agregar campos opcionales solo si están presentes en el payload
+      if (payload.SKUSIDS) cleanPayload.SKUSIDS = payload.SKUSIDS;
+      if (payload.FECHAEXPIRAINI) cleanPayload.FECHAEXPIRAINI = payload.FECHAEXPIRAINI;
+      if (payload.FECHAEXPIRAFIN) cleanPayload.FECHAEXPIRAFIN = payload.FECHAEXPIRAFIN;
+      if (payload.IDTIPOLISTAOK) cleanPayload.IDTIPOLISTAOK = payload.IDTIPOLISTAOK;
+      if (payload.IDTIPOGENERALISTAOK) cleanPayload.IDTIPOGENERALISTAOK = payload.IDTIPOGENERALISTAOK;
+      if (payload.IDTIPOFORMULAOK) cleanPayload.IDTIPOFORMULAOK = payload.IDTIPOFORMULAOK;
+
       const params = new URLSearchParams({
         ProcessType: 'UpdateOne',
-        idListaOK,
-        LoggedUser: payload.REGUSER, // Añadir LoggedUser del payload para trazabilidad en el backend
+        IDLISTAOK: idListaOK
       }).toString();
 
+      console.log('Enviando petición de actualización:', {
+        url: `/ztprecios-listas/preciosListasCRUD?${params}`,
+        payload: cleanPayload
+      });
+
+      // Realizar la petición como en Postman
       const res = await axiosInstance.post(
         `/ztprecios-listas/preciosListasCRUD?${params}`,
-        payload
+        cleanPayload
       );
 
+      // Verificar la respuesta
       const dataRes = unwrapCAP(res);
-      return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
+      if (!dataRes) {
+        throw new Error('No se recibió respuesta del servidor');
+      }
+
+      console.log('✅ Lista de precios actualizada exitosamente:', dataRes);
+      return dataRes;
     } catch (error) {
       console.error(`❌ Error al actualizar la lista de precios con ID ${idListaOK}:`, error);
       throw error;
@@ -111,19 +204,38 @@ const preciosListasService = {
    */
   async delete(idListaOK) {
     try {
+      console.log('🗑️ Eliminando lista de precios:', idListaOK);
+      
+      // Usar los parámetros exactos como en Postman
       const params = new URLSearchParams({
-        ProcessType: 'DeleteLogic',
-        idListaOK,
+        ProcessType: 'DeleteHard',
+        IDLISTAOK: idListaOK, // Usar IDLISTAOK en lugar de idListaOK
+        LoggedUser: 'HANNIAALIDELUNA' // Usuario actual del sistema
       }).toString();
 
+      // Para DeleteHard no necesitamos payload
+      console.log('Enviando petición de eliminación...');
+
+      // Hacer la petición POST sin payload
       const res = await axiosInstance.post(
         `/ztprecios-listas/preciosListasCRUD?${params}`
       );
 
-      const dataRes = unwrapCAP(res);
-      return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
+      console.log('Respuesta del servidor:', res);
+
+      // Verificar si la petición fue exitosa
+      if (res.status !== 200) {
+        throw new Error(`Error del servidor: ${res.status}`);
+      }
+
+      console.log('✅ Lista de precios eliminada correctamente');
+      return true;
     } catch (error) {
-      console.error(`❌ Error al eliminar la lista de precios con ID ${idListaOK}:`, error);
+      console.error(`❌ Error al eliminar la lista de precios con ID ${idListaOK}:`, {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       throw error;
     }
   },

@@ -28,6 +28,7 @@ const PreciosListasTable = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLista, setEditingLista] = useState(null);
+  const [messageStrip, setMessageStrip] = useState(null);
 
   // === Cargar listas al montar ===
   useEffect(() => {
@@ -60,30 +61,83 @@ const PreciosListasTable = () => {
   }, []);
 
   const handleDelete = useCallback(async (lista) => {
-    if (window.confirm(`¿Eliminar la lista "${lista.DESLISTA}"?`)) {
+    if (!lista.IDLISTAOK) {
+      setError('ID de lista no válido');
+      return;
+    }
+
+    if (window.confirm(`¿Está seguro que desea eliminar permanentemente la lista "${lista.DESLISTA}"? Esta acción no se puede deshacer.`)) {
+      setLoading(true);
       try {
+        console.log('Iniciando eliminación de lista:', lista.IDLISTAOK);
+        
+        // Intentar eliminar la lista
         await preciosListasService.delete(lista.IDLISTAOK);
-        setListas((prev) => prev.filter((item) => item.IDLISTAOK !== lista.IDLISTAOK));
+        
+        // Si llegamos aquí, la eliminación fue exitosa
+        console.log('Lista eliminada exitosamente');
+        
+        // Actualizar la interfaz
+        await fetchListas();
+        setError('');
+        
+        // Mostrar mensaje de éxito temporal
+        setMessageStrip({
+          message: `Lista "${lista.DESLISTA}" eliminada exitosamente`,
+          type: 'Success'
+        });
+        setTimeout(() => setMessageStrip(null), 3000);
+        
       } catch (err) {
-        setError('Error al eliminar la lista de precios.');
-        console.error(err);
+        console.error('Error al eliminar:', err);
+        
+        // Extraer el mensaje de error más relevante
+        let errorMessage;
+        if (err.response?.data?.messageUSR) {
+          errorMessage = err.response.data.messageUSR;
+        } else if (err.response?.status === 400) {
+          errorMessage = 'Error en la solicitud. Verifique los datos.';
+        } else if (err.response?.status === 404) {
+          errorMessage = 'La lista no existe o ya fue eliminada.';
+        } else {
+          errorMessage = err.message || 'Error desconocido al eliminar la lista de precios';
+        }
+        
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
       }
     }
   }, []);
 
   const handleSave = async (listaData) => {
+    setLoading(true);
     try {
       if (editingLista) {
-        await preciosListasService.update(editingLista.IDLISTAOK, listaData);
+        // Si cambia el estado ACTIVED, llama a ActivateOne o DeleteLogic
+        if (typeof listaData.ACTIVED !== 'undefined' && editingLista.ACTIVED !== listaData.ACTIVED) {
+          if (listaData.ACTIVED) {
+            // Activar
+            await preciosListasService.activate(editingLista.IDLISTAOK);
+          } else {
+            // Desactivar (lógica)
+            await preciosListasService.deleteLogic(editingLista.IDLISTAOK);
+          }
+        } else {
+          // Actualización normal
+          await preciosListasService.update(editingLista.IDLISTAOK, listaData);
+        }
       } else {
+        // Crear nueva lista
         await preciosListasService.create(listaData);
-
       }
+      await fetchListas(); // Recargar datos
       setIsModalOpen(false);
-      fetchListas();
+      setError('');
     } catch (err) {
-      setError('Error al guardar la lista de precios.');
-      console.error(err);
+      setError('Error al guardar la lista de precios: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
     }
   };
 
