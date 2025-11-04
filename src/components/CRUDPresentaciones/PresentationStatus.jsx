@@ -21,7 +21,7 @@ const presentationService = {
 };
 
 const PresentationStatus = ({ presentation, onStatusChange }) => {
-  const [isActive, setIsActive] = useState(presentation.ACTIVED);
+  const [isActive, setIsActive] = useState(!!presentation.ACTIVED);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 

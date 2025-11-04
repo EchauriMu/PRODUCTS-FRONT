@@ -33,11 +33,11 @@ const SelectPresentationToEditPage = () => {
       setLoading(true);
       setError('');
       try {
-        // SOLUCIÓN: Simplificar la carga.
-        // La función `getPresentacionesBySKUID` debería devolver toda la información necesaria,
-        // incluyendo los archivos de cada presentación, tal como funciona en la página de detalles del producto.
-        // Eliminamos el `Promise.all` y las llamadas a `getPresentacionById` que causaban los errores.
-        const basePresentations = await productPresentacionesService.getPresentacionesBySKUID(skuid, 'EECHAURIM');
+        // SOLUCIÓN: Simplificar la carga. La función `getPresentacionesBySKUID` debería
+        // devolver toda la información necesaria, incluyendo los archivos de cada
+        // presentación, tal como funciona en la página de detalles del producto.
+        // Se elimina el `fetch` manual que causaba los errores.
+        const basePresentations = await productPresentacionesService.getPresentacionesBySKUID(skuid);
         setPresentations(basePresentations);
       } catch (err) {
         setError('Error al cargar las presentaciones.');
@@ -50,7 +50,8 @@ const SelectPresentationToEditPage = () => {
   }, [skuid]);
 
   const handleSelectPresentation = (presentaId) => {
-    navigate(`/products/${skuid}/presentations/${presentaId}`);
+    // CORRECCIÓN: Navegar a la ruta de edición correcta definida en Layout.jsx
+    navigate(`/products/${skuid}/presentations/edit/${presentaId}`);
   };
 
   const openDeletePopover = (e, presentation) => {
@@ -66,7 +67,7 @@ const SelectPresentationToEditPage = () => {
     setError('');
 
     try {
-      await productPresentacionesService.deletePresentacion(presentationToDelete.IdPresentaOK, 'EECHAURIM');
+      await productPresentacionesService.deletePresentacion(presentationToDelete.IdPresentaOK);
       // Actualizar la lista de presentaciones en el estado
       setPresentations(prev => prev.filter(p => p.IdPresentaOK !== presentationToDelete.IdPresentaOK));
     } catch (err) {
@@ -115,7 +116,7 @@ const SelectPresentationToEditPage = () => {
         )}
         <div style={{ padding: '1rem' }}>
           <Title level="H5" wrappingType="Normal" style={{ minHeight: '44px', lineHeight: '1.3' }}>
-            {presentation.NombrePresentacion || presentation.Descripcion}
+            {presentation.NombrePresentacion || presentation.IdPresentaOK}
           </Title>
           <FlexBox direction="Column" style={{ marginTop: '0.5rem' }}>
             <Text style={{ fontSize: '0.875rem' }}>Costo Final: <b>${presentation.CostoFinal || presentation.Precio || 'N/A'}</b></Text>
@@ -137,7 +138,7 @@ const SelectPresentationToEditPage = () => {
             titleText="Seleccionar Presentación para Editar"
             subtitleText={`Para producto SKU: ${skuid}`}
             action={
-              <Button design="Transparent" onClick={() => navigate(-1)}>
+              <Button design="Transparent" onClick={() => navigate('/')}>
                 Volver
               </Button>
             }

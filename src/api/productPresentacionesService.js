@@ -21,13 +21,40 @@ const productPresentacionesService = {
         skuid
       }).toString();
 
-      const res = await axiosInstance.post(
+      // 1. Obtener los datos base de las presentaciones (incluyendo el estado ACTIVED)
+      const presentationsRes = await axiosInstance.post(
         `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`
       );
+      const presentations = unwrapCAP(presentationsRes);
 
-      const dataRes = unwrapCAP(res);
-      // Garantiza siempre un arreglo
-      return Array.isArray(dataRes) ? dataRes : (dataRes ? [dataRes] : []);
+      if (!Array.isArray(presentations) || presentations.length === 0) {
+        return [];
+      }
+
+      // 2. Obtener todos los archivos para el SKUID
+      const filesRes = await axiosInstance.post(
+        `/ztproducts-files/productsFilesCRUD?${params}`
+      );
+      const files = unwrapCAP(filesRes);
+      if (!Array.isArray(files)) {
+        // Si no hay archivos, devolvemos las presentaciones sin ellos.
+        return presentations.map(p => ({ ...p, files: [] }));
+      }
+
+      // 3. Agrupar archivos por IdPresentaOK
+      const filesByPresentaId = new Map();
+      files.forEach(file => {
+        if (!filesByPresentaId.has(file.IdPresentaOK)) {
+          filesByPresentaId.set(file.IdPresentaOK, []);
+        }
+        filesByPresentaId.get(file.IdPresentaOK).push(file);
+      });
+
+      // 4. Combinar presentaciones con sus archivos
+      return presentations.map(p => ({
+        ...p,
+        files: filesByPresentaId.get(p.IdPresentaOK) || []
+      }));
     } catch (error) {
       console.error('Error fetching product presentaciones:', error);
       throw error;
@@ -68,7 +95,7 @@ const productPresentacionesService = {
       idpresentaok
     }).toString();
 
-    const res = await axiosInstance.put( // Usualmente las actualizaciones usan PUT
+    const res = await axiosInstance.post( // Se cambia a POST, ya que la API parece usarlo para todas las operaciones
       `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
       cambios
     );
@@ -113,7 +140,8 @@ const productPresentacionesService = {
       idpresentaok
     }).toString();
     const res = await axiosInstance.post(
-      `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`
+      `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
+      null // Se envía null para que Axios no incluya un cuerpo ni la cabecera Content-Type
     );
     const dataRes = unwrapCAP(res);
     return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
