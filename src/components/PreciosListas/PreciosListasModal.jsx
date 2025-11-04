@@ -152,7 +152,7 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
           }
         />
       }
-      style={{ width: '700px', maxWidth: '98vw', borderRadius: '12px' }}
+      style={{ width: '1300px', maxWidth: '98vw', borderRadius: '12px' }}
     >
       <FlexBox direction="Column" style={{ padding: '1.5rem', gap: '1.25rem', background: '#f5f7fa' }}>
         {/* === Información General === */}
