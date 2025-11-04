@@ -39,7 +39,7 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
   const handleChange = (key, value) => {
     setFormData((prev) => {
       const draft = { ...prev, [key]: value };
-      if (key === "Nombre" && !isEdit) draft.CATID = generateCATID(value);
+      if (key === "Nombre") draft.CATID = generateCATID(value);
       return draft;
     });
   };
@@ -49,10 +49,26 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
     setError("");
     try {
       if (isEdit) {
-        await categoriasService.UpdateOneZTCategoria(formData.CATID, {
-          PadreCATID: formData.PadreCATID || "",
-          ACTIVED: formData.ACTIVED,
+        // 💡 FIX: Construir un payload solo con los campos que han cambiado.
+        const cambios = {};
+        Object.keys(formData).forEach(key => {
+          // Comparamos el valor actual con el original.
+          // Se normaliza `null` y `undefined` para la comparación.
+          const originalValue = category[key] ?? null;
+          const currentValue = formData[key] ?? null;
+
+          if (originalValue !== currentValue) {
+            cambios[key] = formData[key];
+          }
         });
+
+        // Si no hay cambios, no hacemos la llamada a la API.
+        if (Object.keys(cambios).length === 0) {
+          onClose(); // Cierra el modal si no hay nada que guardar.
+          return;
+        }
+        // 💡 FIX: Usar el CATID original para buscar el documento a actualizar.
+        await categoriasService.UpdateOneZTCategoria(category.CATID, cambios);
       } else {
         await categoriasService.AddOneZTCategoria(formData);
       }
@@ -184,7 +200,7 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
           />
         </div>
 
-        {!isEdit && (
+        {(
           <div style={{ width: "85%", marginBottom: 18 }}>
             <Label>Nombre de la Categoría</Label>
             <Input

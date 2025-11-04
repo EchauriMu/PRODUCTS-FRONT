@@ -66,7 +66,7 @@ const preciosListasService = {
   async create(payload) {
     try {
       const params = new URLSearchParams({
-        ProcessType: 'AddOne',
+        ProcessType: 'AddOne'
       }).toString();
 
       const res = await axiosInstance.post(
@@ -90,6 +90,7 @@ const preciosListasService = {
       const params = new URLSearchParams({
         ProcessType: 'UpdateOne',
         idListaOK,
+        LoggedUser: payload.REGUSER, // Añadir LoggedUser del payload para trazabilidad en el backend
       }).toString();
 
       const res = await axiosInstance.post(

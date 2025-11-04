@@ -9,10 +9,14 @@ import {
   Label,
   Title,
   Text,
+  MultiComboBox,
+  MultiComboBoxItem,
   FlexBox,
-  Card,
+  Card, 
+  Tag,
   ObjectStatus
 } from '@ui5/webcomponents-react';
+import productService from '../../api/productService';
 import ValueState from '@ui5/webcomponents-base/dist/types/ValueState.js';
 
 // 🔹 Formatea la fecha para DatePicker (YYYY-MM-DD)
@@ -28,7 +32,7 @@ const formatDateForPicker = (date) => {
 const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
   const initialState = {
     IDLISTAOK: '',
-    SKUID: '',
+    SKUSIDS: [], // Inicializar como array vacío para evitar el error .map()
     IDINSTITUTOOK: '',
     IDLISTABK: '',
     DESLISTA: '',
@@ -44,10 +48,11 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
     DELETED: false,
   };
 
+  const [availableProducts, setAvailableProducts] = useState([]);
   const [formData, setFormData] = useState(initialState);
 
   useEffect(() => {
-    if (open) {
+    const fetchData = async () => {
       if (lista) {
         // Modo edición
         setFormData({
@@ -55,14 +60,28 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
           ...lista,
           FECHAEXPIRAINI: formatDateForPicker(lista.FECHAEXPIRAINI),
           FECHAEXPIRAFIN: formatDateForPicker(lista.FECHAEXPIRAFIN),
+          // Asegurarse de que SKUSIDS sea un array, parseando si es un string JSON del backend
+          SKUSIDS: Array.isArray(lista.SKUSIDS) ? lista.SKUSIDS : (lista.SKUSIDS ? JSON.parse(lista.SKUSIDS) : []),
         });
       } else {
         // Modo creación
         setFormData(initialState);
       }
+
+      // Cargar productos disponibles para el MultiComboBox
+      try {
+        const productsResponse = await productService.getAllProducts();
+        // Ajustado para coincidir con la estructura de respuesta real de la API de productos
+        const products = productsResponse?.value?.[0]?.data?.[0]?.dataRes || [];
+        setAvailableProducts(products);
+      } catch (error) {
+        console.error('❌ Error al obtener productos para el selector múltiple:', error);
+      }
+    };
+    if (open) {
+      fetchData();
     }
   }, [lista, open]);
-
   const handleInputChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -71,12 +90,18 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
     const { checked } = e.target;
     setFormData((prev) => ({ ...prev, ACTIVED: checked }));
   };
+  const handleSKUSIDSChange = (e) => {
+    const selectedSkuIds = e.detail.items.map(item => item.dataset.skuid);
+    setFormData((prev) => ({ ...prev, SKUSIDS: selectedSkuIds }));
+  };
 
   const handleSaveClick = () => {
     // ✅ Estructura alineada con el modelo de backend (sin REGDATE)
     const dataToSave = {
       IDLISTAOK: formData.IDLISTAOK || `LIS-${Date.now()}`,
-      SKUID: formData.SKUID,
+      // SKUID se reemplaza por SKUSIDS, que es un array de strings
+      // Debe ser stringificado para el backend
+      SKUSIDS: JSON.stringify(formData.SKUSIDS),
       IDINSTITUTOOK: formData.IDINSTITUTOOK,
       IDLISTABK: formData.IDLISTABK,
       DESLISTA: formData.DESLISTA,
@@ -101,6 +126,11 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
     return { state: ValueState.Warning, text: 'Inactivo' };
   };
 
+  const getProductNameBySkuId = (skuId) => {
+    const product = availableProducts.find(p => p.SKUID === skuId);
+    return product ? product.PRODUCTNAME : skuId;
+  };
+
   const status = getStatus();
 
   return (
@@ -122,7 +152,7 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
           }
         />
       }
-      style={{ width: '700px', maxWidth: '98vw', borderRadius: '12px' }}
+      style={{ width: '1300px', maxWidth: '98vw', borderRadius: '12px' }}
     >
       <FlexBox direction="Column" style={{ padding: '1.5rem', gap: '1.25rem', background: '#f5f7fa' }}>
         {/* === Información General === */}
@@ -140,12 +170,36 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
               placeholder="Ej: Lista de precios Verano 2024"
             />
 
-            <Label>SKU ID</Label>
-            <Input
-              value={formData.SKUID || ''}
-              onInput={(e) => handleInputChange('SKUID', e.target.value)}
-              placeholder="Ej: PROD-001"
-            />
+            <Label>SKU IDs Asociados</Label>
+            <MultiComboBox
+              placeholder="Selecciona uno o más SKUs"
+              onSelectionChange={handleSKUSIDSChange}
+              style={{ width: '100%' }}
+            >
+              {availableProducts.map((product) => (
+                <MultiComboBoxItem
+                  key={product.SKUID}
+                  text={product.PRODUCTNAME}
+                  data-skuid={product.SKUID} // Guardamos el SKUID aquí
+                />
+              ))}
+            </MultiComboBox>
+
+            {/* Mostrar SKUs seleccionados como Tags, igual que en ComponenteUno.jsx */}
+            <FlexBox wrap="Wrap" style={{ gap: '0.5rem', marginTop: '0.5rem' }}>
+              {formData.SKUSIDS?.length > 0 ? (
+                formData.SKUSIDS.map((skuId, index) => (
+                  <Tag
+                    key={index}
+                    colorScheme="8"
+                  >
+                    {getProductNameBySkuId(skuId)}
+                  </Tag>
+                ))
+              ) : (
+                <Text style={{ color: '#6a6d70', fontStyle: 'italic' }}>No hay SKUs agregados</Text>
+              )}
+            </FlexBox>
 
             <Label>ID de Instituto</Label>
             <Input
