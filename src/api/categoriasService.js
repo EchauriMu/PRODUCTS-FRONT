@@ -124,6 +124,9 @@ cleanPayload(data) {
       console.log('✏️ Actualizando categoría:', catid, cleanData);
 
       const response = await axiosInstance.post(
+        // El backend usa el `catid` del query param para buscar,
+        // y el `cleanData` del body para aplicar los cambios (incluyendo el nuevo CATID).
+        // Esto es correcto según el servicio `ztcategorias-service.js`.
         '/ztcategorias/categoriasCRUD',
         cleanData,
         {

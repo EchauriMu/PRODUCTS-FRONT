@@ -120,7 +120,7 @@ const productPresentacionesService = {
   },
 
   // Helper para obtener los archivos de una presentación
-  async getFilesByPresentacionId(idpresentaok, loggedUser = 'SPARDOP') {
+  async getFilesByPresentacionId(idpresentaok) {
     const params = new URLSearchParams({
       ProcessType: 'GetByIdPresentaOK', // Mantenemos LoggedUser aquí porque es un helper específico
       idpresentaok,                     // y no queremos depender de la sesión si no es necesario.
