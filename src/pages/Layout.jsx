@@ -9,6 +9,7 @@ import ProductsPresentaciones from './ProductsPresentaciones';
 import PreciosListas from './PreciosListas';
 import PreciosItems from './PreciosItems';
 import Promociones from './Promociones';
+import CrearPromocion from './CrearPromocion';
 import Categorias from './Categorias';
 import StepperPage from './StepperPage';
 import AddPresentationPage from '../components/CRUDPresentaciones/AddPresentationPage';
@@ -179,6 +180,7 @@ const Layout = () => {
               <Route path="/precios-listas" element={<PreciosListas />} />
               <Route path="/precios-items" element={<PreciosItems />} />
               <Route path="/promociones" element={<Promociones />} />
+              <Route path="/promociones/crear" element={<CrearPromocion />} />
               <Route path="/categorias" element={<Categorias />} />
               <Route path="/add-products" element={<StepperPage />} />
               <Route path="/products/:skuid/presentations/add" element={<AddPresentationPage />} />

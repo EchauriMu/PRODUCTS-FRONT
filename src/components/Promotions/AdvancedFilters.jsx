@@ -920,40 +920,7 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {} }) => {
           height: '60vh',
           overflow: 'hidden'
         }}>
-          <CardHeader
-            titleText="Productos Encontrados"
-            subtitleText={`${getEstimatedProductCount()} productos encontrados • ${getSelectedProductsCount()} seleccionados`}
-            style={{
-              background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-              color: 'white',
-              borderRadius: '12px 12px 0 0'
-            }}
-            action={
-              <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
-                <Icon name="product" style={{ fontSize: '1.2rem', color: 'white' }} />
-                <ObjectStatus state="Success" style={{ 
-                  backgroundColor: 'rgba(255,255,255,0.2)', 
-                  color: 'white',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  borderRadius: '20px',
-                  padding: '0.25rem 0.75rem',
-                  fontSize: '0.875rem',
-                  fontWeight: '600'
-                }}>
-                  {getSelectedProductsCount()} seleccionados
-                </ObjectStatus>
-                {getSelectedProductsCount() > 0 && (
-                  <Button 
-                    design="Emphasized"
-                    icon="add"
-                    onClick={handleCreatePromotion}
-                  >
-                    Crear Promoción
-                  </Button>
-                )}
-              </FlexBox>
-            }
-          />
+          {/* Encabezado eliminado a petición: sin título ni botón de crear promoción */}
 
           <div style={{ 
             padding: '1rem',

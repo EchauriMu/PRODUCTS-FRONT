@@ -1,34 +1,20 @@
 import React, { useState } from 'react';
 import PromotionsTableCard from '../components/Promotions/PromotionsTableCard';
-import AdvancedFilters from '../components/Promotions/AdvancedFilters';
-import PromotionExpressWizard from '../components/Promotions/PromotionExpressWizard';
-import PromotionCalendar from '../components/Promotions/PromotionCalendar';
 import PromotionEditModal from '../components/Promotions/PromotionEditModal';
-import { FlexBox, Title, Button, MessageStrip, Card, Text } from '@ui5/webcomponents-react';
+import { useNavigate } from 'react-router-dom';
+import { FlexBox, Title, Button } from '@ui5/webcomponents-react';
 
 const Promociones = () => {
-  const [activeFilters, setActiveFilters] = useState({});
-  const [showExpressWizard, setShowExpressWizard] = useState(false);
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [activeTab, setActiveTab] = useState('promotions'); // 'promotions', 'calendar'
-  
+  const navigate = useNavigate();
+  // Vista simplificada: solo lista de promociones
+
   // Estados para el modal de edición
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedPromotion, setSelectedPromotion] = useState(null);
   const [refreshTable, setRefreshTable] = useState(0);
 
-  const handleFiltersChange = (newFilters) => {
-    setActiveFilters(newFilters);
-    
-    // Si hay productos filtrados en el cambio, guardarlos
-    if (newFilters._filteredProducts) {
-      setFilteredProducts(newFilters._filteredProducts);
-    }
-  };
-
   const handleCreatePromotion = () => {
-    setShowExpressWizard(true);
-    console.log('Abriendo Promoción Express con filtros:', activeFilters);
+    navigate('/promociones/crear');
   };
 
   const handlePromotionClick = (promotion) => {
@@ -58,23 +44,7 @@ const Promociones = () => {
         style={{ marginBottom: '1rem' }}
       >
         <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
-          <Title level="H2">� Gestión de Promociones</Title>
-          
-          {/* Tabs de navegación */}
-          <FlexBox style={{ gap: '0.5rem' }}>
-            <Button
-              design={activeTab === 'promotions' ? 'Emphasized' : 'Transparent'}
-              onClick={() => setActiveTab('promotions')}
-            >
-              Promociones
-            </Button>
-            <Button
-              design={activeTab === 'calendar' ? 'Emphasized' : 'Transparent'}
-              onClick={() => setActiveTab('calendar')}
-            >
-              Calendario
-            </Button>
-          </FlexBox>
+          <Title level="H2">Gestión de Promociones</Title>
         </FlexBox>
         <FlexBox style={{ gap: '0.5rem' }}>
           <Button 
@@ -84,53 +54,16 @@ const Promociones = () => {
           >
             Nueva Promoción
           </Button>
-          <Button 
-            design="Transparent"
-            icon="duplicate"
-          >
-            Plantillas
-          </Button>
         </FlexBox>
       </FlexBox>
 
-      {/* Información sobre filtros activos - ELIMINADO */}
-
-      {/* Vista de Promociones */}
-      {activeTab === 'promotions' && (
-        <>
-          {/* Componente de Filtros Avanzados */}
-          <AdvancedFilters 
-            onFiltersChange={handleFiltersChange}
-            initialFilters={activeFilters}
-          />
-
-          {/* Tabla de promociones existentes */}
-          <PromotionsTableCard 
-            onPromotionClick={handlePromotionClick}
-            key={refreshTable} // Forzar re-render cuando se actualiza
-          />
-        </>
-      )}
-
-      {/* Vista de Calendario */}
-      {activeTab === 'calendar' && (
-        <PromotionCalendar 
-          onPromotionClick={(promotion) => {
-            console.log('Promoción seleccionada desde calendario:', promotion);
-          }}
-          onDateChange={(date) => {
-            console.log('Fecha cambiada:', date);
-          }}
-        />
-      )}
-
-      {/* Wizard de Promoción Express */}
-      <PromotionExpressWizard
-        open={showExpressWizard}
-        onClose={() => setShowExpressWizard(false)}
-        activeFilters={activeFilters}
-        productsFromFilters={filteredProducts}
+      {/* Lista de promociones */}
+      <PromotionsTableCard 
+        onPromotionClick={handlePromotionClick}
+        key={refreshTable}
       />
+
+      {/* Wizard removido: creación se movió a /promociones/crear */}
 
       {/* Modal de Edición de Promociones */}
       <PromotionEditModal
