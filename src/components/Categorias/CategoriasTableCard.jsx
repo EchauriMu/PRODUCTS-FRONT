@@ -12,6 +12,7 @@ import {
   FlexBox,
   Label,
   Button,
+  Input,
   ObjectStatus,
   CheckBox
 } from '@ui5/webcomponents-react';
@@ -24,10 +25,18 @@ const CategoriasTableCard = () => {
   const [error, setError] = useState('');
   const [selectedCategories, setSelectedCategories] = useState(new Set());
   const [modalCategory, setModalCategory] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedTerm, setDebouncedTerm] = useState('');
 
   useEffect(() => {
     loadCategories();
   }, []);
+
+  // Debounce searchTerm to avoid filtering on every keystroke
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedTerm(searchTerm.trim().toLowerCase()), 300);
+    return () => clearTimeout(id);
+  }, [searchTerm]);
 
   const handleSelectAll = (event) => {
     if (event.target.checked) {
@@ -123,6 +132,14 @@ setCategories(list);
           action={
             <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
               <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+                {/* Search input (client-side filter, debounced) */}
+                <Input
+                  placeholder="Buscar categoría por nombre o CATID..."
+                  value={searchTerm}
+                  onInput={(e) => setSearchTerm(e.target.value)}
+                  style={{ width: '260px' }}
+                />
+                {/* small spacer */}
                 <Button
                   icon="add"
                   design="Emphasized"
@@ -283,7 +300,16 @@ setCategories(list);
               </TableRow>
             }
           >
-            {categories.map((cat, index) => {
+            {categories
+              .filter(cat => {
+                if (!debouncedTerm) return true;
+                const term = debouncedTerm;
+                return (
+                  (cat.Nombre || '').toLowerCase().includes(term) ||
+                  (cat.CATID || '').toLowerCase().includes(term)
+                );
+              })
+              .map((cat, index) => {
               const status = getStatus(cat);
               return (
                 <TableRow
