@@ -11,7 +11,8 @@ const addProductApi = {
    */
   async createCompleteProduct(payload) {
     try {
-      const response = await axiosInstance.post(`/../add-product/createCompleteProduct`, payload);
+      // La baseURL de axiosInstance es 'http://localhost:3033/api', por lo que la ruta debe ser relativa a eso.
+      const response = await axiosInstance.post(`/add-product/createCompleteProduct`, payload);
       return response.data;
     } catch (error) {
       console.error('Error al crear el producto completo:', error.response?.data || error.message);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, FlexBox, Text, Title, BusyIndicator } from '@ui5/webcomponents-react';
-import productService from '../api/productService';
+import productService from '../../api/productService';
 
 const RejectionItems = () => {
   const [categoryData, setCategoryData] = useState([]);
@@ -49,7 +49,7 @@ const RejectionItems = () => {
 
   return (
     <Card>
-      <div style={{ padding: '16px' }}>
+      <div style={{ padding: '16px', maxHeight: '300px', overflowY: 'auto' }}>
         <Title level="H5" style={{ marginBottom: '16px' }}>Productos por Categoría</Title>
         {loading ? <BusyIndicator active /> : categoryData.map((item, i) => (
           <div key={i} style={{ marginBottom: '12px' }}>

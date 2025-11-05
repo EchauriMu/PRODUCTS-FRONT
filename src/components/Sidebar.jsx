@@ -75,7 +75,7 @@ const Sidebar = ({ isOpen, onClose, isMobile }) => {
         <div style={{ padding: '16px', borderTop: '1px solid #E0E0E0' }}>
           <FlexBox alignItems="Center" justifyContent="SpaceBetween">
             <Text style={{ fontSize: '14px' }}>
-              BD: <b>{useCosmosDB ? 'CosmosDB' : 'MongoDB'}</b>
+              Conexion a BD: <b>{useCosmosDB ? 'CosmosDB' : 'MongoDB'}</b>
             </Text>
             <Switch checked={useCosmosDB} onChange={handleDbChange} />
           </FlexBox>

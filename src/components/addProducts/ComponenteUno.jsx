@@ -10,7 +10,9 @@ import {
   MessageStrip,
   MultiComboBox,
   MultiComboBoxItem,
+  Option,
   Text,
+  Select,
   Tag
 } from '@ui5/webcomponents-react';
 import '@ui5/webcomponents/dist/Assets.js';
@@ -70,6 +72,16 @@ const ComponenteUno = ({ productData, setProductData }) => {
     }
   };
 
+  const handleSelectChange = (e) => {
+    const selectedOption = e.detail.selectedOption;
+    setProductData(prev => ({
+      ...prev,
+      IDUNIDADMEDIDA: selectedOption.dataset.value
+    }));
+    if (errors.IDUNIDADMEDIDA) {
+      setErrors(prev => ({ ...prev, IDUNIDADMEDIDA: null }));
+    }
+  };
   // Efecto para autogenerar el SKUID cuando PRODUCTNAME cambia
   useEffect(() => {
     setProductData(prev => ({
@@ -174,14 +186,27 @@ const ComponenteUno = ({ productData, setProductData }) => {
           {/* Unidad de Medida */}
           <div>
             <Label required style={{ marginBottom: '0.5rem', display: 'block' }}>Unidad de Medida</Label>
-            <Input
-              id="IDUNIDADMEDIDA"
-              value={productData.IDUNIDADMEDIDA || ''}
-              onInput={(e) => handleInputChange(e)}
-              placeholder="Ej: PZA, KG, LT"
+            <Select
               valueState={errors.IDUNIDADMEDIDA ? 'Error' : 'None'}
               style={{ width: '100%' }}
-            />
+              onChange={handleSelectChange}
+            >
+              <Option selected={!productData.IDUNIDADMEDIDA} disabled>Seleccione una unidad</Option>
+              <Option data-value="PZA" selected={productData.IDUNIDADMEDIDA === 'PZA'}>PZA - Pieza</Option>
+              <Option data-value="KG" selected={productData.IDUNIDADMEDIDA === 'KG'}>KG - Kilogramo</Option>
+              <Option data-value="G" selected={productData.IDUNIDADMEDIDA === 'G'}>G - Gramo</Option>
+              <Option data-value="L" selected={productData.IDUNIDADMEDIDA === 'L'}>L - Litro</Option>
+              <Option data-value="ML" selected={productData.IDUNIDADMEDIDA === 'ML'}>ML - Mililitro</Option>
+              <Option data-value="M" selected={productData.IDUNIDADMEDIDA === 'M'}>M - Metro</Option>
+              <Option data-value="M2" selected={productData.IDUNIDADMEDIDA === 'M2'}>M2 - Metro Cuadrado</Option>
+              <Option data-value="CM" selected={productData.IDUNIDADMEDIDA === 'CM'}>CM - Centímetro</Option>
+              <Option data-value="CJ" selected={productData.IDUNIDADMEDIDA === 'CJ'}>CJ - Caja</Option>
+              <Option data-value="KIT" selected={productData.IDUNIDADMEDIDA === 'KIT'}>KIT - Kit</Option>
+              <Option data-value="JGO" selected={productData.IDUNIDADMEDIDA === 'JGO'}>JGO - Juego</Option>
+              <Option data-value="PAR" selected={productData.IDUNIDADMEDIDA === 'PAR'}>PAR - Par</Option>
+              <Option data-value="ROLLO" selected={productData.IDUNIDADMEDIDA === 'ROLLO'}>ROLLO - Rollo</Option>
+              <Option data-value="GAL" selected={productData.IDUNIDADMEDIDA === 'GAL'}>GAL - Galón</Option>
+            </Select>
           </div>
 
           {/* Código de Barras */}

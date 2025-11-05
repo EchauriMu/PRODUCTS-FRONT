@@ -95,7 +95,8 @@ const StepperContainer = () => {
         })
       };
 
-      await addProductApi.createCompleteProduct(payload, 'EECHAURIM');
+      // El interceptor de Axios se encargará de añadir LoggedUser automáticamente.
+      await addProductApi.createCompleteProduct(payload);
       setApiStatus({ loading: false, error: null, success: '¡Producto y presentaciones creados con éxito!' });
       setTimeout(() => {
         navigate('/'); // Redirige a la tabla de productos
