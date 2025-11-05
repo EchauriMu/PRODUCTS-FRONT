@@ -9,8 +9,8 @@ import {
   Button,
   MessageStrip,
   Tag,
-  // ❌ Eliminado: List,
-  // ❌ Eliminado: StandardListItem
+  // REMOVED: List,
+  // REMOVED: StandardListItem
 } from "@ui5/webcomponents-react";
 import '@ui5/webcomponents/dist/Assets.js';
 import '@ui5/webcomponents-fiori/dist/Assets.js';

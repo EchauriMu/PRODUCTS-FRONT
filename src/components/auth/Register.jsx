@@ -15,7 +15,7 @@ const Register = () => {
   const onFinish = async (values) => {
     setLoading(true);
 
-    // 🔥 Verifica los datos antes de enviarlos
+    // DEBUG: Verifica los datos antes de enviarlos
     console.log("Datos a enviar:", values);
 
     try {

@@ -5,7 +5,7 @@ import {
 } from '@ui5/webcomponents-react';
 import '@ui5/webcomponents/dist/Assets.js';
 import '@ui5/webcomponents-fiori/dist/Assets.js';
-import StepperContainer from '../components/addProducts/StepperContainer'; // ✅ Importamos el contenedor correcto
+import StepperContainer from '../components/addProducts/StepperContainer'; // SUCCESS: Importamos el contenedor correcto
 
 const StepperPage = () => {
   return (

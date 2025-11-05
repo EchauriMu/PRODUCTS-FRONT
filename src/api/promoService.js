@@ -7,35 +7,64 @@ import axiosInstance from './axiosInstance';
 const promoService = {
   /**
    * Obtener todas las promociones
+   * @param {string} loggedUser - Usuario que solicita la información (opcional, se usa el del interceptor)
    * @returns {Promise} Lista de promociones
    */
-  async getAllPromotions() {
+  async getAllPromotions(loggedUser = null) {
     try {
-      const response = await axiosInstance.post('/ztpromociones/crudPromociones', {}, {
-        params: {
-          ProcessType: 'GetAll'
-        }
-      });
+      const params = {
+        ProcessType: 'GetAll'
+      };
+      
+      // Solo añadir LoggedUser si se proporciona explícitamente y no hay uno en sessionStorage
+      if (loggedUser && !sessionStorage.getItem('LoggedUser')) {
+        params.LoggedUser = loggedUser;
+      }
+      
+      const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
+        new URLSearchParams(params), {});
       return response.data;
     } catch (error) {
-      console.error('Error fetching promotions:', error);
-      throw error;
+      console.error('❌ Error fetching promotions:', error);
+      console.error('Response data:', error.response?.data);
+      console.error('Status:', error.response?.status);
+      
+      // Proporcionar mensajes de error más específicos
+      let errorMessage = 'Error al obtener promociones';
+      if (error.response?.status === 405) {
+        errorMessage = 'Método no permitido (405). Verifica la configuración del servidor.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Endpoint de promociones no encontrado (404).';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      const enhancedError = new Error(errorMessage);
+      enhancedError.originalError = error;
+      throw enhancedError;
     }
   },
 
   /**
    * Obtener una promoción por IdPromoOK
    * @param {string} idPromoOK - ID de la promoción
+   * @param {string} loggedUser - Usuario que solicita la información (opcional, se usa el del interceptor)
    * @returns {Promise} Promoción encontrada
    */
-  async getPromotionById(idPromoOK) {
+  async getPromotionById(idPromoOK, loggedUser = null) {
     try {
-      const response = await axiosInstance.get('/ztpromociones/crudPromociones', {
-        params: {
-          ProcessType: 'GetOne',
-          idPromoOK: idPromoOK
-        }
-      });
+      const params = {
+        ProcessType: 'GetOne',
+        IdPromoOK: idPromoOK
+      };
+      
+      // Solo añadir LoggedUser si se proporciona explícitamente y no hay uno en sessionStorage
+      if (loggedUser && !sessionStorage.getItem('LoggedUser')) {
+        params.LoggedUser = loggedUser;
+      }
+      
+      const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
+        new URLSearchParams(params), {});
       return response.data;
     } catch (error) {
       console.error('Error fetching promotion:', error);
@@ -44,20 +73,82 @@ const promoService = {
   },
 
   /**
-   * Crear una nueva promoción
-   * @param {Object} promoData - Datos de la promoción
+   * Crear una nueva promoción con múltiples productos
+   * @param {Object} promotionData - Datos de la promoción
+   * @param {Array} selectedProducts - Array de productos seleccionados
+   * @param {Object} filters - Filtros aplicados
+   * @param {string} loggedUser - Usuario que crea la promoción (opcional, se usa el del interceptor)
    * @returns {Promise} Promoción creada
    */
-  async createPromotion(promoData) {
+  async createPromotionWithProducts(promotionData, selectedProducts = [], filters = {}, loggedUser = null) {
     try {
+      // Generar ID único para la promoción
+      const timestamp = Date.now();
+      const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const idPromoOK = `PROMO_${timestamp}_${randomSuffix}`;
+      
+      // Preparar productos aplicables - solo SKUIDs en objetos mínimos
+      const productosAplicables = selectedProducts.map(producto => ({
+        SKUID: producto.SKUID
+      }));
+      
+      // Preparar payload simplificado
+      const promoPayload = {
+        IdPromoOK: idPromoOK,
+        Titulo: promotionData.titulo || 'Nueva Promoción',
+        Descripcion: promotionData.descripcion || '',
+        FechaIni: new Date(promotionData.fechaInicio).toISOString(),
+        FechaFin: new Date(promotionData.fechaFin).toISOString(),
+        ProductosAplicables: productosAplicables,
+        TipoDescuento: promotionData.tipoDescuento || 'PORCENTAJE',
+        DescuentoPorcentaje: promotionData.tipoDescuento === 'PORCENTAJE' ? promotionData.descuentoPorcentaje : 0,
+        DescuentoMonto: promotionData.tipoDescuento === 'MONTO_FIJO' ? promotionData.descuentoMonto : 0,
+        PermiteAcumulacion: promotionData.permiteAcumulacion || false,
+        LimiteUsos: promotionData.limiteUsos || null,
+        ACTIVED: true,
+        DELETED: false
+      };
+      
+      console.log('📤 Payload a enviar:', promoPayload);
+      
+      const params = {
+        ProcessType: 'AddOne'
+      };
+      
+      // Solo añadir LoggedUser si se proporciona explícitamente y no hay uno en sessionStorage
+      if (loggedUser && !sessionStorage.getItem('LoggedUser')) {
+        params.LoggedUser = loggedUser;
+      }
+      
       const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
-        new URLSearchParams({
-          ProcessType: 'AddOne'
-        }), promoData);
+        new URLSearchParams(params), promoPayload);
+      
+      console.log('✅ Promoción creada exitosamente:', response.data);
       return response.data;
     } catch (error) {
-      console.error('Error creating promotion:', error);
-      throw error;
+      console.error('❌ Error creating promotion with products:', error);
+      console.error('Response data:', error.response?.data);
+      console.error('Status:', error.response?.status);
+      console.error('Headers:', error.response?.headers);
+      
+      // Proporcionar mensajes de error más específicos
+      let errorMessage = 'Error desconocido';
+      if (error.response?.status === 405) {
+        errorMessage = 'Método no permitido (405). Verifica que el servidor esté corriendo y las rutas configuradas.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Endpoint no encontrado (404). Verifica la URL de la API.';
+      } else if (error.response?.status === 400) {
+        console.log('🔍 Detalles del error 400:', error.response?.data);
+        errorMessage = error.response?.data?.message || error.response?.data?.error?.message || 'Datos de promoción no válidos (400).';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Error interno del servidor (500). Revisa los logs del backend.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      const enhancedError = new Error(errorMessage);
+      enhancedError.originalError = error;
+      throw enhancedError;
     }
   },
 
@@ -65,14 +156,16 @@ const promoService = {
    * Actualizar una promoción existente
    * @param {string} idPromoOK - ID de la promoción
    * @param {Object} promoData - Datos actualizados de la promoción
+   * @param {string} loggedUser - Usuario que actualiza la promoción
    * @returns {Promise} Promoción actualizada
    */
-  async updatePromotion(idPromoOK, promoData) {
+  async updatePromotion(idPromoOK, promoData, loggedUser = 'SYSTEM') {
     try {
-      const response = await axiosInstance.put('/ztpromociones/crudPromociones?' + 
+      const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'UpdateOne',
-          idPromoOK: idPromoOK
+          IdPromoOK: idPromoOK,
+          LoggedUser: loggedUser
         }), promoData);
       return response.data;
     } catch (error) {
@@ -84,15 +177,17 @@ const promoService = {
   /**
    * Eliminar una promoción (eliminación lógica)
    * @param {string} idPromoOK - ID de la promoción
+   * @param {string} loggedUser - Usuario que elimina la promoción
    * @returns {Promise} Confirmación de eliminación
    */
-  async deletePromotion(idPromoOK) {
+  async deletePromotion(idPromoOK, loggedUser = 'SYSTEM') {
     try {
-      const response = await axiosInstance.delete('/ztpromociones/crudPromociones?' + 
+      const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'DeleteLogic',
-          idPromoOK: idPromoOK
-        }));
+          IdPromoOK: idPromoOK,
+          LoggedUser: loggedUser
+        }), {});
       return response.data;
     } catch (error) {
       console.error('Error deleting promotion:', error);
@@ -103,15 +198,17 @@ const promoService = {
   /**
    * Eliminar una promoción permanentemente
    * @param {string} idPromoOK - ID de la promoción
+   * @param {string} loggedUser - Usuario que elimina la promoción
    * @returns {Promise} Confirmación de eliminación
    */
-  async deletePromotionHard(idPromoOK) {
+  async deletePromotionHard(idPromoOK, loggedUser = 'SYSTEM') {
     try {
-      const response = await axiosInstance.delete('/ztpromociones/crudPromociones?' + 
+      const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'DeleteHard',
-          idPromoOK: idPromoOK
-        }));
+          IdPromoOK: idPromoOK,
+          LoggedUser: loggedUser
+        }), {});
       return response.data;
     } catch (error) {
       console.error('Error hard deleting promotion:', error);
@@ -122,15 +219,17 @@ const promoService = {
   /**
    * Activar una promoción
    * @param {string} idPromoOK - ID de la promoción
+   * @param {string} loggedUser - Usuario que activa la promoción
    * @returns {Promise} Confirmación de activación
    */
-  async activatePromotion(idPromoOK) {
+  async activatePromotion(idPromoOK, loggedUser = 'SYSTEM') {
     try {
-      const response = await axiosInstance.put('/ztpromociones/crudPromociones?' + 
+      const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'ActivateOne',
-          idPromoOK: idPromoOK
-        }));
+          IdPromoOK: idPromoOK,
+          LoggedUser: loggedUser
+        }), {});
       return response.data;
     } catch (error) {
       console.error('Error activating promotion:', error);

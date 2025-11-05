@@ -10,13 +10,13 @@ const VerifyToken = () => {
 
   useEffect(() => {
     if (!userId) {
-      message.error("⚠️ No se encontró el ID de usuario en la URL.");
+      message.error("WARNING: No se encontró el ID de usuario en la URL.");
     }
   }, [userId]);
 
   const onFinish = async (values) => {
     if (!userId) {
-      message.error("❌ No se encontró el ID de usuario.");
+      message.error("ERROR: No se encontró el ID de usuario.");
       return;
     }
 
@@ -27,14 +27,14 @@ const VerifyToken = () => {
       });
 
       message.success({
-        content: "✅ ¡Cuenta verificada con éxito! Redirigiendo a login...",
+        content: "SUCCESS: ¡Cuenta verificada con éxito! Redirigiendo a login...",
         duration: 2,
         style: { bottom: 50, right: 50 },
       });
 
       setTimeout(() => navigate("/login"), 2000);
     } catch (error) {
-      message.error(error.response?.data?.error || "❌ Error al verificar el token.");
+      message.error(error.response?.data?.error || "ERROR: Error al verificar el token.");
     } finally {
       setLoading(false);
     }

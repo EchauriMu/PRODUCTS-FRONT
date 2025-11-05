@@ -14,8 +14,8 @@ import {
   MessageStrip, 
   ObjectStatus,
   Tag // Mantienes Tag (anteriormente Badge)
-  // ❌ Eliminado: List,
-  // ❌ Eliminado: StandardListItem
+  // REMOVED: List,
+  // REMOVED: StandardListItem
 } from "@ui5/webcomponents-react";
 import '@ui5/webcomponents/dist/Assets.js';
 import '@ui5/webcomponents-fiori/dist/Assets.js';
@@ -103,7 +103,7 @@ const ComponenteDos = ({ presentations, setPresentations, productSKU }) => {
 
     setPresentations(prev => [...prev, presentationToAdd]); // Ahora se guarda con PropiedadesExtras como string
     setNewPresentation(initialPresentationState); // Reset form
-    setToast({ show: true, message: '✅ Variante guardada' });
+    setToast({ show: true, message: 'SUCCESS: Variante guardada' });
     setTimeout(() => {
       setToast({ show: false, message: '' });
     }, 2000);

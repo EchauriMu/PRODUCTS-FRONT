@@ -15,7 +15,7 @@ import {
 } from '@ui5/webcomponents-react'; 
 import promoService from '../../api/promoService';
 
-const PromotionsTableCard = () => {
+const PromotionsTableCard = ({ onPromotionClick }) => {
   const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,9 +33,6 @@ const PromotionsTableCard = () => {
     try {
       const data = await promoService.getAllPromotions();
       
-      // DEBUG: Imprimir la respuesta completa para ver qué estamos recibiendo
-      console.log('API Response:', data);
-      
       // Estructura específica de tu API: data.value[0].data[0].dataRes
       let promotionsList = [];
       
@@ -48,9 +45,6 @@ const PromotionsTableCard = () => {
           }
         }
       }
-      
-      console.log('Final promotions list:', promotionsList);
-      console.log('Promotions count:', promotionsList.length);
       
       setPromotions(promotionsList);
     } catch (err) {
@@ -148,7 +142,12 @@ const PromotionsTableCard = () => {
   const handleRowClick = useCallback((promotion) => {
     setSelectedPromotion(promotion);
     console.log('Selected promotion:', promotion);
-  }, []);
+    
+    // Llamar al callback del componente padre si existe
+    if (onPromotionClick) {
+      onPromotionClick(promotion);
+    }
+  }, [onPromotionClick]);
 
   return (
     <Card
@@ -330,7 +329,7 @@ const PromotionsTableCard = () => {
                         fontWeight: isActive ? 'bold' : 'normal'
                       }}
                     >
-                      {isActive ? '🔥 VIGENTE' : 'No vigente'}
+                      {isActive ? 'VIGENTE' : 'No vigente'}
                     </Text>
                   </TableCell>
                   

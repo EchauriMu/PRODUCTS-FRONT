@@ -143,7 +143,7 @@ const ProductsTable = () => {
             fontSize: '0.875rem',
             color: '#4b5563'
           }}>
-            ⚙️
+            Config
           </button>
           
           <button style={{
@@ -186,7 +186,7 @@ const ProductsTable = () => {
                   justifyContent: 'center',
                   fontSize: '1.25rem'
                 }}>
-                  📦
+                  Inventory
                 </div>
                 <div>
                   <div style={{ fontWeight: '500', color: '#1f2937' }}>

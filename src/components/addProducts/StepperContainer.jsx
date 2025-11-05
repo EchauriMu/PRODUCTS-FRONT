@@ -17,7 +17,7 @@ import '@ui5/webcomponents-fiori/dist/Assets.js';
 import ComponenteUno from './ComponenteUno';
 import ComponenteDos from './ComponenteDos';
 import ComponenteTres from './ComponenteTres';
-import addProductApi from '../../api/addProductApi'; // ✅ Usando el nuevo servicio con Axios
+import addProductApi from '../../api/addProductApi'; // SUCCESS: Usando el nuevo servicio con Axios
 import { useNavigate } from 'react-router-dom';
 
 const StepperContainer = () => {
