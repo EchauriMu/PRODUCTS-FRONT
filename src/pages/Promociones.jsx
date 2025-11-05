@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import PromotionsTableCard from '../components/Promotions/PromotionsTableCard';
+import PromotionCalendar from '../components/Promotions/PromotionCalendar';
 import PromotionEditModal from '../components/Promotions/PromotionEditModal';
 import { useNavigate } from 'react-router-dom';
 import { FlexBox, Title, Button } from '@ui5/webcomponents-react';
 
 const Promociones = () => {
   const navigate = useNavigate();
-  // Vista simplificada: solo lista de promociones
+  // Tabs: lista de promociones y calendario
+  const [activeTab, setActiveTab] = useState('promotions'); // 'promotions' | 'calendar'
 
   // Estados para el modal de edición
   const [showEditModal, setShowEditModal] = useState(false);
@@ -45,6 +47,21 @@ const Promociones = () => {
       >
         <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
           <Title level="H2">Gestión de Promociones</Title>
+          {/* Tabs de navegación */}
+          <FlexBox style={{ gap: '0.5rem' }}>
+            <Button
+              design={activeTab === 'promotions' ? 'Emphasized' : 'Transparent'}
+              onClick={() => setActiveTab('promotions')}
+            >
+              Promociones
+            </Button>
+            <Button
+              design={activeTab === 'calendar' ? 'Emphasized' : 'Transparent'}
+              onClick={() => setActiveTab('calendar')}
+            >
+              Calendario
+            </Button>
+          </FlexBox>
         </FlexBox>
         <FlexBox style={{ gap: '0.5rem' }}>
           <Button 
@@ -57,11 +74,24 @@ const Promociones = () => {
         </FlexBox>
       </FlexBox>
 
-      {/* Lista de promociones */}
-      <PromotionsTableCard 
-        onPromotionClick={handlePromotionClick}
-        key={refreshTable}
-      />
+      {/* Contenido según pestaña */}
+      {activeTab === 'promotions' && (
+        <PromotionsTableCard 
+          onPromotionClick={handlePromotionClick}
+          key={refreshTable}
+        />
+      )}
+
+      {activeTab === 'calendar' && (
+        <PromotionCalendar 
+          onPromotionClick={(promotion) => {
+            console.log('Promoción seleccionada desde calendario:', promotion);
+          }}
+          onDateChange={(date) => {
+            console.log('Fecha cambiada:', date);
+          }}
+        />
+      )}
 
       {/* Wizard removido: creación se movió a /promociones/crear */}
 
