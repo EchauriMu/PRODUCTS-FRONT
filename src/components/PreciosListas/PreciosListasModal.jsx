@@ -141,14 +141,25 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
       footer={
         <Bar
           endContent={
-            <>
-              <Button design="Emphasized" onClick={handleSaveClick}>
-                Guardar
-              </Button>
-              <Button design="Transparent" onClick={onClose}>
+            <FlexBox style={{ gap: '0.5rem' }}>
+              {isEditMode && (
+                <>
+                  <Button
+                    icon={formData.ACTIVED ? 'decline' : 'accept'}
+                    design={formData.ACTIVED ? 'Attention' : 'Success'}
+                    onClick={() => handleSwitchChange({ target: { checked: !formData.ACTIVED } })}
+                  >
+                    {formData.ACTIVED ? 'Desactivar' : 'Activar'}
+                  </Button>
+                </>
+              )}
+              <Button design="Transparent" onClick={onClose} icon="decline">
                 Cancelar
               </Button>
-            </>
+              <Button design="Emphasized" onClick={handleSaveClick} icon="save">
+                Guardar
+              </Button>
+            </FlexBox>
           }
         />
       }

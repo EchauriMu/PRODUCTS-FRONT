@@ -6,6 +6,7 @@ import {
   TableRow,
   TableCell,
   Button,
+  CheckBox,
   Title,
   Input,
   ObjectStatus,
@@ -29,6 +30,7 @@ const PreciosListasTable = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLista, setEditingLista] = useState(null);
   const [messageStrip, setMessageStrip] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   // === Cargar listas al montar ===
   useEffect(() => {
@@ -109,6 +111,41 @@ const PreciosListasTable = () => {
       }
     }
   }, []);
+
+  // Eliminar múltiples listas seleccionadas (si selectedIds tiene 1 o más IDs)
+  const deleteSelected = useCallback(async () => {
+    if (selectedIds.length === 0) return;
+    const confirmMsg = selectedIds.length === 1
+      ? `¿Está seguro que desea eliminar permanentemente la lista seleccionada? Esta acción no se puede deshacer.`
+      : `¿Está seguro que desea eliminar permanentemente las ${selectedIds.length} listas seleccionadas? Esta acción no se puede deshacer.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setLoading(true);
+    try {
+      // Eliminamos en paralelo y recogemos resultados
+      const promises = selectedIds.map(id => preciosListasService.delete(id).then(() => ({ id, ok: true })).catch(err => ({ id, ok: false, err })));
+      const results = await Promise.all(promises);
+
+      const failed = results.filter(r => !r.ok);
+      if (failed.length === 0) {
+        setMessageStrip({ message: `Se eliminaron ${results.length} lista(s) correctamente.`, type: 'Success' });
+      } else {
+        const failedIds = failed.map(f => f.id).join(', ');
+        setError(`No fue posible eliminar las listas con ID: ${failedIds}`);
+      }
+
+      // Refrescar y limpiar selección
+      await fetchListas();
+      setSelectedIds([]);
+      setTimeout(() => setMessageStrip(null), 3000);
+    } catch (err) {
+      console.error('Error en deleteSelected:', err);
+      setError('Error al eliminar las listas seleccionadas: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedIds]);
 
   const handleSave = async (listaData) => {
     setLoading(true);
@@ -192,6 +229,15 @@ const PreciosListasTable = () => {
               <Button design="Emphasized" icon="add" onClick={handleAdd}>
                 Crear Lista
               </Button>
+              <Button
+                design="Negative"
+                icon="delete"
+                onClick={deleteSelected}
+                disabled={selectedIds.length === 0}
+                title={selectedIds.length ? `Eliminar ${selectedIds.length} lista(s)` : 'Selecciona listas para eliminar'}
+              >
+                Eliminar
+              </Button>
               {loading && <BusyIndicator active size="Small" />}
               <Label
                 style={{
@@ -222,6 +268,16 @@ const PreciosListasTable = () => {
           </MessageStrip>
         )}
 
+        {messageStrip && (
+          <MessageStrip
+            design={messageStrip.type === 'Success' ? 'Positive' : 'Information'}
+            style={{ marginBottom: '1rem' }}
+            onClose={() => setMessageStrip(null)}
+          >
+            {messageStrip.message}
+          </MessageStrip>
+        )}
+
         {/* === Estado de carga === */}
         {loading && filteredListas.length === 0 ? (
           <FlexBox justifyContent="Center" alignItems="Center" style={{ height: '200px', flexDirection: 'column' }}>
@@ -241,6 +297,20 @@ const PreciosListasTable = () => {
             noDataText="No hay listas para mostrar"
             headerRow={
               <TableRow>
+                <TableCell>
+                  <CheckBox
+                    checked={selectedIds.length > 0 && selectedIds.length === filteredListas.length}
+                    indeterminate={selectedIds.length > 0 && selectedIds.length < filteredListas.length}
+                    onChange={() => {
+                      // Toggle select all visible
+                      if (selectedIds.length === filteredListas.length) {
+                        setSelectedIds([]);
+                      } else {
+                        setSelectedIds(filteredListas.map(l => l.IDLISTAOK).filter(Boolean));
+                      }
+                    }}
+                  />
+                </TableCell>
                 <TableCell><Text>ID Lista</Text></TableCell>
                 <TableCell><Text>SKU ID</Text></TableCell>
                 <TableCell><Text>Descripción</Text></TableCell>
@@ -253,14 +323,30 @@ const PreciosListasTable = () => {
                 <TableCell><Text>Registro</Text></TableCell>
                 <TableCell><Text>Modificación</Text></TableCell>
                 <TableCell><Text>Estado</Text></TableCell>
-                <TableCell><Text>Acciones</Text></TableCell>
               </TableRow>
             }
           >
             {filteredListas.map((lista, index) => {
               const status = getListaStatus(lista);
               return (
-                <TableRow key={lista.IDLISTAOK || index} className="ui5-table-row-hover">
+                <TableRow 
+                  key={lista.IDLISTAOK || index} 
+                  className="ui5-table-row-hover"
+                  onClick={() => handleEdit(lista)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <TableCell>
+                    <CheckBox
+                      checked={selectedIds.includes(lista.IDLISTAOK)}
+                      onChange={() => {
+                        setSelectedIds(prev => {
+                          if (prev.includes(lista.IDLISTAOK)) return prev.filter(id => id !== lista.IDLISTAOK);
+                          return [...prev, lista.IDLISTAOK];
+                        });
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </TableCell>
                   <TableCell><Text style={{ fontFamily: 'monospace' }}>{lista.IDLISTAOK}</Text></TableCell>
                   <TableCell><Text>{lista.SKUID || '-'}</Text></TableCell>
                   <TableCell><Text>{lista.DESLISTA || '-'}</Text></TableCell>
@@ -283,12 +369,6 @@ const PreciosListasTable = () => {
                   </TableCell>
                   <TableCell>
                     <ObjectStatus state={status.state}>{status.text}</ObjectStatus>
-                  </TableCell>
-                  <TableCell>
-                    <FlexBox style={{ gap: '0.25rem' }}>
-                      <Button icon="edit" design="Transparent" onClick={() => handleEdit(lista)} />
-                      <Button icon="delete" design="Transparent" onClick={() => handleDelete(lista)} />
-                    </FlexBox>
                   </TableCell>
                 </TableRow>
               );
