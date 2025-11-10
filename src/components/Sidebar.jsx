@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
-import { FlexBox, Icon, Avatar, Text, Switch } from '@ui5/webcomponents-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  FlexBox,
+  Icon,
+  Avatar,
+  Text,
+  Switch,
+  Button,
+} from '@ui5/webcomponents-react';
 
 const Sidebar = ({ isOpen, onClose, isMobile }) => {
   const [useCosmosDB, setUseCosmosDB] = useState(
@@ -8,6 +15,8 @@ const Sidebar = ({ isOpen, onClose, isMobile }) => {
   );
   const [user, setUser] = useState({ name: '', email: '' });
 
+  const navigate = useNavigate();
+  const location = useLocation();
   useEffect(() => {
     const loggedUser = sessionStorage.getItem('LoggedUser');
     if (loggedUser) {
@@ -32,6 +41,20 @@ const Sidebar = ({ isOpen, onClose, isMobile }) => {
     window.location.href = '/login';
   };
 
+  const menuItems = [
+    { key: 'productos', text: 'Productos', path: '/' },
+    { key: 'precios-listas', text: 'Precios Listas', path: '/precios-listas' },
+    { key: 'precios-items', text: 'Precios Items', path: '/precios-items' },
+    { key: 'promociones', text: 'Promociones', path: '/promociones' },
+    { key: 'categorias', text: 'Categorías', path: '/categorias' },
+  ];
+
+  const handleNavigation = (path) => {
+    navigate(path);
+    if (isMobile) {
+      onClose();
+    }
+  };
   return (
     <div className="sidebar-content" style={{ 
         width: '240px',
@@ -63,13 +86,20 @@ const Sidebar = ({ isOpen, onClose, isMobile }) => {
           </FlexBox>
         </div>
 
-        <div style={{ padding: '16px 0', flex: 1 }}>
-          <div style={{ padding: '8px 16px', color: '#9E9E9E', fontSize: '12px', fontWeight: '600' }}>MENU</div>
-          <NavLink to="/" style={{ textDecoration: 'none', color: '#000', padding: '8px 16px', display: 'block' }} activeStyle={{ fontWeight: 'bold' }}>PRODUCTOS</NavLink>
-      <NavLink to="/precios-listas" style={{ textDecoration: 'none', color: '#000', padding: '8px 16px', display: 'block' }} activeStyle={{ fontWeight: 'bold' }}>Precios Listas</NavLink>
-          <NavLink to="/precios-items" style={{ textDecoration: 'none', color: '#000', padding: '8px 16px', display: 'block' }} activeStyle={{ fontWeight: 'bold' }}>Precios Items</NavLink>
-          <NavLink to="/promociones" style={{ textDecoration: 'none', color: '#000', padding: '8px 16px', display: 'block' }} activeStyle={{ fontWeight: 'bold' }}>Promociones</NavLink>
-          <NavLink to="/categorias" style={{ textDecoration: 'none', color: '#000', padding: '8px 16px', display: 'block' }} activeStyle={{ fontWeight: 'bold' }}>Categorías</NavLink>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ padding: '16px 16px 8px', color: '#666', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Menú Principal</div>
+          <FlexBox direction="Column" style={{ padding: '0 8px' }}>
+            {menuItems.map((item) => (
+              <Button
+                key={item.key}
+                design={location.pathname === item.path ? 'Emphasized' : 'Transparent'}
+                onClick={() => handleNavigation(item.path)}
+                style={{ justifyContent: 'flex-start', width: '100%' }}
+              >
+                {item.text}
+              </Button>
+            ))}
+          </FlexBox>
         </div>
 
         <div style={{ padding: '16px', borderTop: '1px solid #E0E0E0' }}>

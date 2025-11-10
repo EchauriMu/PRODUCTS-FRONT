@@ -135,14 +135,18 @@ const productPresentacionesService = {
 
   // (Opcional) Si tu back expone ProcessType=GetById, esto refresca una presentación tras editar.
   async getPresentacionById(idpresentaok) {
+   
     const params = new URLSearchParams({
-      ProcessType: 'GetById',
-      idpresentaok
+      ProcessType: 'GetOne',
+      idpresentaok,
+      LoggedUser: 'Ed' // Requerido por el backend para trazabilidad
     }).toString();
+
     const res = await axiosInstance.post(
       `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
-      null // Se envía null para que Axios no incluya un cuerpo ni la cabecera Content-Type
+      {} 
     );
+
     const dataRes = unwrapCAP(res);
     return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
   },
@@ -150,9 +154,8 @@ const productPresentacionesService = {
   // Helper para obtener los archivos de una presentación
   async getFilesByPresentacionId(idpresentaok) {
     const params = new URLSearchParams({
-      ProcessType: 'GetByIdPresentaOK', // Mantenemos LoggedUser aquí porque es un helper específico
-      idpresentaok,                     // y no queremos depender de la sesión si no es necesario.
-      LoggedUser: loggedUser            // Además, el interceptor no lo duplicará si ya existe.
+      ProcessType: 'GetByIdPresentaOK',
+      idpresentaok
     }).toString();
     const res = await axiosInstance.post(
       `/ztproducts-files/productsFilesCRUD?${params}` // Apuntando al servicio de archivos
