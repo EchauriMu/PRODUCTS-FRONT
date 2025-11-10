@@ -6,21 +6,42 @@ import {
   Title,
   Label,
   Text,
-  FlexBox
+  FlexBox,
+  MultiComboBox,
+  MultiComboBoxItem,
+  Input,
+  MessageStrip,
+  BusyIndicator
 } from '@ui5/webcomponents-react';
 import ProductStatus from './ProductStatus';
 import productPresentacionesService from '../../api/productPresentacionesService';
+import addProductApi from '../../api/addProductApi';
 import ProductDetailPresentations from './ProductDetailPresentations';
-
-const ProductDetailModal = ({ product, open, onClose }) => {
+import ProductSaveButton from './ProductSaveButton'; // Importamos el nuevo botón de guardar
+import "@ui5/webcomponents-icons/dist/edit.js";
+ 
+const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
   const [presentaciones, setPresentaciones] = useState([]);
   const [localProduct, setLocalProduct] = useState(product);
   const [loadingPresentaciones, setLoadingPresentaciones] = useState(false);
   const [errorPresentaciones, setErrorPresentaciones] = useState(null);
 
+  // Estado para las categorías
+  const [allCategories, setAllCategories] = useState([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+
+  // Estados para el modo de edición
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedProduct, setEditedProduct] = useState(null);
+  const [saveError, setSaveError] = useState('');
+
   // Cargar presentaciones al abrir
   useEffect(() => {
-    setLocalProduct(product); // Sincroniza el producto local al abrir/cambiar
+    // Solo actualiza el producto local si es un producto diferente (basado en SKUID)
+    if (product?.SKUID !== localProduct?.SKUID) {
+      setLocalProduct(product);
+    }
+
     if (open && product?.SKUID) {
       setLoadingPresentaciones(true);
       setErrorPresentaciones(null);
@@ -31,8 +52,22 @@ const ProductDetailModal = ({ product, open, onClose }) => {
         })
         .catch(() => setErrorPresentaciones('Error al cargar presentaciones'))
         .finally(() => setLoadingPresentaciones(false));
+
+      // Cargar categorías para el MultiComboBox
+      setLoadingCategories(true);
+      addProductApi.getAllCategories()
+        .then(setAllCategories)
+        .catch(err => console.error("Error al cargar categorías", err))
+        .finally(() => setLoadingCategories(false));
+
     } else {
       setPresentaciones([]);
+      // Resetear estados al cerrar
+      setIsEditing(false);
+      setEditedProduct(null);
+      setSaveError('');
+      setAllCategories([]);
+      setLoadingCategories(true);
     }
   }, [open, product]);
 
@@ -51,16 +86,80 @@ const ProductDetailModal = ({ product, open, onClose }) => {
 
   const handleProductStatusChange = (updatedProduct) => {
     setLocalProduct(updatedProduct);
-  }
+    // Notificamos al componente padre (la tabla) que debe recargar los datos
+    // para que la vista principal se mantenga sincronizada.
+    if (onProductUpdate) {
+      onProductUpdate(updatedProduct);
+    }
+  };
 
-  if (!localProduct) return null;
+  const handleEditClick = () => {
+    setEditedProduct({ ...localProduct });
+    setIsEditing(true);
+    setSaveError('');
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedProduct(null);
+    setSaveError('');
+  };
+
+  const handleInputChange = (e, field) => {
+    let value = e.target.value;
+    setEditedProduct(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCategoryChange = (event) => {
+    const selectedItems = event.detail.items;
+    const selectedCategoryIds = selectedItems.map(item => item.dataset.catid);
+    setEditedProduct(prev => ({ ...prev, CATEGORIAS: selectedCategoryIds }));
+  };
+
+
+  // Callbacks para el botón de guardar
+  const handleSaveSuccess = (updatedDataFromAPI) => {
+    // Actualizamos el estado local con la respuesta de la API
+    setLocalProduct(prev => ({ ...prev, ...updatedDataFromAPI }));
+    setIsEditing(false);
+    // Notificamos al componente padre (la tabla) que debe recargar los datos
+    if (onProductUpdate) {
+      onProductUpdate(updatedDataFromAPI);
+    }
+    setEditedProduct(null);
+  };
+
+  const handleSaveError = (errorMessage) => {
+    setSaveError(errorMessage);
+  };
+
+  const renderFooter = () => {
+    if (isEditing) {
+      return (
+        <Bar endContent={
+          <>
+            <Button design="Transparent" onClick={handleCancelEdit}>Cancelar</Button>
+            <ProductSaveButton
+              productData={editedProduct}
+              onSaveSuccess={handleSaveSuccess}
+              onSaveError={handleSaveError}
+            />
+          </>
+        } />
+      );
+    }
+    return <Bar endContent={<Button design="Emphasized" onClick={onClose}>Cerrar</Button>} />;
+  };
+
+  const currentProduct = isEditing ? editedProduct : localProduct;
+  if (!currentProduct) return null;
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      header={<Bar><Title level="H4">Detalle del Producto</Title></Bar>}
-      footer={<Bar endContent={<Button design="Emphasized" onClick={onClose}>Cerrar</Button>} />}
+      header={<Bar startContent={<Title>Detalle del Producto</Title>} />}
+      footer={renderFooter()}
       style={{ width: '95vw', maxWidth: '1400px' }}
     >
       <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', height: 'calc(80vh - 50px)', overflow: 'hidden' }}>
@@ -69,23 +168,71 @@ const ProductDetailModal = ({ product, open, onClose }) => {
           <FlexBox direction="Column" style={{ gap: '2rem' }}>
             {/* Encabezado y Estado del Producto */}
             <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
-              <Title level="H3" style={{ flexShrink: 1, marginRight: '1rem' }}>{localProduct.PRODUCTNAME || 'Sin Nombre'}</Title>
-              <Text style={{ color: '#666', fontStyle: 'italic', marginBottom: '1rem' }}>{localProduct.DESSKU || 'Sin descripción'}</Text>
-              <ProductStatus product={localProduct} onStatusChange={handleProductStatusChange} />
+              {isEditing ? (
+                <>
+                  <Label>Nombre del Producto</Label>
+                  <Input value={currentProduct.PRODUCTNAME} onInput={(e) => handleInputChange(e, 'PRODUCTNAME')} />
+                  <Label style={{marginTop: '0.5rem'}}>Descripción</Label>
+                  <Input value={currentProduct.DESSKU} onInput={(e) => handleInputChange(e, 'DESSKU')} />
+                </>
+              ) : (
+                <>
+                  <Title level="H3" style={{ flexShrink: 1, marginRight: '1rem' }}>{currentProduct.PRODUCTNAME || 'Sin Nombre'}</Title>
+                  <Text style={{ color: '#666', fontStyle: 'italic', marginBottom: '1rem' }}>{currentProduct.DESSKU || 'Sin descripción'}</Text>
+                </>
+              )}
+              <ProductStatus product={currentProduct} onStatusChange={handleProductStatusChange} onEditClick={handleEditClick} />
             </FlexBox>
 
             {/* Detalles */}
             <FlexBox direction="Column" style={{ gap: '1rem' }}>
+              {saveError && <MessageStrip design="Negative" onClose={() => setSaveError('')}>{saveError}</MessageStrip>}
               <Title level="H5" style={{ borderTop: '1px solid #e0e0e0', paddingTop: '1rem' }}>
                 Información General
               </Title>
               <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
-                <FlexBox direction="Column"><Label>SKU</Label><Text>{localProduct.SKUID || 'N/A'}</Text></FlexBox>
-                <FlexBox direction="Column"><Label>Marca</Label><Text>{localProduct.MARCA || 'N/A'}</Text></FlexBox>
-                <FlexBox direction="Column"><Label>Código de Barras</Label><Text>{localProduct.BARCODE || 'N/A'}</Text></FlexBox>
-                <FlexBox direction="Column"><Label>Unidad de Medida</Label><Text>{localProduct.IDUNIDADMEDIDA || 'N/A'}</Text></FlexBox>
-                <FlexBox direction="Column"><Label>Categorías</Label><Text>{Array.isArray(localProduct.CATEGORIAS) ? localProduct.CATEGORIAS.join(', ') : (localProduct.CATEGORIAS || 'N/A')}</Text></FlexBox>
-                {localProduct.INFOAD && <FlexBox direction="Column"><Label>Info Adicional</Label><Text>{localProduct.INFOAD}</Text></FlexBox>}
+                <FlexBox direction="Column"><Label>SKU</Label><Text>{currentProduct.SKUID || 'N/A'}</Text></FlexBox>
+                <FlexBox direction="Column">
+                  <Label>Marca</Label>
+                  {isEditing ? <Input value={currentProduct.MARCA} onInput={(e) => handleInputChange(e, 'MARCA')} /> : <Text>{currentProduct.MARCA || 'N/A'}</Text>}
+                </FlexBox>
+                <FlexBox direction="Column">
+                  <Label>Código de Barras</Label>
+                  {isEditing ? <Input value={currentProduct.BARCODE} onInput={(e) => handleInputChange(e, 'BARCODE')} /> : <Text>{currentProduct.BARCODE || 'N/A'}</Text>}
+                </FlexBox>
+                <FlexBox direction="Column">
+                  <Label>Unidad de Medida</Label>
+                  {isEditing ? <Input value={currentProduct.IDUNIDADMEDIDA} onInput={(e) => handleInputChange(e, 'IDUNIDADMEDIDA')} /> : <Text>{currentProduct.IDUNIDADMEDIDA || 'N/A'}</Text>}
+                </FlexBox>
+                <FlexBox direction="Column">
+                  <Label>Categorías</Label>
+                  {isEditing ? 
+                    <MultiComboBox
+                      style={{ width: '100%'}}
+                      placeholder={loadingCategories ? "Cargando..." : "Seleccione categorías"}
+                      disabled={loadingCategories}
+                      onSelectionChange={handleCategoryChange}
+                    >
+                      {allCategories.map((cat) => (
+                        <MultiComboBoxItem 
+                          key={cat.CATID} 
+                          text={cat.Nombre} 
+                          data-catid={cat.CATID} 
+                          selected={currentProduct.CATEGORIAS?.includes(cat.CATID)} />
+                      ))}
+                    </MultiComboBox>
+                   : (
+                    <Text>{Array.isArray(currentProduct.CATEGORIAS) ? currentProduct.CATEGORIAS.join(', ') : (currentProduct.CATEGORIAS || 'N/A')}</Text>
+                  )}
+                </FlexBox>
+                <FlexBox direction="Column">
+                  <Label>Info Adicional</Label>
+                  {isEditing ? (
+                    <Input value={currentProduct.INFOAD} onInput={(e) => handleInputChange(e, 'INFOAD')} />
+                  ) : (
+                    currentProduct.INFOAD ? <Text>{currentProduct.INFOAD}</Text> : <Text style={{color: '#666'}}>N/A</Text>
+                  )}
+                </FlexBox>
               </FlexBox>
             </FlexBox>
 
@@ -97,27 +244,33 @@ const ProductDetailModal = ({ product, open, onClose }) => {
               <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
                 <FlexBox direction="Column">
                   <Label>Creado por</Label>
-                  <Text>{localProduct.REGUSER || 'N/A'}</Text>
-                  <Text style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(localProduct.REGDATE)}</Text>
+                  <Text>{currentProduct.REGUSER || 'N/A'}</Text>
+                  <Text style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(currentProduct.REGDATE)}</Text>
                 </FlexBox>
                 <FlexBox direction="Column">
                   <Label>Modificado por</Label>
-                  <Text>{localProduct.MODUSER || 'N/A'}</Text>
-                  <Text style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(localProduct.MODDATE)}</Text>
+                  <Text>{currentProduct.MODUSER || 'N/A'}</Text>
+                  <Text style={{ fontSize: '0.85rem', color: '#888' }}>{formatDate(currentProduct.MODDATE)}</Text>
                 </FlexBox>
               </FlexBox>
             </FlexBox>
           </FlexBox>
         </div>
 
-        {/* Columna Derecha: Presentaciones y Archivos */}
-        <ProductDetailPresentations
-          product={localProduct}
-          presentaciones={presentaciones}
-          onPresentacionesChange={setPresentaciones}
-          loading={loadingPresentaciones}
-          error={errorPresentaciones}
-        />
+        {/* Columna Derecha: Presentaciones o Mensaje de Edición */}
+        {isEditing ? (
+          <FlexBox justifyContent="Center" alignItems="Center" style={{ height: '100%', background: '#f5f5f5' }}>
+            <Text>La edición de presentaciones está deshabilitada mientras se edita el producto principal.</Text>
+          </FlexBox>
+        ) : (
+          <ProductDetailPresentations
+            product={currentProduct}
+            presentaciones={presentaciones}
+            onPresentacionesChange={setPresentaciones}
+            loading={loadingPresentaciones}
+            error={errorPresentaciones}
+          />
+        )}
       </div>
     </Dialog>
   );

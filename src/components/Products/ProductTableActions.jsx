@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button,
@@ -26,26 +26,48 @@ const ProductTableActions = ({
   };
 
   const handleDelete = async () => {
-    onActionStart();
-    try {
-      // A futuro, esto puede iterar sobre `selectedSKUIDs`
-      console.log('Eliminando productos con SKUIDs:', selectedSKUIDs);
-      // await productService.deleteProduct(selectedSKUIDs[0]); // Ejemplo de llamada
-      onActionSuccess('Productos eliminados (simulado).');
-    } catch (error) {
-      onActionError('Error al eliminar productos (simulado).');
+    if (window.confirm(`¿Estás seguro de que deseas eliminar permanentemente ${selectedSKUIDs.length} producto(s)? Esta acción no se puede deshacer.`)) {
+      onActionStart();
+      try {
+        await productService.deleteProducts(selectedSKUIDs);
+        onActionSuccess(`${selectedSKUIDs.length} producto(s) eliminado(s) permanentemente.`);
+      } catch (error) {
+        onActionError(`Error al eliminar productos: ${error.message}`);
+      }
     }
   };
 
-  const handleDeactivate = async () => {
-    onActionStart();
-    try {
-      // A futuro, esto puede iterar sobre `selectedSKUIDs`
-      console.log('Desactivando productos con SKUIDs:', selectedSKUIDs);
-      // await productService.deactivateProduct(selectedSKUIDs[0]); // Ejemplo de llamada
-      onActionSuccess('Productos desactivados (simulado).');
-    } catch (error) {
-      onActionError('Error al desactivar productos (simulado).');
+  // Lógica para determinar el estado de los botones de acción
+  const { canDeactivate, canActivate, isMixedState } = useMemo(() => {
+    if (selectedSKUIDs.length === 0) {
+      return { canDeactivate: false, canActivate: false, isMixedState: false };
+    }
+    const selectedProducts = products.filter(p => selectedSKUIDs.includes(p.SKUID));
+    const activeProducts = selectedProducts.filter(p => p.ACTIVED === true && p.DELETED === false);
+    const inactiveProducts = selectedProducts.filter(p => p.ACTIVED === false);
+
+    return {
+      canDeactivate: activeProducts.length > 0 && inactiveProducts.length === 0,
+      canActivate: inactiveProducts.length > 0 && activeProducts.length === 0,
+      isMixedState: activeProducts.length > 0 && inactiveProducts.length > 0,
+    };
+  }, [selectedSKUIDs, products]);
+
+  const handleToggleActiveState = async () => {
+    const actionText = canActivate ? 'activar' : 'desactivar';
+    if (window.confirm(`¿Estás seguro de que deseas ${actionText} ${selectedSKUIDs.length} producto(s)?`)) {
+      onActionStart();
+      try {
+        if (canActivate) {
+          await productService.activateProducts(selectedSKUIDs);
+          onActionSuccess(`${selectedSKUIDs.length} producto(s) activado(s) exitosamente.`);
+        } else {
+          await productService.deactivateProducts(selectedSKUIDs);
+          onActionSuccess(`${selectedSKUIDs.length} producto(s) desactivado(s) exitosamente.`);
+        }
+      } catch (error) {
+        onActionError(`Error al ${actionText} productos: ${error.message}`);
+      }
     }
   };
 
@@ -60,8 +82,13 @@ const ProductTableActions = ({
       <Button icon="delete" design="Negative" disabled={selectedSKUIDs.length === 0} onClick={handleDelete}>
         Eliminar
       </Button>
-      <Button icon="decline" design="Attention" disabled={selectedSKUIDs.length === 0} onClick={handleDeactivate}>
-        Desactivar
+      <Button 
+        icon={canActivate ? "activate" : "decline"} 
+        design={canActivate ? "Positive" : "Attention"} 
+        disabled={selectedSKUIDs.length === 0 || isMixedState} 
+        onClick={handleToggleActiveState}
+      >
+        {canActivate ? 'Activar' : 'Desactivar'}
       </Button>
       {loading && <BusyIndicator active size="Small" />}
     </FlexBox>

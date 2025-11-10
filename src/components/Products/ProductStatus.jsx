@@ -1,28 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { FlexBox, Label, Switch, Tag, Text } from '@ui5/webcomponents-react';
 import ValueState from '@ui5/webcomponents-base/dist/types/ValueState.js';
+import ProductEditButton from './ProductEditButton'; // Importamos el nuevo componente
+import productService from '../../api/productService'; // Importamos el servicio real
 
-// Mock del servicio de productos, en un futuro se conectará a la API real.
-const productService = {
-  async toggleProductStatus(skuid, newStatus) {
-    console.log(`Simulando cambio de estado para producto ${skuid}: ${newStatus}`);
-    // Simula una llamada a la API que puede fallar o tener éxito
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (Math.random() > 0.1) { // 90% de éxito
-          resolve({ SKUID: skuid, ACTIVED: newStatus });
-        } else {
-          reject(new Error('Error de red simulado.'));
-        }
-      }, 500);
-    });
-  }
-};
-
-const ProductStatus = ({ product, onStatusChange }) => {
+const ProductStatus = ({ product, onStatusChange, onEditClick }) => {
   const [isActive, setIsActive] = useState(product.ACTIVED);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState({ text: '', type: '' });
 
   useEffect(() => {
     setIsActive(product.ACTIVED);
@@ -39,17 +24,30 @@ const ProductStatus = ({ product, onStatusChange }) => {
   const handleSwitchChange = async (e) => {
     const newStatus = e.target.checked;
     setIsSubmitting(true);
-    setError('');
+    setFeedbackMessage({ text: '', type: '' });
 
     try {
-      await productService.toggleProductStatus(product.SKUID, newStatus);
-      setIsActive(newStatus);
+      let updatedProduct;
+      if (newStatus) {
+        // Si el nuevo estado es 'activo', siempre llamamos a la API de activación
+        updatedProduct = await productService.activateProduct(product.SKUID);
+      } else {
+        // Si el nuevo estado es 'inactivo', llamamos a la API de borrado lógico
+        updatedProduct = await productService.deleteProduct(product.SKUID);
+      }
+      setIsActive(updatedProduct?.value?.[0]?.data?.[0]?.dataRes?.ACTIVED ?? newStatus);
       if (onStatusChange) {
-        onStatusChange({ ...product, ACTIVED: newStatus });
+        // Extraemos la data real de la respuesta anidada de la API
+        const finalUpdatedProduct = updatedProduct?.value?.[0]?.data?.[0]?.dataRes || { ...product, ACTIVED: newStatus, DELETED: !newStatus };
+        // Notificamos al padre con el producto completamente actualizado desde el backend
+        onStatusChange(finalUpdatedProduct);
+        setFeedbackMessage({ text: 'Estado actualizado con éxito.', type: 'Success' });
+        setTimeout(() => setFeedbackMessage({ text: '', type: '' }), 3000);
       }
     } catch (err) {
-      setError(err.message || 'Error al cambiar el estado.');
-      setTimeout(() => setError(''), 3000);
+      const errorMessage = err.message || 'Error al cambiar el estado.';
+      setFeedbackMessage({ text: errorMessage, type: 'Negative' });
+      setTimeout(() => setFeedbackMessage({ text: '', type: '' }), 3000);
     } finally {
       setIsSubmitting(false);
     }
@@ -63,12 +61,21 @@ const ProductStatus = ({ product, onStatusChange }) => {
         <Tag design={statusInfo.design}>{statusInfo.text}</Tag>
         <Switch
           checked={isActive}
-          disabled={isSubmitting || product.DELETED}
+          disabled={isSubmitting}
           onChange={handleSwitchChange}
         />
         <Label>{isSubmitting ? 'Actualizando...' : (isActive ? 'Desactivar' : 'Activar')}</Label>
+        <ProductEditButton product={product} onEditClick={onEditClick} />
       </FlexBox>
-      {error && <Text style={{ color: 'var(--sapNegativeColor)', fontSize: 'var(--sapFontSize)' }}>{error}</Text>}
+      {feedbackMessage.text && (
+        <Text style={{ 
+          color: feedbackMessage.type === 'Success' ? 'var(--sapPositiveColor)' : 'var(--sapNegativeColor)', 
+          fontSize: 'var(--sapFontSize)', 
+          marginTop: '0.25rem' 
+        }}>
+          {feedbackMessage.text}
+        </Text>
+      )}
     </FlexBox>
   );
 };

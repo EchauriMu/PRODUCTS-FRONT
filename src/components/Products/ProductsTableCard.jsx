@@ -21,6 +21,7 @@ import { Tag } from '@ui5/webcomponents-react';
 import productService from '../../api/productService';
 import ProductDetailModal from './ProductDetailModal';
 import ProductSearch from './ProductSearch'; // Importamos el nuevo componente
+import "@ui5/webcomponents-fiori/dist/illustrations/NoData.js"; // Import for IllustratedMessage
 import ProductTableActions from './ProductTableActions';
 
 const ProductsTableCard = () => {
@@ -28,6 +29,8 @@ const ProductsTableCard = () => {
   const [filteredProducts, setFilteredProducts] = useState([]); // Estado para productos filtrados
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState(''); // Estado para mensajes de éxito
+
   const [searchTerm, setSearchTerm] = useState(''); // Estado para el término de búsqueda
   const [selectedProduct, setSelectedProduct] = useState(null);
   // 👇 ESTADO PARA GUARDAR LOS SKUIDS SELECCIONADOS
@@ -142,6 +145,12 @@ const ProductsTableCard = () => {
 
   const handleCloseModal = useCallback(() => setSelectedProduct(null), []);
 
+  // Función para recargar los datos después de una actualización exitosa
+  const handleProductUpdate = useCallback(() => {
+    handleCloseModal(); // Cierra el modal
+    loadProducts();     // Recarga los productos
+  }, [handleCloseModal]); // loadProducts no necesita ser dependencia aquí
+
   // --- Lógica de Selección (Reincorporada) ---
 
   const handleSelectAllChange = (e) => {
@@ -189,9 +198,17 @@ const ProductsTableCard = () => {
                 products={products}
                 loading={loading}
                 onEdit={handleEdit}
-                onActionStart={() => setLoading(true)}
-                onActionSuccess={(message) => { console.log(message); loadProducts(); }}
-                onActionError={(message) => { setError(message); setLoading(false); }}
+                onActionStart={() => { setLoading(true); setError(''); setSuccessMessage(''); }}
+                onActionSuccess={(message) => { 
+                  setSuccessMessage(message);
+                  loadProducts(); // Recarga la tabla
+                  setSelectedSKUIDs([]); // Limpia la selección después de la acción
+                  setTimeout(() => setSuccessMessage(''), 5000); // Oculta el mensaje después de 5 segundos
+                }}
+                onActionError={(message) => { 
+                  setError(message); 
+                  setLoading(false); 
+                }}
               />
              
             </FlexBox>
@@ -200,6 +217,15 @@ const ProductsTableCard = () => {
       style={{ margin: '1rem', maxWidth: '100%' }}
     >
       <div style={{ padding: '1rem' }}>
+        {successMessage && (
+          <MessageStrip 
+            design="Positive" 
+            style={{ marginBottom: '1rem' }}
+            onClose={() => setSuccessMessage('')}
+          >
+            {successMessage}
+          </MessageStrip>
+        )}
         {error && (
           <MessageStrip 
             type="Negative" 
@@ -411,6 +437,7 @@ const ProductsTableCard = () => {
         product={selectedProduct}
         open={!!selectedProduct}
         onClose={handleCloseModal}
+        onProductUpdate={handleProductUpdate}
       />
 
     </Card>

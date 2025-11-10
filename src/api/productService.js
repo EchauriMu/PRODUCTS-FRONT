@@ -30,7 +30,7 @@ const productService = {
    */
   async getProductById(skuid) {
     try {
-      const response = await axiosInstance.get('/ztproducts/crudProducts', {
+      const response = await axiosInstance.post('/ztproducts/crudProducts', {}, {
         params: {
           ProcessType: 'GetOne',
           skuid: skuid
@@ -69,11 +69,12 @@ const productService = {
    */
   async updateProduct(skuid, productData) {
     try {
-      const response = await axiosInstance.put('/ztproducts/crudProducts?' + 
-        new URLSearchParams({
+      const response = await axiosInstance.post('/ztproducts/crudProducts', productData, {
+        params: {
           ProcessType: 'UpdateOne',
           skuid: skuid
-        }), productData);
+        }
+      });
       return response.data;
     } catch (error) {
       console.error('Error updating product:', error);
@@ -88,11 +89,13 @@ const productService = {
    */
   async deleteProduct(skuid) {
     try {
-      const response = await axiosInstance.delete('/ztproducts/crudProducts?' + 
-        new URLSearchParams({
+      // Cambiado a POST según el requisito
+      const response = await axiosInstance.post('/ztproducts/crudProducts', {}, {
+        params: {
           ProcessType: 'DeleteLogic',
           skuid: skuid
-        }));
+        }
+      });
       return response.data;
     } catch (error) {
       console.error('Error deleting product:', error);
@@ -101,17 +104,40 @@ const productService = {
   },
 
   /**
+   * Desactivar múltiples productos (eliminación lógica en lote)
+   * @param {string[]} skuids - Array de IDs de productos (SKU)
+   * @returns {Promise<any[]>} Array de respuestas de la API
+   */
+  async deactivateProducts(skuids) {
+    // Llama a la API de desactivación individual para cada producto seleccionado
+    return Promise.all(skuids.map(skuid => this.deleteProduct(skuid)));
+  },
+
+  /**
+   * Eliminar múltiples productos permanentemente (en lote)
+   * @param {string[]} skuids - Array de IDs de productos (SKU)
+   * @returns {Promise<any[]>} Array de respuestas de la API
+   */
+  async deleteProducts(skuids) {
+    // Para el borrado físico, mantenemos las llamadas individuales por seguridad,
+    // ya que no implementamos un 'DeleteHardMany' para evitar borrados masivos accidentales.
+    // Si se necesita, se puede implementar de forma similar a 'DeleteLogicMany'.
+    return Promise.all(skuids.map(skuid => this.deleteProductHard(skuid)));
+  },
+  /**
    * Eliminar un producto permanentemente
    * @param {string} skuid - ID del producto (SKU)
    * @returns {Promise} Confirmación de eliminación
    */
   async deleteProductHard(skuid) {
     try {
-      const response = await axiosInstance.delete('/ztproducts/crudProducts?' + 
-        new URLSearchParams({
+      // Cambiado a POST según el requisito
+      const response = await axiosInstance.post('/ztproducts/crudProducts', {}, {
+        params: {
           ProcessType: 'DeleteHard',
           skuid: skuid
-        }));
+        }
+      });
       return response.data;
     } catch (error) {
       console.error('Error hard deleting product:', error);
@@ -126,16 +152,27 @@ const productService = {
    */
   async activateProduct(skuid) {
     try {
-      const response = await axiosInstance.put('/ztproducts/crudProducts?' + 
-        new URLSearchParams({
+      // Cambiado a POST sin body, solo con params
+      const response = await axiosInstance.post('/ztproducts/crudProducts', {}, {
+        params: {
           ProcessType: 'ActivateOne',
           skuid: skuid
-        }));
+        }});
       return response.data;
     } catch (error) {
       console.error('Error activating product:', error);
       throw error;
     }
+  },
+
+  /**
+   * Activar múltiples productos (en lote)
+   * @param {string[]} skuids - Array de IDs de productos (SKU)
+   * @returns {Promise<any[]>} Array de respuestas de la API
+   */
+  async activateProducts(skuids) {
+    // Llama a la API de activación individual para cada producto seleccionado
+    return Promise.all(skuids.map(skuid => this.activateProduct(skuid)));
   }
 };
 
