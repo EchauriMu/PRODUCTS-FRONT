@@ -29,7 +29,6 @@ import {
 } from '@ui5/webcomponents-react';
 import promoService from '../../api/promoService';
 import productService from '../../api/productService';
-import AdvancedFiltersFixed from './AdvancedFiltersFixed';
 
 const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   const [editData, setEditData] = useState({
@@ -54,10 +53,6 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   const [allProducts, setAllProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Estados para el modal de agregar productos
-  const [showAddProductsModal, setShowAddProductsModal] = useState(false);
-  const [filteredProductsToAdd, setFilteredProductsToAdd] = useState([]);
 
   // Extraer SKUs de distintas formas posibles en la promo
   const extractSkusFromPromotion = (promo) => {
@@ -291,50 +286,6 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     });
   };
 
-  // Manejar cambios en los filtros avanzados
-  const handleFiltersChange = (filteredProducts) => {
-    console.log('Productos filtrados recibidos:', filteredProducts);
-    // Asegurarse de que siempre sea un array
-    const productsArray = Array.isArray(filteredProducts) ? filteredProducts : [];
-    console.log('Productos como array:', productsArray.length);
-    setFilteredProductsToAdd(productsArray);
-  };
-
-  // Agregar productos seleccionados desde el modal de filtros
-  const handleAddFilteredProducts = () => {
-    if (!Array.isArray(filteredProductsToAdd) || filteredProductsToAdd.length === 0) {
-      setError('No hay productos filtrados para agregar');
-      return;
-    }
-
-    // Contar cuántos productos nuevos se van a agregar
-    let nuevosProductos = 0;
-
-    // Agregar los SKUIDs de los productos filtrados a la selección
-    setSelectedProducts(prev => {
-      const newSelection = new Set(prev);
-      filteredProductsToAdd.forEach(product => {
-        if (product.SKUID && !newSelection.has(product.SKUID)) {
-          newSelection.add(product.SKUID);
-          nuevosProductos++;
-        }
-      });
-      return newSelection;
-    });
-
-    // Cerrar modal y limpiar
-    setShowAddProductsModal(false);
-    setFilteredProductsToAdd([]);
-    
-    // Mostrar mensaje de éxito
-    if (nuevosProductos > 0) {
-      console.log(`✅ ${nuevosProductos} productos nuevos agregados a la promoción`);
-      setError(''); // Limpiar cualquier error previo
-    } else {
-      console.log('ℹ️ Los productos filtrados ya estaban en la selección');
-    }
-  };
-
   const getFilteredProducts = () => {
     if (!searchTerm) return allProducts;
     
@@ -376,7 +327,6 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   const status = formatPromotionStatus();
 
   return (
-    <>
     <Dialog
       open={open}
       headerText={`Editar Promoción: ${promotion.IdPromoOK}`}
@@ -600,13 +550,6 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                         {selectedProducts.size} de {getFilteredProducts().length} productos seleccionados
                       </Text>
                       <Button
-                        design="Emphasized"
-                        icon="add"
-                        onClick={() => setShowAddProductsModal(true)}
-                      >
-                        Agregar Productos
-                      </Button>
-                      <Button
                         design="Transparent"
                         onClick={() => setSelectedProducts(new Set(allProducts.map(p => p.SKUID)))}
                         disabled={allProducts.length === 0}
@@ -696,45 +639,6 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
 
       </div>
     </Dialog>
-
-    {/* Modal para Agregar Productos con Filtros Avanzados */}
-    <Dialog
-      open={showAddProductsModal}
-      headerText="Agregar Productos a la Promoción"
-      style={{ width: '95vw', maxWidth: '1400px', height: '90vh' }}
-      footer={
-        <Bar
-          endContent={
-            <FlexBox style={{ gap: '0.5rem' }}>
-              <Button 
-                design="Transparent" 
-                onClick={() => {
-                  setShowAddProductsModal(false);
-                  setFilteredProductsToAdd([]);
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                design="Emphasized" 
-                onClick={handleAddFilteredProducts}
-                disabled={!Array.isArray(filteredProductsToAdd) || filteredProductsToAdd.length === 0}
-              >
-                Agregar {Array.isArray(filteredProductsToAdd) ? filteredProductsToAdd.length : 0} Producto(s)
-              </Button>
-            </FlexBox>
-          }
-        />
-      }
-    >
-      <div style={{ padding: '1rem', height: '100%', overflow: 'auto' }}>
-        <AdvancedFiltersFixed 
-          onFiltersChange={handleFiltersChange}
-          initialFilters={{}}
-        />
-      </div>
-    </Dialog>
-  </>
   );
 };
 
