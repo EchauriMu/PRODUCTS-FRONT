@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Card,
   CardHeader,
@@ -11,7 +11,12 @@ import {
   MessageStrip,
   FlexBox,
   Label,
-  ObjectStatus
+  ObjectStatus,
+  Input,
+  Button,
+  CheckBox,
+  Icon,
+  Tag
 } from '@ui5/webcomponents-react'; 
 import promoService from '../../api/promoService';
 
@@ -20,6 +25,9 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedPromotion, setSelectedPromotion] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [search, setSearch] = useState('');
+  const [info, setInfo] = useState('');
 
   // Cargar promociones al montar el componente
   useEffect(() => {
@@ -57,6 +65,112 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
     }
   };
 
+  // Filtro por búsqueda
+  const filteredPromotions = useMemo(() => {
+    if (!search.trim()) return promotions;
+    const term = search.toLowerCase();
+    return promotions.filter(p =>
+      (p.IdPromoOK || '').toLowerCase().includes(term) ||
+      (p.Titulo || '').toLowerCase().includes(term) ||
+      (p.Descripcion || '').toLowerCase().includes(term) ||
+      (p.SKUID || '').toLowerCase().includes(term)
+    );
+  }, [promotions, search]);
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = (checked) => {
+    if (checked) setSelectedIds(new Set(filteredPromotions.map(p => p.IdPromoOK)));
+    else setSelectedIds(new Set());
+  };
+
+  const handleEditSelected = () => {
+    if (selectedIds.size !== 1) return;
+    const id = Array.from(selectedIds)[0];
+    const promo = promotions.find(p => p.IdPromoOK === id);
+    if (promo && onPromotionClick) onPromotionClick(promo);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`¿Estás seguro de que quieres desactivar ${selectedIds.size} promoción(es)? Se marcarán como eliminadas pero podrás reactivarlas después.`)) {
+      return;
+    }
+    try {
+      setLoading(true);
+      for (const id of selectedIds) {
+        await promoService.deletePromotion(id);
+      }
+      setInfo(`Se desactivaron ${selectedIds.size} promoción(es)`);
+      setSelectedIds(new Set());
+      await loadPromotions();
+    } catch (e) {
+      setError(e.message || 'Error desactivando promociones');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteHardSelected = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`⚠️ ADVERTENCIA: ¿Estás seguro de que quieres eliminar PERMANENTEMENTE ${selectedIds.size} promoción(es)? Esta acción NO se puede deshacer.`)) {
+      return;
+    }
+    try {
+      setLoading(true);
+      for (const id of selectedIds) {
+        await promoService.deletePromotionHard(id);
+      }
+      setInfo(`Se eliminaron permanentemente ${selectedIds.size} promoción(es)`);
+      setSelectedIds(new Set());
+      await loadPromotions();
+    } catch (e) {
+      setError(e.message || 'Error eliminando permanentemente promociones');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleActivateSelected = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      setLoading(true);
+      for (const id of selectedIds) {
+        await promoService.activatePromotion(id);
+      }
+      setInfo(`Se activaron ${selectedIds.size} promoción(es)`);
+      setSelectedIds(new Set());
+      await loadPromotions();
+    } catch (e) {
+      setError(e.message || 'Error activando promociones');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeactivateSelected = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      setLoading(true);
+      for (const id of selectedIds) {
+        await promoService.updatePromotion(id, { ACTIVED: false });
+      }
+      setInfo(`Se desactivaron ${selectedIds.size} promoción(es)`);
+      setSelectedIds(new Set());
+      await loadPromotions();
+    } catch (e) {
+      setError(e.message || 'Error desactivando promociones');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Función para formatear porcentaje de descuento
   const formatDiscount = (discount) => {
     if (!discount && discount !== 0) return '0%';
@@ -70,28 +184,30 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
     const endDate = new Date(promotion.FechaFin);
     
     // Usar los campos ACTIVED y DELETED de tu API
+    // Si está eliminada lógicamente (DELETED: true), mostrar como Inactiva
     if (promotion.DELETED === true) {
-      return { state: 'Error', text: 'Eliminada' };
+      return { design: 'Negative', text: 'Inactiva' };
     }
     
+    // Si ACTIVED es false, mostrar como Inactiva
     if (promotion.ACTIVED === false) {
-      return { state: 'Warning', text: 'Inactiva' };
+      return { design: 'Negative', text: 'Inactiva' };
     }
     
     // Verificar fechas de vigencia
     if (now < startDate) {
-      return { state: 'Information', text: 'Programada' };
+      return { design: 'Information', text: 'Programada' };
     }
     
     if (now > endDate) {
-      return { state: 'Warning', text: 'Expirada' };
+      return { design: 'Critical', text: 'Expirada' };
     }
     
     if (promotion.ACTIVED === true && now >= startDate && now <= endDate) {
-      return { state: 'Success', text: 'Activa' };
+      return { design: 'Positive', text: 'Activa' };
     }
     
-    return { state: 'Information', text: 'Desconocido' };
+    return { design: 'Neutral', text: 'Desconocido' };
   };
 
   // Función para formatear fechas
@@ -154,22 +270,53 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
       header={
         <CardHeader 
           titleText="Lista de Promociones"
-          subtitleText={`${promotions.length} promociones encontradas`}
+          subtitleText={`${filteredPromotions.length} promociones encontradas`}
           action={
-            <FlexBox alignItems="Center">
-              {loading && <BusyIndicator active size="Small" />}
-              <Label 
+            <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+              <Input
+                placeholder="Buscar por producto, SKU, marca..."
+                value={search}
+                onInput={(e) => setSearch(e.target.value)}
+                style={{ width: '360px' }}
+                icon={<Icon name="search" />}
+              />
+              <Button
+                icon="edit"
+                onClick={handleEditSelected}
+                disabled={selectedIds.size !== 1}
                 style={{ 
-                  marginLeft: '0.5rem',
-                  padding: '0.25rem 0.5rem',
-                  backgroundColor: promotions.length > 0 ? '#0a6ed1' : '#666',
-                  color: 'white',
-                  borderRadius: '0.25rem',
-                  fontSize: '0.75rem'
+                  backgroundColor: '#E3F2FD',
+                  color: '#1976D2',
+                  border: 'none'
                 }}
               >
-                Total: {promotions.length}
-              </Label>
+                Editar
+              </Button>
+              <Button
+                icon="delete"
+                onClick={handleDeleteHardSelected}
+                disabled={selectedIds.size === 0}
+                style={{ 
+                  backgroundColor: '#FCE4EC',
+                  color: '#C2185B',
+                  border: 'none'
+                }}
+              >
+                Eliminar
+              </Button>
+              <Button
+                icon="decline"
+                onClick={handleDeactivateSelected}
+                disabled={selectedIds.size === 0}
+                style={{ 
+                  backgroundColor: '#FFF3E0',
+                  color: '#E65100',
+                  border: 'none'
+                }}
+              >
+                Desactivar
+              </Button>
+              {loading && <BusyIndicator active size="Small" />}
             </FlexBox>
           }
         />
@@ -177,6 +324,11 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
       style={{ margin: '1rem', maxWidth: '100%' }}
     >
       <div style={{ padding: '1rem' }}>
+        {info && (
+          <MessageStrip type="Positive" style={{ marginBottom: '0.5rem' }} onClose={() => setInfo('')}>
+            {info}
+          </MessageStrip>
+        )}
         {error && (
           <MessageStrip 
             type="Negative" 
@@ -212,6 +364,13 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
             noDataText="No hay promociones para mostrar"
             headerRow={
               <TableRow>
+                <TableCell style={{ width: '60px', minWidth: '60px' }}>
+                  <CheckBox
+                    checked={selectedIds.size > 0 && selectedIds.size === filteredPromotions.length && filteredPromotions.length > 0}
+                    indeterminate={selectedIds.size > 0 && selectedIds.size < filteredPromotions.length}
+                    onChange={(e) => selectAll(e.target.checked)}
+                  />
+                </TableCell>
                 <TableCell style={{ fontWeight: 'bold' }}>
                   <Text>ID Promoción</Text>
                 </TableCell>
@@ -220,9 +379,6 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
                 </TableCell>
                 <TableCell style={{ fontWeight: 'bold' }}>
                   <Text>Descripción</Text>
-                </TableCell>
-                <TableCell style={{ fontWeight: 'bold' }}>
-                  <Text>SKU Aplicable</Text>
                 </TableCell>
                 <TableCell style={{ fontWeight: 'bold' }}>
                   <Text>Descuento</Text>
@@ -240,7 +396,7 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
             }
             style={{ width: '100%' }}
           >
-            {promotions.map((promotion, index) => {
+            {filteredPromotions.map((promotion, index) => {
               const promotionStatus = getPromotionStatus(promotion);
               const discountInfo = getDiscountInfo(promotion);
               const isActive = isPromotionActive(promotion);
@@ -248,13 +404,18 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
               return (
                 <TableRow 
                   key={promotion._id || promotion.IdPromoOK || index}
-                  onClick={() => handleRowClick(promotion)}
                   style={{ 
                     cursor: 'pointer',
                     backgroundColor: isActive ? '#f8fff8' : 'transparent'
                   }}
                   className="ui5-table-row-hover"
                 >
+                  <TableCell>
+                    <CheckBox
+                      checked={selectedIds.has(promotion.IdPromoOK)}
+                      onChange={() => toggleSelect(promotion.IdPromoOK)}
+                    />
+                  </TableCell>
                   <TableCell>
                     <Text style={{ fontFamily: 'monospace', fontWeight: '600' }}>
                       {promotion.IdPromoOK || `PROMO-${index + 1}`}
@@ -265,6 +426,7 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
                     <Text 
                       style={{ fontWeight: '500' }}
                       title={promotion.Titulo}
+                      onClick={() => handleRowClick(promotion)}
                     >
                       {promotion.Titulo || 'Sin título'}
                     </Text>
@@ -285,20 +447,6 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
                     </Text>
                   </TableCell>
                   
-                  <TableCell>
-                    <Label 
-                      style={{
-                        padding: '0.25rem 0.5rem',
-                        backgroundColor: '#e3f2fd',
-                        color: '#1976d2',
-                        borderRadius: '0.25rem',
-                        fontSize: '0.75rem',
-                        fontFamily: 'monospace'
-                      }}
-                    >
-                      {promotion.SKUID || 'N/A'}
-                    </Label>
-                  </TableCell>
                   
                   <TableCell>
                     <FlexBox alignItems="Center">
@@ -351,11 +499,9 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
                   </TableCell>
                   
                   <TableCell>
-                    <ObjectStatus 
-                      state={promotionStatus.state}
-                    >
+                    <Tag design={promotionStatus.design}>
                       {promotionStatus.text}
-                    </ObjectStatus>
+                    </Tag>
                   </TableCell>
                 </TableRow>
               );
@@ -375,18 +521,18 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
             }}
           >
             <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-              Mostrando {promotions.length} promociones
+              Mostrando {filteredPromotions.length} promociones
             </Text>
             <FlexBox style={{ gap: '1rem' }}>
               <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                Activas: {promotions.filter(p => isPromotionActive(p)).length}
+                Activas: {filteredPromotions.filter(p => isPromotionActive(p)).length}
               </Text>
               <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                Con descuento: {promotions.filter(p => getDiscountInfo(p).value > 0).length}
+                Con descuento: {filteredPromotions.filter(p => getDiscountInfo(p).value > 0).length}
               </Text>
               <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                Promedio descuento: {promotions.length > 0 ? 
-                  (promotions.reduce((sum, p) => sum + getDiscountInfo(p).value, 0) / promotions.length).toFixed(1) + '%' : 
+                Promedio descuento: {filteredPromotions.length > 0 ? 
+                  (filteredPromotions.reduce((sum, p) => sum + getDiscountInfo(p).value, 0) / filteredPromotions.length).toFixed(1) + '%' : 
                   '0%'
                 }
               </Text>

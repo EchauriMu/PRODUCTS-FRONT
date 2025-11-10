@@ -21,6 +21,7 @@ import {
   Token
 } from '@ui5/webcomponents-react';
 import productService from '../../api/productService';
+import promoService from '../../api/promoService';
 
 const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -30,135 +31,51 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
   const [allProducts, setAllProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingPromotions, setLoadingPromotions] = useState(false);
   const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [apiPromotions, setApiPromotions] = useState([]);
   const [filters, setFilters] = useState({
     estado: 'all', // 'all', 'active', 'scheduled', 'finished'
     tipo: 'all',
     buscar: ''
   });
 
-  // DATOS MOCK DE PROMOCIONES (simulando API)
-  const [mockPromotions] = useState([
-    {
-      id: 'PROMO001',
-      titulo: 'Black Friday 2025',
-      descripcion: 'Descuentos increíbles en electrónicos',
-      fechaInicio: '2025-11-25',
-      fechaFin: '2025-11-30',
-      descuento: 25,
-      tipoDescuento: 'porcentaje',
-      productosCount: 156,
-      valorEstimado: 2450000,
-      estado: 'scheduled',
-      categoria: 'Electronics',
-      icono: 'product',
-      color: '#1976d2',
-      productosSeleccionados: [
-        { id: 'PROD001', nombre: 'iPhone 15 Pro', precio: 1200, categoria: 'Electronics' },
-        { id: 'PROD002', nombre: 'Samsung Galaxy S24', precio: 1000, categoria: 'Electronics' },
-        { id: 'PROD003', nombre: 'MacBook Pro M3', precio: 2500, categoria: 'Electronics' }
-      ]
-    },
-    {
-      id: 'PROMO002',
-      titulo: 'Cyber Monday',
-      descripcion: 'Ofertas digitales exclusivas',
-      fechaInicio: '2025-12-01',
-      fechaFin: '2025-12-02',
-      descuento: 30,
-      tipoDescuento: 'porcentaje',
-      productosCount: 89,
-      valorEstimado: 1200000,
-      estado: 'scheduled',
-      categoria: 'Technology',
-      icono: '💻',
-      color: '#7b1fa2',
-      productosSeleccionados: [
-        { id: 'PROD004', nombre: 'Gaming Laptop RTX 4070', precio: 1800, categoria: 'Gaming' },
-        { id: 'PROD005', nombre: 'Mechanical Keyboard RGB', precio: 150, categoria: 'Accessories' }
-      ]
-    },
-    {
-      id: 'PROMO003',
-      titulo: 'Promoción Navideña',
-      descripcion: 'Regalos perfectos para esta temporada',
-      fechaInicio: '2025-12-10',
-      fechaFin: '2025-12-25',
-      descuento: 20,
-      tipoDescuento: 'porcentaje',
-      productosCount: 234,
-      valorEstimado: 3400000,
-      estado: 'scheduled',
-      categoria: 'Home & Gifts',
-      icono: 'calendar',
-      color: '#388e3c',
-      productosSeleccionados: [
-        { id: 'PROD006', nombre: 'Perfume Navideño Edición Limitada', precio: 80, categoria: 'Beauty' },
-        { id: 'PROD007', nombre: 'Set de Copas Cristal', precio: 120, categoria: 'Home' },
-        { id: 'PROD008', nombre: 'Caja de Chocolates Premium', precio: 35, categoria: 'Food' }
-      ]
-    },
-    {
-      id: 'PROMO004',
-      titulo: 'Halloween Liquidación',
-      descripcion: 'Últimas piezas de Halloween',
-      fechaInicio: '2025-11-01',
-      fechaFin: '2025-11-05',
-      descuento: 50,
-      tipoDescuento: 'porcentaje',
-      productosCount: 45,
-      valorEstimado: 180000,
-      estado: 'active',
-      categoria: 'Decorations',
-      icono: 'calendar',
-      color: '#ff9800',
-      productosSeleccionados: [
-        { id: 'PROD009', nombre: 'Calabaza Decorativa LED', precio: 25, categoria: 'Halloween' },
-        { id: 'PROD010', nombre: 'Disfraz Vampiro Deluxe', precio: 60, categoria: 'Costumes' }
-      ]
-    },
-    {
-      id: 'PROMO005',
-      titulo: 'Año Nuevo 2026',
-      descripcion: 'Empieza el año con ofertas',
-      fechaInicio: '2025-12-28',
-      fechaFin: '2026-01-05',
-      descuento: 15,
-      tipoDescuento: 'porcentaje',
-      productosCount: 178,
-      valorEstimado: 2100000,
-      estado: 'scheduled',
-      categoria: 'Fashion',
-      icono: 'celebrate',
-      color: '#e91e63',
-      productosSeleccionados: [
-        { id: 'PROD011', nombre: 'Vestido de Fiesta Dorado', precio: 180, categoria: 'Fashion' },
-        { id: 'PROD012', nombre: 'Zapatos de Cuero Italian', precio: 220, categoria: 'Shoes' }
-      ]
-    },
-    {
-      id: 'PROMO006',
-      titulo: 'San Valentín 2026',
-      descripción: 'Regalos especiales para el amor',
-      fechaInicio: '2026-02-10',
-      fechaFin: '2026-02-16',
-      descuento: 18,
-      tipoDescuento: 'porcentaje',
-      productosCount: 92,
-      valorEstimado: 950000,
-      estado: 'scheduled',
-      categoria: 'Jewelry & Beauty',
-      icono: '💖',
-      color: '#e91e63',
-      productosSeleccionados: [
-        { id: 'PROD013', nombre: 'Anillo de Diamante Solitario', precio: 800, categoria: 'Jewelry' },
-        { id: 'PROD014', nombre: 'Collar de Perlas Naturales', precio: 350, categoria: 'Jewelry' }
-      ]
+  // Cargar promociones desde la API
+  useEffect(() => {
+    loadPromotions();
+  }, []);
+
+  const loadPromotions = async () => {
+    setLoadingPromotions(true);
+    try {
+      const response = await promoService.getAllPromotions();
+      
+      // Estructura de tu API: data.value[0].data[0].dataRes
+      let promotionsList = [];
+      
+      if (response && response.value && Array.isArray(response.value) && response.value.length > 0) {
+        const mainResponse = response.value[0];
+        if (mainResponse.data && Array.isArray(mainResponse.data) && mainResponse.data.length > 0) {
+          const dataResponse = mainResponse.data[0];
+          if (dataResponse.dataRes && Array.isArray(dataResponse.dataRes)) {
+            promotionsList = dataResponse.dataRes;
+          }
+        }
+      }
+      
+      console.log('Promociones cargadas:', promotionsList);
+      setApiPromotions(promotionsList);
+    } catch (error) {
+      console.error('Error cargando promociones:', error);
+      setApiPromotions([]);
+    } finally {
+      setLoadingPromotions(false);
     }
-  ]);
+  };
 
   // Funciones helper para fechas
   const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
     return date.toLocaleDateString('es-ES', { 
       day: 'numeric', 
@@ -167,6 +84,7 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
   };
 
   const formatDateFull = (dateStr) => {
+    if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
     return date.toLocaleDateString('es-ES', { 
       day: 'numeric', 
@@ -176,15 +94,23 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
   };
 
   const isToday = (dateStr) => {
+    if (!dateStr) return false;
     const today = new Date();
     const date = new Date(dateStr);
     return today.toDateString() === date.toDateString();
   };
 
   const getPromotionStatus = (promotion) => {
+    if (!promotion) return 'finished';
+    
+    // Si está eliminada o no activa
+    if (promotion.DELETED === true || promotion.ACTIVED === false) {
+      return 'finished';
+    }
+    
     const today = new Date();
-    const inicio = new Date(promotion.fechaInicio);
-    const fin = new Date(promotion.fechaFin);
+    const inicio = new Date(promotion.FechaIni);
+    const fin = new Date(promotion.FechaFin);
     
     if (today < inicio) return 'scheduled';
     if (today >= inicio && today <= fin) return 'active';
@@ -211,24 +137,47 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
 
   // Filtrar promociones
   const getFilteredPromotions = () => {
-    return mockPromotions.filter(promo => {
+    return apiPromotions.filter(promo => {
       const status = getPromotionStatus(promo);
       
       // Filtro por estado
       if (filters.estado !== 'all' && status !== filters.estado) return false;
       
       // Filtro por búsqueda
-      if (filters.buscar && !promo.titulo.toLowerCase().includes(filters.buscar.toLowerCase())) return false;
+      if (filters.buscar && !promo.Titulo?.toLowerCase().includes(filters.buscar.toLowerCase())) return false;
       
       return true;
     });
   };
 
+  // Obtener color basado en el tipo de promoción
+  const getPromotionColor = (promotion) => {
+    if (!promotion) return '#757575';
+    const status = getPromotionStatus(promotion);
+    
+    if (status === 'active') return '#388e3c';
+    if (status === 'scheduled') return '#1976d2';
+    return '#757575';
+  };
+
+  // Obtener ícono basado en el tipo de promoción
+  const getPromotionIcon = (promotion) => {
+    if (!promotion) return '📋';
+    
+    const tipo = promotion.TipoPromocion || '';
+    if (tipo.includes('PRODUCTO')) return '🛍️';
+    if (tipo.includes('CATEGORIA')) return '📦';
+    if (tipo.includes('MARCA')) return '🏷️';
+    return '🎉';
+  };
+
   // Obtener promociones por mes
   const getPromotionsForMonth = (year, month) => {
     return getFilteredPromotions().filter(promo => {
-      const inicio = new Date(promo.fechaInicio);
-      const fin = new Date(promo.fechaFin);
+      if (!promo.FechaIni || !promo.FechaFin) return false;
+      
+      const inicio = new Date(promo.FechaIni);
+      const fin = new Date(promo.FechaFin);
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       
@@ -250,8 +199,10 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
 
     for (let i = 0; i < 42; i++) { // 6 semanas * 7 días
       const dayPromotions = getFilteredPromotions().filter(promo => {
-        const inicio = new Date(promo.fechaInicio);
-        const fin = new Date(promo.fechaFin);
+        if (!promo.FechaIni || !promo.FechaFin) return false;
+        
+        const inicio = new Date(promo.FechaIni);
+        const fin = new Date(promo.FechaFin);
         return currentDay >= inicio && currentDay <= fin;
       });
 
@@ -271,7 +222,9 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
   // Manejar click en promoción
   const handlePromotionClick = (promotion) => {
     setSelectedPromotion(promotion);
-    setSelectedProducts(promotion.productosSeleccionados || []);
+    // Cargar los productos aplicables de la promoción
+    const productos = promotion.ProductosAplicables || [];
+    setSelectedProducts(productos);
     setShowPromotionDetail(true);
     if (onPromotionClick) onPromotionClick(promotion);
   };
@@ -280,8 +233,23 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
   const loadAllProducts = async () => {
     setLoadingProducts(true);
     try {
-      const products = await productService.getAllProducts();
-      setAllProducts(products || []);
+      const response = await productService.getAllProducts();
+      
+      // Estructura de tu API
+      let productsList = [];
+      
+      if (response && response.value && Array.isArray(response.value) && response.value.length > 0) {
+        const mainResponse = response.value[0];
+        if (mainResponse.data && Array.isArray(mainResponse.data) && mainResponse.data.length > 0) {
+          const dataResponse = mainResponse.data[0];
+          if (dataResponse.dataRes && Array.isArray(dataResponse.dataRes)) {
+            productsList = dataResponse.dataRes;
+          }
+        }
+      }
+      
+      console.log('Productos cargados:', productsList.length);
+      setAllProducts(productsList || []);
     } catch (error) {
       console.error('Error cargando productos:', error);
       setAllProducts([]);
@@ -300,11 +268,16 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
   // Manejar selección de productos
   const handleProductToggle = (product) => {
     setSelectedProducts(prev => {
-      const isSelected = prev.some(p => p.id === product.id);
+      const isSelected = prev.some(p => p.SKUID === product.SKUID);
       if (isSelected) {
-        return prev.filter(p => p.id !== product.id);
+        return prev.filter(p => p.SKUID !== product.SKUID);
       } else {
-        return [...prev, product];
+        // Agregar con el formato que espera la API
+        return [...prev, {
+          SKUID: product.SKUID,
+          NombreProducto: product.PRODUCTNAME,
+          PrecioOriginal: product.PRECIO || 0
+        }];
       }
     });
   };
@@ -315,27 +288,40 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
     
     return allProducts.filter(product => {
       const matchesSearch = !productSearchTerm || 
-        product.nombre?.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
-        product.categoria?.toLowerCase().includes(productSearchTerm.toLowerCase());
+        product.PRODUCTNAME?.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+        product.MARCA?.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+        product.SKUID?.toLowerCase().includes(productSearchTerm.toLowerCase());
       
       return matchesSearch;
     });
   };
 
   // Guardar cambios en productos seleccionados
-  const handleSaveProductChanges = () => {
-    // Aquí se haría la llamada a la API para actualizar la promoción
-    console.log('Actualizando productos de promoción:', {
-      promocion: selectedPromotion.id,
-      productos: selectedProducts
-    });
-    
-    // Actualizar el mock local
-    setSelectedPromotion(prev => ({
-      ...prev,
-      productosSeleccionados: selectedProducts,
-      productosCount: selectedProducts.length
-    }));
+  const handleSaveProductChanges = async () => {
+    try {
+      // Preparar los datos para actualizar
+      const updateData = {
+        ...selectedPromotion,
+        ProductosAplicables: selectedProducts
+      };
+      
+      // Llamar a la API para actualizar la promoción
+      await promoService.updatePromotion(selectedPromotion.IdPromoOK, updateData);
+      
+      console.log('Productos de promoción actualizados:', {
+        promocion: selectedPromotion.IdPromoOK,
+        productos: selectedProducts.length
+      });
+      
+      // Recargar promociones
+      await loadPromotions();
+      
+      // Cerrar modal
+      setShowPromotionDetail(false);
+    } catch (error) {
+      console.error('Error al actualizar productos:', error);
+      alert('Error al guardar los cambios: ' + error.message);
+    }
   };
 
   // Navegación de meses
@@ -423,7 +409,12 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
           />
 
           {/* Calendario */}
-          <div style={{ padding: '1rem' }}>
+          {loadingPromotions ? (
+            <FlexBox justifyContent="Center" style={{ padding: '3rem' }}>
+              <BusyIndicator size="Large" />
+            </FlexBox>
+          ) : (
+            <div style={{ padding: '1rem' }}>
             {/* Días de la semana */}
             <div style={{ 
               display: 'grid', 
@@ -476,25 +467,29 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
 
                   {/* Promociones del día */}
                   <FlexBox direction="Column" style={{ gap: '0.125rem' }}>
-                    {day.promotions.slice(0, 3).map(promo => (
-                      <div
-                        key={promo.id}
-                        onClick={() => handlePromotionClick(promo)}
-                        style={{
-                          padding: '0.125rem 0.25rem',
-                          backgroundColor: promo.color + '20',
-                          border: `1px solid ${promo.color}`,
-                          borderRadius: '2px',
-                          cursor: 'pointer',
-                          fontSize: '0.625rem',
-                          lineHeight: '1.2'
-                        }}
-                      >
-                        <Text style={{ fontSize: '0.625rem' }}>
-                          {promo.icono} {promo.titulo.substring(0, 15)}...
-                        </Text>
-                      </div>
-                    ))}
+                    {day.promotions.slice(0, 3).map(promo => {
+                      const color = getPromotionColor(promo);
+                      const icon = getPromotionIcon(promo);
+                      return (
+                        <div
+                          key={promo.IdPromoOK}
+                          onClick={() => handlePromotionClick(promo)}
+                          style={{
+                            padding: '0.125rem 0.25rem',
+                            backgroundColor: color + '20',
+                            border: `1px solid ${color}`,
+                            borderRadius: '2px',
+                            cursor: 'pointer',
+                            fontSize: '0.625rem',
+                            lineHeight: '1.2'
+                          }}
+                        >
+                          <Text style={{ fontSize: '0.625rem' }}>
+                            {icon} {(promo.Titulo || '').substring(0, 15)}...
+                          </Text>
+                        </div>
+                      );
+                    })}
                     {day.promotions.length > 3 && (
                       <Text style={{ fontSize: '0.5rem', color: '#666' }}>
                         +{day.promotions.length - 3} más
@@ -504,7 +499,8 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                 </div>
               ))}
             </div>
-          </div>
+            </div>
+          )}
         </Card>
       )}
 
@@ -513,71 +509,91 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
         <Card>
           <CardHeader titleText="Agenda de Promociones" />
           <div style={{ padding: '1rem' }}>
-            <FlexBox direction="Column" style={{ gap: '1rem' }}>
-              {getFilteredPromotions()
-                .sort((a, b) => new Date(a.fechaInicio) - new Date(b.fechaInicio))
-                .map(promo => {
-                  const status = getPromotionStatus(promo);
-                  return (
-                    <Card 
-                      key={promo.id}
-                      style={{ 
-                        cursor: 'pointer',
-                        border: `2px solid ${promo.color}20`,
-                        borderLeft: `4px solid ${promo.color}`
-                      }}
-                      onClick={() => handlePromotionClick(promo)}
-                    >
-                      <div style={{ padding: '1rem' }}>
-                        <FlexBox justifyContent="SpaceBetween" alignItems="Start">
-                          <FlexBox alignItems="Center" style={{ gap: '0.75rem' }}>
-                            <Avatar 
-                              size="M" 
-                              style={{ backgroundColor: promo.color }}
-                            >
-                              <Text style={{ fontSize: '1.2rem' }}>{promo.icono}</Text>
-                            </Avatar>
-                            <FlexBox direction="Column">
-                              <Title level="H5" style={{ margin: 0 }}>
-                                {promo.titulo}
-                              </Title>
-                              <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                                {promo.descripcion}
-                              </Text>
-                              <FlexBox style={{ gap: '0.5rem', marginTop: '0.25rem' }}>
-                                <Text style={{ fontSize: '0.75rem' }}>
-                                  {formatDateFull(promo.fechaInicio)} - {formatDateFull(promo.fechaFin)}
+            {loadingPromotions ? (
+              <FlexBox justifyContent="Center" style={{ padding: '2rem' }}>
+                <BusyIndicator size="Large" />
+              </FlexBox>
+            ) : (
+              <FlexBox direction="Column" style={{ gap: '1rem' }}>
+                {getFilteredPromotions()
+                  .sort((a, b) => new Date(a.FechaIni) - new Date(b.FechaIni))
+                  .map(promo => {
+                    const status = getPromotionStatus(promo);
+                    const color = getPromotionColor(promo);
+                    const icon = getPromotionIcon(promo);
+                    const descuento = promo.TipoDescuento === 'PORCENTAJE' ? promo.DescuentoPorcentaje : promo.DescuentoMonto;
+                    const productosCount = promo.ProductosAplicables?.length || 0;
+                    
+                    return (
+                      <Card 
+                        key={promo.IdPromoOK}
+                        style={{ 
+                          cursor: 'pointer',
+                          border: `2px solid ${color}20`,
+                          borderLeft: `4px solid ${color}`
+                        }}
+                        onClick={() => handlePromotionClick(promo)}
+                      >
+                        <div style={{ padding: '1rem' }}>
+                          <FlexBox justifyContent="SpaceBetween" alignItems="Start">
+                            <FlexBox alignItems="Center" style={{ gap: '0.75rem' }}>
+                              <Avatar 
+                                size="M" 
+                                style={{ backgroundColor: color }}
+                              >
+                                <Text style={{ fontSize: '1.2rem' }}>{icon}</Text>
+                              </Avatar>
+                              <FlexBox direction="Column">
+                                <Title level="H5" style={{ margin: 0 }}>
+                                  {promo.Titulo || 'Sin título'}
+                                </Title>
+                                <Text style={{ fontSize: '0.875rem', color: '#666' }}>
+                                  {promo.Descripcion || 'Sin descripción'}
                                 </Text>
+                                <FlexBox style={{ gap: '0.5rem', marginTop: '0.25rem' }}>
+                                  <Text style={{ fontSize: '0.75rem' }}>
+                                    {formatDateFull(promo.FechaIni)} - {formatDateFull(promo.FechaFin)}
+                                  </Text>
+                                </FlexBox>
+                              </FlexBox>
+                            </FlexBox>
+                            
+                            <FlexBox direction="Column" alignItems="End" style={{ gap: '0.5rem' }}>
+                              <ObjectStatus state={getStatusColor(status)}>
+                                {getStatusText(status)}
+                              </ObjectStatus>
+                              <FlexBox style={{ gap: '1rem' }}>
+                                <FlexBox direction="Column" alignItems="Center">
+                                  <Text style={{ fontSize: '0.75rem', color: '#666' }}>Descuento</Text>
+                                  <Text style={{ fontWeight: 'bold' }}>
+                                    {promo.TipoDescuento === 'PORCENTAJE' ? `${descuento}%` : `$${descuento}`}
+                                  </Text>
+                                </FlexBox>
+                                <FlexBox direction="Column" alignItems="Center">
+                                  <Text style={{ fontSize: '0.75rem', color: '#666' }}>Productos</Text>
+                                  <Text style={{ fontWeight: 'bold' }}>{productosCount}</Text>
+                                </FlexBox>
+                                <FlexBox direction="Column" alignItems="Center">
+                                  <Text style={{ fontSize: '0.75rem', color: '#666' }}>Tipo</Text>
+                                  <Text style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
+                                    {promo.TipoPromocion || 'N/A'}
+                                  </Text>
+                                </FlexBox>
                               </FlexBox>
                             </FlexBox>
                           </FlexBox>
-                          
-                          <FlexBox direction="Column" alignItems="End" style={{ gap: '0.5rem' }}>
-                            <ObjectStatus state={getStatusColor(status)}>
-                              {getStatusText(status)}
-                            </ObjectStatus>
-                            <FlexBox style={{ gap: '1rem' }}>
-                              <FlexBox direction="Column" alignItems="Center">
-                                <Text style={{ fontSize: '0.75rem', color: '#666' }}>Descuento</Text>
-                                <Text style={{ fontWeight: 'bold' }}>{promo.descuento}%</Text>
-                              </FlexBox>
-                              <FlexBox direction="Column" alignItems="Center">
-                                <Text style={{ fontSize: '0.75rem', color: '#666' }}>Productos</Text>
-                                <Text style={{ fontWeight: 'bold' }}>{promo.productosCount}</Text>
-                              </FlexBox>
-                              <FlexBox direction="Column" alignItems="Center">
-                                <Text style={{ fontSize: '0.75rem', color: '#666' }}>Valor</Text>
-                                <Text style={{ fontWeight: 'bold' }}>${(promo.valorEstimado / 1000).toFixed(0)}K</Text>
-                              </FlexBox>
-                            </FlexBox>
-                          </FlexBox>
-                        </FlexBox>
-                      </div>
-                    </Card>
-                  );
-                })
-              }
-            </FlexBox>
+                        </div>
+                      </Card>
+                    );
+                  })
+                }
+                {getFilteredPromotions().length === 0 && (
+                  <MessageStrip type="Information">
+                    No se encontraron promociones con los filtros aplicados.
+                  </MessageStrip>
+                )}
+              </FlexBox>
+            )}
           </div>
         </Card>
       )}
@@ -597,7 +613,7 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
       {/* Modal de Detalle de Promoción */}
       <Dialog
         open={showPromotionDetail}
-        headerText={`${selectedPromotion?.icono} ${selectedPromotion?.titulo}`}
+        headerText={selectedPromotion ? `${getPromotionIcon(selectedPromotion)} ${selectedPromotion.Titulo}` : 'Detalle de Promoción'}
         style={{ width: '900px', maxWidth: '90vw' }}
         footer={
           <Bar
@@ -628,13 +644,13 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                     <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
                       <Avatar 
                         size="L" 
-                        style={{ backgroundColor: selectedPromotion.color }}
+                        style={{ backgroundColor: getPromotionColor(selectedPromotion) }}
                       >
-                        <Text style={{ fontSize: '1.5rem' }}>{selectedPromotion.icono}</Text>
+                        <Text style={{ fontSize: '1.5rem' }}>{getPromotionIcon(selectedPromotion)}</Text>
                       </Avatar>
                       <FlexBox direction="Column">
-                        <Title level="H4">{selectedPromotion.titulo}</Title>
-                        <Text style={{ color: '#666' }}>{selectedPromotion.descripcion}</Text>
+                        <Title level="H4">{selectedPromotion.Titulo || 'Sin título'}</Title>
+                        <Text style={{ color: '#666' }}>{selectedPromotion.Descripcion || 'Sin descripción'}</Text>
                         <ObjectStatus state={getStatusColor(getPromotionStatus(selectedPromotion))}>
                           {getStatusText(getPromotionStatus(selectedPromotion))}
                         </ObjectStatus>
@@ -645,19 +661,24 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                       <Card>
                         <div style={{ padding: '1rem', textAlign: 'center' }}>
                           <Text style={{ fontSize: '0.875rem', color: '#666' }}>Fecha de Inicio</Text>
-                          <Title level="H5">{formatDateFull(selectedPromotion.fechaInicio)}</Title>
+                          <Title level="H5">{formatDateFull(selectedPromotion.FechaIni)}</Title>
                         </div>
                       </Card>
                       <Card>
                         <div style={{ padding: '1rem', textAlign: 'center' }}>
                           <Text style={{ fontSize: '0.875rem', color: '#666' }}>Fecha de Fin</Text>
-                          <Title level="H5">{formatDateFull(selectedPromotion.fechaFin)}</Title>
+                          <Title level="H5">{formatDateFull(selectedPromotion.FechaFin)}</Title>
                         </div>
                       </Card>
                       <Card>
                         <div style={{ padding: '1rem', textAlign: 'center' }}>
                           <Text style={{ fontSize: '0.875rem', color: '#666' }}>Descuento</Text>
-                          <Title level="H5">{selectedPromotion.descuento}%</Title>
+                          <Title level="H5">
+                            {selectedPromotion.TipoDescuento === 'PORCENTAJE' 
+                              ? `${selectedPromotion.DescuentoPorcentaje}%` 
+                              : `$${selectedPromotion.DescuentoMonto}`
+                            }
+                          </Title>
                         </div>
                       </Card>
                       <Card>
@@ -670,9 +691,9 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
 
                     <Card>
                       <div style={{ padding: '1rem' }}>
-                        <Text style={{ fontSize: '0.875rem', color: '#666' }}>Valor Estimado de la Promoción</Text>
-                        <Title level="H3" style={{ color: selectedPromotion.color }}>
-                          ${selectedPromotion.valorEstimado.toLocaleString()}
+                        <Text style={{ fontSize: '0.875rem', color: '#666' }}>Tipo de Promoción</Text>
+                        <Title level="H3" style={{ color: getPromotionColor(selectedPromotion) }}>
+                          {selectedPromotion.TipoPromocion || 'General'}
                         </Title>
                       </div>
                     </Card>
@@ -699,13 +720,16 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                           <FlexBox direction="Column" alignItems="Center">
                             <Text style={{ fontSize: '0.75rem', color: '#666' }}>Valor Total</Text>
                             <Text style={{ fontWeight: 'bold' }}>
-                              ${selectedProducts.reduce((sum, p) => sum + (p.precio || 0), 0).toLocaleString()}
+                              ${selectedProducts.reduce((sum, p) => sum + (p.PrecioOriginal || 0), 0).toLocaleString()}
                             </Text>
                           </FlexBox>
                           <FlexBox direction="Column" alignItems="Center">
                             <Text style={{ fontSize: '0.75rem', color: '#666' }}>Descuento</Text>
-                            <Text style={{ fontWeight: 'bold', color: selectedPromotion.color }}>
-                              {selectedPromotion.descuento}%
+                            <Text style={{ fontWeight: 'bold', color: getPromotionColor(selectedPromotion) }}>
+                              {selectedPromotion.TipoDescuento === 'PORCENTAJE' 
+                                ? `${selectedPromotion.DescuentoPorcentaje}%` 
+                                : `$${selectedPromotion.DescuentoMonto}`
+                              }
                             </Text>
                           </FlexBox>
                         </FlexBox>
@@ -720,39 +744,46 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                         No hay productos seleccionados para esta promoción. Ve al tab "Gestionar Productos" para añadir productos.
                       </MessageStrip>
                     ) : (
-                      selectedProducts.map(product => (
-                        <Card key={product.id} style={{ borderLeft: `4px solid ${selectedPromotion.color}` }}>
-                          <div style={{ padding: '1rem' }}>
-                            <FlexBox justifyContent="SpaceBetween" alignItems="Center">
-                              <FlexBox direction="Column" style={{ flex: 1 }}>
-                                <Title level="H6">{product.nombre}</Title>
-                                <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                                  {product.categoria}
-                                </Text>
-                              </FlexBox>
-                              <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
-                                <FlexBox direction="Column" alignItems="End">
-                                  <Text style={{ fontSize: '0.75rem', color: '#666' }}>Precio Original</Text>
-                                  <Text style={{ fontWeight: 'bold' }}>${product.precio?.toLocaleString()}</Text>
-                                </FlexBox>
-                                <FlexBox direction="Column" alignItems="End">
-                                  <Text style={{ fontSize: '0.75rem', color: '#666' }}>Precio con Descuento</Text>
-                                  <Text style={{ fontWeight: 'bold', color: selectedPromotion.color }}>
-                                    ${Math.round(product.precio * (1 - selectedPromotion.descuento / 100)).toLocaleString()}
+                      selectedProducts.map((product, index) => {
+                        const descuentoValor = selectedPromotion.TipoDescuento === 'PORCENTAJE' 
+                          ? product.PrecioOriginal * (selectedPromotion.DescuentoPorcentaje / 100)
+                          : selectedPromotion.DescuentoMonto;
+                        const precioConDescuento = product.PrecioOriginal - descuentoValor;
+                        
+                        return (
+                          <Card key={product.SKUID || index} style={{ borderLeft: `4px solid ${getPromotionColor(selectedPromotion)}` }}>
+                            <div style={{ padding: '1rem' }}>
+                              <FlexBox justifyContent="SpaceBetween" alignItems="Center">
+                                <FlexBox direction="Column" style={{ flex: 1 }}>
+                                  <Title level="H6">{product.NombreProducto || 'Sin nombre'}</Title>
+                                  <Text style={{ fontSize: '0.875rem', color: '#666' }}>
+                                    SKU: {product.SKUID}
                                   </Text>
                                 </FlexBox>
-                                <Button 
-                                  design="Transparent" 
-                                  icon="delete"
-                                  onClick={() => handleProductToggle(product)}
-                                >
-                                  Quitar
-                                </Button>
+                                <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
+                                  <FlexBox direction="Column" alignItems="End">
+                                    <Text style={{ fontSize: '0.75rem', color: '#666' }}>Precio Original</Text>
+                                    <Text style={{ fontWeight: 'bold' }}>${product.PrecioOriginal?.toLocaleString()}</Text>
+                                  </FlexBox>
+                                  <FlexBox direction="Column" alignItems="End">
+                                    <Text style={{ fontSize: '0.75rem', color: '#666' }}>Precio con Descuento</Text>
+                                    <Text style={{ fontWeight: 'bold', color: getPromotionColor(selectedPromotion) }}>
+                                      ${Math.round(precioConDescuento).toLocaleString()}
+                                    </Text>
+                                  </FlexBox>
+                                  <Button 
+                                    design="Transparent" 
+                                    icon="delete"
+                                    onClick={() => handleProductToggle(product)}
+                                  >
+                                    Quitar
+                                  </Button>
+                                </FlexBox>
                               </FlexBox>
-                            </FlexBox>
-                          </div>
-                        </Card>
-                      ))
+                            </div>
+                          </Card>
+                        );
+                      })
                     )}
                   </FlexBox>
                   
@@ -804,14 +835,20 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                         ) : (
                           <FlexBox direction="Column" style={{ gap: '0.5rem', padding: '1rem' }}>
                             {getFilteredAvailableProducts().slice(0, 50).map(product => {
-                              const isSelected = selectedProducts.some(p => p.id === product.id);
+                              const isSelected = selectedProducts.some(p => p.SKUID === product.SKUID);
+                              const color = getPromotionColor(selectedPromotion);
+                              const descuentoValor = selectedPromotion.TipoDescuento === 'PORCENTAJE' 
+                                ? (product.PRECIO || 0) * (selectedPromotion.DescuentoPorcentaje / 100)
+                                : selectedPromotion.DescuentoMonto;
+                              const precioConDescuento = (product.PRECIO || 0) - descuentoValor;
+                              
                               return (
                                 <Card 
-                                  key={product.id}
+                                  key={product.SKUID}
                                   style={{ 
                                     padding: '0.75rem',
-                                    backgroundColor: isSelected ? selectedPromotion.color + '10' : 'transparent',
-                                    borderLeft: isSelected ? `3px solid ${selectedPromotion.color}` : '3px solid transparent',
+                                    backgroundColor: isSelected ? color + '10' : 'transparent',
+                                    borderLeft: isSelected ? `3px solid ${color}` : '3px solid transparent',
                                     cursor: 'pointer'
                                   }}
                                   onClick={() => handleProductToggle(product)}
@@ -824,30 +861,35 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                                       />
                                       <FlexBox direction="Column" style={{ flex: 1 }}>
                                         <Text style={{ fontWeight: isSelected ? 'bold' : 'normal' }}>
-                                          {product.nombre}
+                                          {product.PRODUCTNAME || 'Sin nombre'}
                                         </Text>
                                         <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                                          {product.categoria}
+                                          SKU: {product.SKUID} • {product.MARCA || 'Sin marca'}
                                         </Text>
                                       </FlexBox>
                                     </FlexBox>
                                     <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
                                       <FlexBox direction="Column" alignItems="End">
                                         <Text style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>
-                                          ${product.precio?.toLocaleString()}
+                                          ${(product.PRECIO || 0).toLocaleString()}
                                         </Text>
                                         {isSelected && (
                                           <Text style={{ 
                                             fontSize: '0.75rem', 
-                                            color: selectedPromotion.color,
+                                            color: color,
                                             fontWeight: 'bold'
                                           }}>
-                                            ${Math.round(product.precio * (1 - selectedPromotion.descuento / 100)).toLocaleString()} ({selectedPromotion.descuento}% OFF)
+                                            ${Math.round(precioConDescuento).toLocaleString()} (
+                                              {selectedPromotion.TipoDescuento === 'PORCENTAJE' 
+                                                ? `${selectedPromotion.DescuentoPorcentaje}% OFF` 
+                                                : `$${selectedPromotion.DescuentoMonto} OFF`
+                                              }
+                                            )
                                           </Text>
                                         )}
                                       </FlexBox>
                                       {isSelected && (
-                                        <Token style={{ backgroundColor: selectedPromotion.color, color: 'white' }}>
+                                        <Token style={{ backgroundColor: color, color: 'white' }}>
                                           ✓ Incluido
                                         </Token>
                                       )}

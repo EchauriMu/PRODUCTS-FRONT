@@ -13,7 +13,8 @@ const promoService = {
   async getAllPromotions(loggedUser = null) {
     try {
       const params = {
-        ProcessType: 'GetAll'
+        ProcessType: 'GetAll',
+        DBServer: 'MongoDB'
       };
       
       // Solo añadir LoggedUser si se proporciona explícitamente y no hay uno en sessionStorage
@@ -55,7 +56,8 @@ const promoService = {
     try {
       const params = {
         ProcessType: 'GetOne',
-        IdPromoOK: idPromoOK
+        IdPromoOK: idPromoOK,
+        DBServer: 'MongoDB'
       };
       
       // Solo añadir LoggedUser si se proporciona explícitamente y no hay uno en sessionStorage
@@ -112,7 +114,8 @@ const promoService = {
       console.log('📤 Payload a enviar:', promoPayload);
       
       const params = {
-        ProcessType: 'AddOne'
+        ProcessType: 'AddOne',
+        DBServer: 'MongoDB'
       };
       
       // Solo añadir LoggedUser si se proporciona explícitamente y no hay uno en sessionStorage
@@ -156,16 +159,16 @@ const promoService = {
    * Actualizar una promoción existente
    * @param {string} idPromoOK - ID de la promoción
    * @param {Object} promoData - Datos actualizados de la promoción
-   * @param {string} loggedUser - Usuario que actualiza la promoción
    * @returns {Promise} Promoción actualizada
    */
-  async updatePromotion(idPromoOK, promoData, loggedUser = 'SYSTEM') {
+  async updatePromotion(idPromoOK, promoData) {
     try {
       const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'UpdateOne',
           IdPromoOK: idPromoOK,
-          LoggedUser: loggedUser
+          DBServer: 'MongoDB'
+          // LoggedUser se añade automáticamente por el interceptor
         }), promoData);
       return response.data;
     } catch (error) {
@@ -177,16 +180,16 @@ const promoService = {
   /**
    * Eliminar una promoción (eliminación lógica)
    * @param {string} idPromoOK - ID de la promoción
-   * @param {string} loggedUser - Usuario que elimina la promoción
    * @returns {Promise} Confirmación de eliminación
    */
-  async deletePromotion(idPromoOK, loggedUser = 'SYSTEM') {
+  async deletePromotion(idPromoOK) {
     try {
       const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'DeleteLogic',
           IdPromoOK: idPromoOK,
-          LoggedUser: loggedUser
+          DBServer: 'MongoDB'
+          // LoggedUser se añade automáticamente por el interceptor
         }), {});
       return response.data;
     } catch (error) {
@@ -198,16 +201,16 @@ const promoService = {
   /**
    * Eliminar una promoción permanentemente
    * @param {string} idPromoOK - ID de la promoción
-   * @param {string} loggedUser - Usuario que elimina la promoción
    * @returns {Promise} Confirmación de eliminación
    */
-  async deletePromotionHard(idPromoOK, loggedUser = 'SYSTEM') {
+  async deletePromotionHard(idPromoOK) {
     try {
       const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'DeleteHard',
           IdPromoOK: idPromoOK,
-          LoggedUser: loggedUser
+          DBServer: 'MongoDB'
+          // LoggedUser se añade automáticamente por el interceptor
         }), {});
       return response.data;
     } catch (error) {
@@ -219,16 +222,16 @@ const promoService = {
   /**
    * Activar una promoción
    * @param {string} idPromoOK - ID de la promoción
-   * @param {string} loggedUser - Usuario que activa la promoción
    * @returns {Promise} Confirmación de activación
    */
-  async activatePromotion(idPromoOK, loggedUser = 'SYSTEM') {
+  async activatePromotion(idPromoOK) {
     try {
       const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'ActivateOne',
           IdPromoOK: idPromoOK,
-          LoggedUser: loggedUser
+          DBServer: 'MongoDB'
+          // LoggedUser se añade automáticamente por el interceptor
         }), {});
       return response.data;
     } catch (error) {

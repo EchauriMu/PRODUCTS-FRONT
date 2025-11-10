@@ -15,6 +15,7 @@ import {
   MessageStrip,
   ObjectStatus,
   CheckBox,
+  Switch,
   Select,
   Option,
   Avatar,
@@ -23,10 +24,12 @@ import {
   MultiComboBox,
   ComboBoxItem,
   TabContainer,
-  Tab
+  Tab,
+  Tag
 } from '@ui5/webcomponents-react';
 import promoService from '../../api/promoService';
 import productService from '../../api/productService';
+import AdvancedFiltersFixed from './AdvancedFiltersFixed';
 
 const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   const [editData, setEditData] = useState({
@@ -51,6 +54,25 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   const [allProducts, setAllProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Estados para el modal de agregar productos
+  const [showAddProductsModal, setShowAddProductsModal] = useState(false);
+  const [filteredProductsToAdd, setFilteredProductsToAdd] = useState([]);
+
+  // Extraer SKUs de distintas formas posibles en la promo
+  const extractSkusFromPromotion = (promo) => {
+    const set = new Set();
+    if (!promo) return set;
+    // Campo SKUIDS (array de strings)
+    if (Array.isArray(promo.SKUIDS)) promo.SKUIDS.forEach((id) => id && set.add(id));
+    // Campo ProductosAplicables (array de objetos {SKUID})
+    if (Array.isArray(promo.ProductosAplicables)) promo.ProductosAplicables.forEach((o) => o?.SKUID && set.add(o.SKUID));
+    // Campo Productos (variaciones)
+    if (Array.isArray(promo.Productos)) promo.Productos.forEach((o) => o?.SKUID && set.add(o.SKUID));
+    // Campo SKUID (uno solo)
+    if (promo.SKUID) set.add(promo.SKUID);
+    return set;
+  };
 
   // Cargar datos cuando se abre el modal
   useEffect(() => {
@@ -64,13 +86,11 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         descuentoPorcentaje: promotion['Descuento%'] || promotion.DescuentoPorcentaje || 0,
         descuentoMonto: promotion.DescuentoMonto || 0,
         actived: promotion.ACTIVED !== false,
-        skuids: promotion.SKUIDS || []
+        skuids: Array.from(extractSkusFromPromotion(promotion))
       });
 
       // Establecer productos seleccionados
-      if (promotion.SKUIDS && Array.isArray(promotion.SKUIDS)) {
-        setSelectedProducts(new Set(promotion.SKUIDS));
-      }
+      setSelectedProducts(extractSkusFromPromotion(promotion));
 
       // Cargar productos disponibles
       loadProducts();
@@ -81,18 +101,30 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     setLoading(true);
     try {
       const response = await productService.getAllProducts();
-      
-      let productsData = [];
+
+      // Extraer productos de múltiples estructuras (igual que en AdvancedFilters)
+      let productosData = [];
       if (response?.data?.[0]?.dataRes) {
-        productsData = response.data[0].dataRes;
+        productosData = response.data[0].dataRes;
+      } else if (response?.value?.[0]?.data?.[0]?.dataRes) {
+        productosData = response.value[0].data[0].dataRes;
       } else if (Array.isArray(response?.data)) {
-        productsData = response.data;
+        productosData = response.data;
+      } else if (Array.isArray(response)) {
+        productosData = response;
+      } else if (Array.isArray(response?.dataRes)) {
+        productosData = response.dataRes;
       }
 
-      setAllProducts(productsData.filter(p => p.ACTIVED && !p.DELETED));
+      // Normalizar: solo activos y no eliminados si esos flags existen
+      const activos = Array.isArray(productosData)
+        ? productosData.filter(p => (p.ACTIVED !== false) && (p.DELETED !== true))
+        : [];
+
+      setAllProducts(activos);
     } catch (err) {
       console.error('Error loading products:', err);
-      setError('Error al cargar productos: ' + err.message);
+      setError('Error al cargar productos: ' + (err.message || 'desconocido'));
     } finally {
       setLoading(false);
     }
@@ -116,26 +148,65 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         throw new Error('La fecha de fin debe ser posterior a la fecha de inicio');
       }
 
-      // Preparar datos para la API
+      // Validar que haya al menos un producto seleccionado
+      if (selectedProducts.size === 0) {
+        throw new Error('Debe seleccionar al menos un producto para la promoción');
+      }
+
+      // Validar descuento según el tipo
+      if (editData.tipoDescuento === 'PORCENTAJE') {
+        if (!editData.descuentoPorcentaje || editData.descuentoPorcentaje <= 0 || editData.descuentoPorcentaje > 100) {
+          throw new Error('El porcentaje de descuento debe estar entre 1 y 100');
+        }
+      } else if (editData.tipoDescuento === 'MONTO_FIJO') {
+        if (!editData.descuentoMonto || editData.descuentoMonto <= 0) {
+          throw new Error('El monto de descuento debe ser mayor a 0');
+        }
+      }
+
+      // Preparar productos aplicables - Array de objetos con SKUID
+      const skuArray = Array.from(selectedProducts);
+      const productosAplicables = skuArray.map(skuid => {
+        // Buscar el producto en allProducts para obtener info adicional
+        const product = allProducts.find(p => p.SKUID === skuid);
+        return {
+          SKUID: skuid,
+          NombreProducto: product?.PRODUCTNAME || '',
+          PrecioOriginal: product?.PRECIO || 0
+        };
+      });
+
+      // Preparar datos para la API - SOLO campos modificables
       const updateData = {
-        ...promotion,
         Titulo: editData.titulo,
         Descripcion: editData.descripcion,
-        FechaIni: editData.fechaInicio,
-        FechaFin: editData.fechaFin,
+        FechaIni: new Date(editData.fechaInicio).toISOString(),
+        FechaFin: new Date(editData.fechaFin).toISOString(),
         TipoDescuento: editData.tipoDescuento,
-        'Descuento%': editData.tipoDescuento === 'PORCENTAJE' ? editData.descuentoPorcentaje : 0,
-        DescuentoMonto: editData.tipoDescuento === 'MONTO_FIJO' ? editData.descuentoMonto : 0,
-        ACTIVED: editData.actived,
-        SKUIDS: Array.from(selectedProducts)
+        ProductosAplicables: productosAplicables,
+        ACTIVED: editData.actived
       };
 
-      // Llamar al servicio de actualización (necesitarás implementar este método)
-      await promoService.updatePromotion(promotion.IdPromoOK, updateData);
+      // Solo agregar descuento si tiene un valor válido
+      if (editData.tipoDescuento === 'PORCENTAJE' && editData.descuentoPorcentaje > 0) {
+        updateData.DescuentoPorcentaje = editData.descuentoPorcentaje;
+        updateData.DescuentoMonto = 0;
+      } else if (editData.tipoDescuento === 'MONTO_FIJO' && editData.descuentoMonto > 0) {
+        updateData.DescuentoMonto = editData.descuentoMonto;
+        updateData.DescuentoPorcentaje = 0;
+      }
 
-      onSave && onSave(updateData);
+      console.log('📤 Enviando actualización:', updateData);
+
+      // Llamar al servicio de actualización
+      const response = await promoService.updatePromotion(promotion.IdPromoOK, updateData);
+      
+      console.log('✅ Promoción actualizada:', response);
+
+      onSave && onSave({ ...promotion, ...updateData });
       onClose();
     } catch (err) {
+      console.error('❌ Error al guardar:', err);
       setError(err.message || 'Error al guardar la promoción');
     } finally {
       setSaving(false);
@@ -143,19 +214,66 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`¿Estás seguro de que quieres eliminar la promoción "${editData.titulo}"?`)) {
+    if (!window.confirm(`¿Estás seguro de que quieres desactivar la promoción "${editData.titulo}"? Se marcará como eliminada pero podrás reactivarla después.`)) {
       return;
     }
 
     setDeleting(true);
     try {
-      // Llamar al servicio de eliminación
-      await promoService.deletePromotion(promotion.IdPromoOK);
+      // Llamar al servicio de eliminación lógica (desactivación)
+      const response = await promoService.deletePromotion(promotion.IdPromoOK);
+      
+      console.log('✅ Promoción desactivada:', response);
       
       onDelete && onDelete(promotion);
       onClose();
     } catch (err) {
-      setError('Error al eliminar la promoción: ' + err.message);
+      console.error('❌ Error al desactivar:', err);
+      setError('Error al desactivar la promoción: ' + err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteHard = async () => {
+    if (!window.confirm(`⚠️ ADVERTENCIA: ¿Estás seguro de que quieres eliminar PERMANENTEMENTE la promoción "${editData.titulo}"? Esta acción NO se puede deshacer.`)) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      // Llamar al servicio de eliminación física
+      const response = await promoService.deletePromotionHard(promotion.IdPromoOK);
+      
+      console.log('✅ Promoción eliminada permanentemente:', response);
+      
+      onDelete && onDelete(promotion);
+      onClose();
+    } catch (err) {
+      console.error('❌ Error al eliminar permanentemente:', err);
+      setError('Error al eliminar permanentemente la promoción: ' + err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleActivate = async () => {
+    if (!window.confirm(`¿Estás seguro de que quieres activar/reactivar la promoción "${editData.titulo}"?`)) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      // Llamar al servicio de activación
+      const response = await promoService.activatePromotion(promotion.IdPromoOK);
+      
+      console.log('✅ Promoción activada:', response);
+      
+      onSave && onSave({ ...promotion, ACTIVED: true, DELETED: false });
+      onClose();
+    } catch (err) {
+      console.error('❌ Error al activar:', err);
+      setError('Error al activar la promoción: ' + err.message);
     } finally {
       setDeleting(false);
     }
@@ -171,6 +289,50 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
       }
       return newSelection;
     });
+  };
+
+  // Manejar cambios en los filtros avanzados
+  const handleFiltersChange = (filteredProducts) => {
+    console.log('Productos filtrados recibidos:', filteredProducts);
+    // Asegurarse de que siempre sea un array
+    const productsArray = Array.isArray(filteredProducts) ? filteredProducts : [];
+    console.log('Productos como array:', productsArray.length);
+    setFilteredProductsToAdd(productsArray);
+  };
+
+  // Agregar productos seleccionados desde el modal de filtros
+  const handleAddFilteredProducts = () => {
+    if (!Array.isArray(filteredProductsToAdd) || filteredProductsToAdd.length === 0) {
+      setError('No hay productos filtrados para agregar');
+      return;
+    }
+
+    // Contar cuántos productos nuevos se van a agregar
+    let nuevosProductos = 0;
+
+    // Agregar los SKUIDs de los productos filtrados a la selección
+    setSelectedProducts(prev => {
+      const newSelection = new Set(prev);
+      filteredProductsToAdd.forEach(product => {
+        if (product.SKUID && !newSelection.has(product.SKUID)) {
+          newSelection.add(product.SKUID);
+          nuevosProductos++;
+        }
+      });
+      return newSelection;
+    });
+
+    // Cerrar modal y limpiar
+    setShowAddProductsModal(false);
+    setFilteredProductsToAdd([]);
+    
+    // Mostrar mensaje de éxito
+    if (nuevosProductos > 0) {
+      console.log(`✅ ${nuevosProductos} productos nuevos agregados a la promoción`);
+      setError(''); // Limpiar cualquier error previo
+    } else {
+      console.log('ℹ️ Los productos filtrados ya estaban en la selección');
+    }
   };
 
   const getFilteredProducts = () => {
@@ -189,19 +351,24 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     const startDate = new Date(editData.fechaInicio);
     const endDate = new Date(editData.fechaFin);
     
+    // Usar los campos ACTIVED y DELETED
+    if (promotion.DELETED === true) {
+      return { design: 'Negative', text: 'Inactiva' };
+    }
+    
     if (!editData.actived) {
-      return { state: 'Error', text: 'Inactiva' };
+      return { design: 'Negative', text: 'Inactiva' };
     }
     
     if (now < startDate) {
-      return { state: 'Information', text: 'Programada' };
+      return { design: 'Information', text: 'Programada' };
     }
     
     if (now > endDate) {
-      return { state: 'Warning', text: 'Expirada' };
+      return { design: 'Critical', text: 'Expirada' };
     }
     
-    return { state: 'Success', text: 'Activa' };
+    return { design: 'Positive', text: 'Activa' };
   };
 
   if (!promotion) return null;
@@ -209,17 +376,18 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   const status = formatPromotionStatus();
 
   return (
+    <>
     <Dialog
       open={open}
       headerText={`Editar Promoción: ${promotion.IdPromoOK}`}
-      style={{ width: '90vw', maxWidth: '900px', height: '85vh' }}
+      style={{ width: '98vw', maxWidth: '1400px', height: '96vh' }}
       footer={
         <Bar
           endContent={
             <FlexBox style={{ gap: '0.5rem' }}>
               <Button 
                 design="Negative"
-                onClick={handleDelete}
+                onClick={handleDeleteHard}
                 disabled={saving || deleting}
                 icon="delete"
               >
@@ -229,7 +397,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                     Eliminando...
                   </FlexBox>
                 ) : (
-                  'Eliminar'
+                  'Eliminar Permanentemente'
                 )}
               </Button>
               
@@ -260,7 +428,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         />
       }
     >
-      <div style={{ padding: '1rem', height: '100%', overflow: 'auto' }}>
+  <div style={{ padding: '0.5rem', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         
         {error && (
           <MessageStrip 
@@ -273,20 +441,24 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         )}
 
         {/* Header con información básica */}
-        <Card style={{ marginBottom: '1rem' }}>
+        {/* Encabezado compacto para ahorrar espacio */}
+        <Card style={{ marginBottom: '0.25rem' }}>
           <CardHeader 
             titleText={`Promoción ${promotion.IdPromoOK}`}
             subtitleText={`Creada por ${promotion.REGUSER || 'N/A'} el ${new Date(promotion.REGDATE).toLocaleDateString()}`}
+            style={{ padding: '0.15rem 0.5rem' }}
             action={
               <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
-                <ObjectStatus state={status.state}>
+                <Tag design={status.design}>
                   {status.text}
-                </ObjectStatus>
-                <CheckBox 
+                </Tag>
+                <Switch 
                   checked={editData.actived}
                   onChange={(e) => setEditData(prev => ({ ...prev, actived: e.target.checked }))}
-                  text="Activa"
                 />
+                <Label style={{ fontSize: '0.875rem' }}>
+                  {editData.actived ? 'Desactivar' : 'Activar'}
+                </Label>
               </FlexBox>
             }
           />
@@ -295,21 +467,20 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         {/* Tabs de navegación */}
         <TabContainer
           onTabSelect={(e) => setActiveTab(e.detail.tab.dataset.key)}
-          style={{ height: 'calc(100% - 120px)' }}
+          style={{ height: '100%', minHeight: 0, '--_ui5_tc_header_height': '44px', '--_ui5_tc_item_height': '40px' }}
         >
           <Tab 
             text="Detalles" 
-            icon="edit"
             data-key="details"
             selected={activeTab === 'details'}
           >
-            <div style={{ padding: '1rem' }}>
-              <FlexBox direction="Column" style={{ gap: '1rem' }}>
+            <div style={{ padding: '0.5rem', height: '100%', overflow: 'auto' }}>
+              <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
                 
                 {/* Información básica */}
                 <Card>
-                  <CardHeader titleText="Información Básica" />
-                  <div style={{ padding: '1rem', display: 'grid', gap: '1rem' }}>
+                  <CardHeader titleText="Información Básica" style={{ padding: '' }} />
+                  <div style={{ padding: '0.5rem', display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr', alignItems: 'start' }}>
                     
                     <div>
                       <Label required>Título:</Label>
@@ -317,7 +488,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                         value={editData.titulo}
                         onChange={(e) => setEditData(prev => ({ ...prev, titulo: e.target.value }))}
                         placeholder="Título de la promoción"
-                        style={{ width: '100%', marginTop: '0.25rem' }}
+                        style={{ width: '100%', marginTop: '0.1rem' }}
                       />
                     </div>
 
@@ -328,17 +499,17 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                         onChange={(e) => setEditData(prev => ({ ...prev, descripcion: e.target.value }))}
                         placeholder="Descripción de la promoción"
                         rows={3}
-                        style={{ width: '100%', marginTop: '0.25rem' }}
+                        style={{ width: '100%', marginTop: '0.1rem' }}
                       />
                     </div>
 
-                    <FlexBox style={{ gap: '1rem' }}>
+                    <FlexBox style={{ gap: '0.5rem' }}>
                       <div style={{ flex: 1 }}>
                         <Label required>Fecha de Inicio:</Label>
                         <DatePicker
                           value={editData.fechaInicio}
                           onChange={(e) => setEditData(prev => ({ ...prev, fechaInicio: e.target.value }))}
-                          style={{ width: '100%', marginTop: '0.25rem' }}
+                          style={{ width: '100%', marginTop: '0.1rem' }}
                         />
                       </div>
                       <div style={{ flex: 1 }}>
@@ -346,7 +517,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                         <DatePicker
                           value={editData.fechaFin}
                           onChange={(e) => setEditData(prev => ({ ...prev, fechaFin: e.target.value }))}
-                          style={{ width: '100%', marginTop: '0.25rem' }}
+                          style={{ width: '100%', marginTop: '0.1rem' }}
                         />
                       </div>
                     </FlexBox>
@@ -356,16 +527,16 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
 
                 {/* Configuración de descuento */}
                 <Card>
-                  <CardHeader titleText="Configuración de Descuento" />
-                  <div style={{ padding: '1rem' }}>
-                    <FlexBox direction="Column" style={{ gap: '1rem' }}>
+                  <CardHeader titleText="Configuración de Descuento" style={{ padding: '' }} />
+                  <div style={{ padding: '0.5rem' }}>
+                    <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
                       
                       <div>
                         <Label>Tipo de Descuento:</Label>
                         <Select
                           value={editData.tipoDescuento}
                           onChange={(e) => setEditData(prev => ({ ...prev, tipoDescuento: e.target.value }))}
-                          style={{ width: '100%', marginTop: '0.25rem' }}
+                          style={{ width: '100%', marginTop: '0.1rem' }}
                         >
                           <Option value="PORCENTAJE">Porcentaje (%)</Option>
                           <Option value="MONTO_FIJO">Monto Fijo ($)</Option>
@@ -385,7 +556,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                             min="0"
                             max="100"
                             step="0.1"
-                            style={{ width: '200px', marginTop: '0.25rem' }}
+                            style={{ width: '200px', marginTop: '0.1rem' }}
                           />
                         </div>
                       ) : (
@@ -400,7 +571,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                             }))}
                             min="0"
                             step="0.01"
-                            style={{ width: '200px', marginTop: '0.25rem' }}
+                            style={{ width: '200px', marginTop: '0.1rem' }}
                           />
                         </div>
                       )}
@@ -415,79 +586,105 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
 
           <Tab 
             text="Productos" 
-            icon="product"
             data-key="products"
             selected={activeTab === 'products'}
           >
-            <div style={{ padding: '1rem' }}>
-              <Card>
+            <div style={{ padding: '0.4rem', height: 'calc(96vh - 250px)', display: 'flex', flexDirection: 'column' }}>
+              <Card style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <CardHeader 
                   titleText={`Productos en la Promoción (${selectedProducts.size})`}
+                  style={{ flexShrink: 0 }}
                   action={
-                    <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                      {selectedProducts.size} de {allProducts.length} productos seleccionados
-                    </Text>
+                    <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+                      <Text style={{ fontSize: '0.875rem', color: '#666' }}>
+                        {selectedProducts.size} de {getFilteredProducts().length} productos seleccionados
+                      </Text>
+                      <Button
+                        design="Emphasized"
+                        icon="add"
+                        onClick={() => setShowAddProductsModal(true)}
+                      >
+                        Agregar Productos
+                      </Button>
+                      <Button
+                        design="Transparent"
+                        onClick={() => setSelectedProducts(new Set(allProducts.map(p => p.SKUID)))}
+                        disabled={allProducts.length === 0}
+                      >
+                        Seleccionar todos
+                      </Button>
+                      <Button
+                        design="Transparent"
+                        onClick={() => setSelectedProducts(new Set())}
+                        disabled={selectedProducts.size === 0}
+                      >
+                        Limpiar selección
+                      </Button>
+                    </FlexBox>
                   }
                 />
-                <div style={{ padding: '1rem' }}>
+                <div style={{ padding: '0.4rem', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                   
                   {/* Buscador */}
-                  <FlexBox direction="Column" style={{ marginBottom: '1rem' }}>
-                    <Label>Buscar productos:</Label>
-                    <Input
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Buscar por nombre, SKU o marca..."
-                      icon="search"
-                      style={{ width: '100%', marginTop: '0.25rem' }}
-                    />
+                  <FlexBox alignItems="Center" style={{ gap: '0.4rem', marginBottom: '0.5rem', flexShrink: 0 }}>
+                    <Label style={{ margin: 0 }}>Buscar productos:</Label>
+                    <div style={{ flex: 1 }}>
+                      <Input
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Buscar por nombre, SKU o marca..."
+                        icon="search"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
                   </FlexBox>
 
                   {loading ? (
-                    <FlexBox justifyContent="Center" style={{ padding: '2rem' }}>
+                    <FlexBox justifyContent="Center" style={{ padding: '1rem' }}>
                       <BusyIndicator size="Large" />
                     </FlexBox>
                   ) : (
-                    <FlexBox direction="Column" style={{ 
-                      gap: '0.5rem', 
-                      maxHeight: '400px', 
+                    <div style={{ 
+                      flex: 1,
                       overflowY: 'auto',
-                      border: '1px solid #e0e0e0',
+                      border: '1px solid #e8e8e8',
                       borderRadius: '4px',
-                      padding: '0.5rem'
+                      padding: '0.25rem'
                     }}>
-                      {getFilteredProducts().map((product, index) => (
-                        <FlexBox 
-                          key={product.SKUID || index} 
-                          justifyContent="SpaceBetween" 
-                          alignItems="Center" 
-                          style={{ 
-                            padding: '0.75rem', 
-                            border: '1px solid #e0e0e0', 
-                            borderRadius: '4px',
-                            backgroundColor: selectedProducts.has(product.SKUID) ? '#e8f5e8' : 'white',
-                            cursor: 'pointer'
-                          }} 
-                          onClick={() => toggleProductSelection(product.SKUID)}
-                        >
-                          <FlexBox alignItems="Center" style={{ gap: '0.75rem' }}>
-                            <CheckBox checked={selectedProducts.has(product.SKUID)} />
-                            <Avatar size="S" initials={product.PRODUCTNAME?.charAt(0) || 'P'} />
-                            <FlexBox direction="Column" style={{ flex: 1 }}>
-                              <Text style={{ fontWeight: 'bold' }}>
-                                {product.PRODUCTNAME || 'Sin nombre'}
-                              </Text>
-                              <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                                SKU: {product.SKUID} • Marca: {product.MARCA || 'Sin marca'}
-                              </Text>
+                      <FlexBox direction="Column" style={{ gap: '0.3rem' }}>
+                        {getFilteredProducts().map((product, index) => (
+                          <FlexBox 
+                            key={product.SKUID || index} 
+                            justifyContent="SpaceBetween" 
+                            alignItems="Center" 
+                            style={{ 
+                              padding: '0.35rem', 
+                              border: '1px solid #eeeeee', 
+                              borderRadius: '3px',
+                              backgroundColor: selectedProducts.has(product.SKUID) ? '#e8f5e8' : 'white',
+                              cursor: 'pointer'
+                            }} 
+                            onClick={() => toggleProductSelection(product.SKUID)}
+                          >
+                            <FlexBox alignItems="Center" style={{ gap: '0.4rem' }}>
+                              <CheckBox checked={selectedProducts.has(product.SKUID)} />
+                              <Avatar size="XS" initials={product.PRODUCTNAME?.charAt(0) || 'P'} />
+                              <FlexBox direction="Column" style={{ flex: 1 }}>
+                                <Text style={{ fontWeight: '600', fontSize: '0.9rem', lineHeight: 1.1 }}>
+                                  {product.PRODUCTNAME || 'Sin nombre'}
+                                </Text>
+                                <Text style={{ fontSize: '0.8rem', color: '#666', lineHeight: 1.1 }}>
+                                  SKU: {product.SKUID} • Marca: {product.MARCA || 'Sin marca'}
+                                </Text>
+                              </FlexBox>
                             </FlexBox>
+                            <ObjectStatus state="Information">
+                              ${product.PRECIO?.toLocaleString() || 'N/A'}
+                            </ObjectStatus>
                           </FlexBox>
-                          <ObjectStatus state="Information">
-                            ${product.PRECIO?.toLocaleString() || 'N/A'}
-                          </ObjectStatus>
-                        </FlexBox>
-                      ))}
-                    </FlexBox>
+                        ))}
+                      </FlexBox>
+                    </div>
                   )}
 
                 </div>
@@ -499,6 +696,45 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
 
       </div>
     </Dialog>
+
+    {/* Modal para Agregar Productos con Filtros Avanzados */}
+    <Dialog
+      open={showAddProductsModal}
+      headerText="Agregar Productos a la Promoción"
+      style={{ width: '95vw', maxWidth: '1400px', height: '90vh' }}
+      footer={
+        <Bar
+          endContent={
+            <FlexBox style={{ gap: '0.5rem' }}>
+              <Button 
+                design="Transparent" 
+                onClick={() => {
+                  setShowAddProductsModal(false);
+                  setFilteredProductsToAdd([]);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                design="Emphasized" 
+                onClick={handleAddFilteredProducts}
+                disabled={!Array.isArray(filteredProductsToAdd) || filteredProductsToAdd.length === 0}
+              >
+                Agregar {Array.isArray(filteredProductsToAdd) ? filteredProductsToAdd.length : 0} Producto(s)
+              </Button>
+            </FlexBox>
+          }
+        />
+      }
+    >
+      <div style={{ padding: '1rem', height: '100%', overflow: 'auto' }}>
+        <AdvancedFiltersFixed 
+          onFiltersChange={handleFiltersChange}
+          initialFilters={{}}
+        />
+      </div>
+    </Dialog>
+  </>
   );
 };
 
