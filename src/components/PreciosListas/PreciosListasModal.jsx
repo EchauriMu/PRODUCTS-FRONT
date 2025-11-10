@@ -141,25 +141,14 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
       footer={
         <Bar
           endContent={
-            <FlexBox style={{ gap: '0.5rem' }}>
-              {isEditMode && (
-                <>
-                  <Button
-                    icon={formData.ACTIVED ? 'decline' : 'accept'}
-                    design={formData.ACTIVED ? 'Attention' : 'Success'}
-                    onClick={() => handleSwitchChange({ target: { checked: !formData.ACTIVED } })}
-                  >
-                    {formData.ACTIVED ? 'Desactivar' : 'Activar'}
-                  </Button>
-                </>
-              )}
-              <Button design="Transparent" onClick={onClose} icon="decline">
-                Cancelar
-              </Button>
-              <Button design="Emphasized" onClick={handleSaveClick} icon="save">
+            <>
+              <Button design="Emphasized" onClick={handleSaveClick}>
                 Guardar
               </Button>
-            </FlexBox>
+              <Button design="Transparent" onClick={onClose}>
+                Cancelar
+              </Button>
+            </>
           }
         />
       }
@@ -202,7 +191,7 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
                 formData.SKUSIDS.map((skuId, index) => (
                   <Tag
                     key={index}
-                    colorScheme="8"
+                    colorScheme="1"
                   >
                     {getProductNameBySkuId(skuId)}
                   </Tag>

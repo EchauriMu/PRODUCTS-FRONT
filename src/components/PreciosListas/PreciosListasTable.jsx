@@ -6,10 +6,8 @@ import {
   TableRow,
   TableCell,
   Button,
-  CheckBox,
   Title,
   Input,
-  ObjectStatus,
   MessageStrip,
   BusyIndicator,
   FlexBox,
@@ -17,7 +15,9 @@ import {
   FlexBoxDirection,
   Text,
   Icon,
-  Label
+  Label,
+  CheckBox,
+  Tag
 } from '@ui5/webcomponents-react';
 import preciosListasService from '../../api/preciosListasService';
 import PreciosListasModal from './PreciosListasModal';
@@ -30,7 +30,8 @@ const PreciosListasTable = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLista, setEditingLista] = useState(null);
   const [messageStrip, setMessageStrip] = useState(null);
-  const [selectedIds, setSelectedIds] = useState([]);
+  const [expandedSKURows, setExpandedSKURows] = useState({});
+  const [selectedListas, setSelectedListas] = useState(new Set()); // Para rastrear listas seleccionadas // Para rastrear filas expandidas
 
   // === Cargar listas al montar ===
   useEffect(() => {
@@ -112,41 +113,6 @@ const PreciosListasTable = () => {
     }
   }, []);
 
-  // Eliminar múltiples listas seleccionadas (si selectedIds tiene 1 o más IDs)
-  const deleteSelected = useCallback(async () => {
-    if (selectedIds.length === 0) return;
-    const confirmMsg = selectedIds.length === 1
-      ? `¿Está seguro que desea eliminar permanentemente la lista seleccionada? Esta acción no se puede deshacer.`
-      : `¿Está seguro que desea eliminar permanentemente las ${selectedIds.length} listas seleccionadas? Esta acción no se puede deshacer.`;
-
-    if (!window.confirm(confirmMsg)) return;
-
-    setLoading(true);
-    try {
-      // Eliminamos en paralelo y recogemos resultados
-      const promises = selectedIds.map(id => preciosListasService.delete(id).then(() => ({ id, ok: true })).catch(err => ({ id, ok: false, err })));
-      const results = await Promise.all(promises);
-
-      const failed = results.filter(r => !r.ok);
-      if (failed.length === 0) {
-        setMessageStrip({ message: `Se eliminaron ${results.length} lista(s) correctamente.`, type: 'Success' });
-      } else {
-        const failedIds = failed.map(f => f.id).join(', ');
-        setError(`No fue posible eliminar las listas con ID: ${failedIds}`);
-      }
-
-      // Refrescar y limpiar selección
-      await fetchListas();
-      setSelectedIds([]);
-      setTimeout(() => setMessageStrip(null), 3000);
-    } catch (err) {
-      console.error('Error en deleteSelected:', err);
-      setError('Error al eliminar las listas seleccionadas: ' + (err.message || 'Error desconocido'));
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedIds]);
-
   const handleSave = async (listaData) => {
     setLoading(true);
     try {
@@ -183,6 +149,98 @@ const PreciosListasTable = () => {
     setEditingLista(null);
   };
 
+  // === Handler para expandir/contraer SKUs ===
+  const handleToggleSKUExpand = (listaId) => {
+    setExpandedSKURows(prev => ({
+      ...prev,
+      [listaId]: !prev[listaId]
+    }));
+  };
+
+  // === Handlers para selección ===
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedListas(new Set(filteredListas.map(l => l.IDLISTAOK)));
+    } else {
+      setSelectedListas(new Set());
+    }
+  };
+
+  const handleSelectLista = (listaId) => {
+    setSelectedListas(prev => {
+      const next = new Set(prev);
+      if (next.has(listaId)) {
+        next.delete(listaId);
+      } else {
+        next.add(listaId);
+      }
+      return next;
+    });
+  };
+
+  // === Handlers para acciones en lote ===
+  const handleToggleStatus = async () => {
+    if (selectedListas.size === 0) return;
+    
+    // Determinar si la mayoría están activas o inactivas
+    const listasArray = Array.from(selectedListas).map(id => listas.find(l => l.IDLISTAOK === id));
+    const activasCount = listasArray.filter(l => l && l.ACTIVED === true).length;
+    const inactivasCount = listasArray.filter(l => l && (l.ACTIVED === false || l.DELETED === true)).length;
+    
+    // Si la mayoría están activas, desactivas. Si la mayoría están inactivas, activas.
+    const shouldActivate = inactivasCount > activasCount;
+    const action = shouldActivate ? 'activar' : 'desactivar';
+    
+    if (!window.confirm(`¿Está seguro que desea ${action} ${selectedListas.size} lista(s)?`)) return;
+
+    setLoading(true);
+    try {
+      for (const listaId of selectedListas) {
+        if (shouldActivate) {
+          await preciosListasService.activate(listaId);
+        } else {
+          await preciosListasService.deleteLogic(listaId);
+        }
+      }
+      await fetchListas();
+      setSelectedListas(new Set());
+      setError('');
+    } catch (err) {
+      setError(`Error al ${action} listas: ` + (err.response?.data?.messageUSR || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedListas.size === 0) return;
+    if (!window.confirm(`¿Está seguro que desea eliminar permanentemente ${selectedListas.size} lista(s)? Esta acción no se puede deshacer.`)) return;
+
+    setLoading(true);
+    try {
+      for (const listaId of selectedListas) {
+        await preciosListasService.delete(listaId);
+      }
+      await fetchListas();
+      setSelectedListas(new Set());
+      setError('');
+    } catch (err) {
+      setError('Error al eliminar listas: ' + (err.response?.data?.messageUSR || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditSelected = () => {
+    if (selectedListas.size !== 1) return;
+    const listaId = Array.from(selectedListas)[0];
+    const lista = listas.find(l => l.IDLISTAOK === listaId);
+    if (lista) {
+      setEditingLista(lista);
+      setIsModalOpen(true);
+    }
+  };
+
   // === Utilidades ===
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -198,19 +256,44 @@ const PreciosListasTable = () => {
   };
 
   const getListaStatus = (lista) => {
-    if (lista.DELETED) return { state: 'Error', text: 'Eliminado' };
-    if (lista.ACTIVED) return { state: 'Success', text: 'Activo' };
-    return { state: 'Warning', text: 'Inactivo' };
+    if (lista.DELETED) return { design: 'Negative', text: 'Inactivo' };
+    if (lista.ACTIVED) return { design: 'Positive', text: 'Activo' };
+    return { design: 'Critical', text: 'Inactivo' };
+  };
+
+  const getLastAction = (lista) => {
+    // Determinar si fue creado recientemente o modificado
+    if (lista.REGDATE && lista.MODDATE) {
+      const regDate = new Date(lista.REGDATE);
+      const modDate = new Date(lista.MODDATE);
+      const isRecent = (modDate.getTime() - regDate.getTime()) < 1000; // menos de 1 segundo = recién creado
+      const action = isRecent ? 'CREATE' : 'UPDATE';
+      return {
+        action,
+        user: lista.MODUSER || 'N/A',
+        date: lista.MODDATE
+      };
+    }
+    return {
+      action: 'CREATE',
+      user: lista.REGUSER || 'N/A',
+      date: lista.REGDATE
+    };
   };
 
   // === Filtro por descripción o SKU ===
   const filteredListas = listas.filter((lista) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      lista.DESLISTA?.toLowerCase().includes(term) ||
-      lista.SKUID?.toLowerCase().includes(term)
-    );
-  });
+  const term = searchTerm.toLowerCase();
+  const skus = Array.isArray(lista.SKUSIDS)
+    ? lista.SKUSIDS.join(',').toLowerCase()
+    : '';
+
+  return (
+    lista.DESLISTA?.toLowerCase().includes(term) ||
+    skus.includes(term)
+  );
+});
+
 
   return (
     <Card
@@ -229,15 +312,44 @@ const PreciosListasTable = () => {
               <Button design="Emphasized" icon="add" onClick={handleAdd}>
                 Crear Lista
               </Button>
-              <Button
-                design="Negative"
-                icon="delete"
-                onClick={deleteSelected}
-                disabled={selectedIds.length === 0}
-                title={selectedIds.length ? `Eliminar ${selectedIds.length} lista(s)` : 'Selecciona listas para eliminar'}
+
+              {/* Botón Editar */}
+              <Button 
+                icon="edit" 
+                design="Transparent" 
+                disabled={selectedListas.size !== 1 || loading}
+                onClick={handleEditSelected}
+              >
+                Editar
+              </Button>
+
+              {/* Botón Activar/Desactivar unificado */}
+              <Button 
+                icon="accept" 
+                design="Positive" 
+                disabled={selectedListas.size === 0 || loading}
+                onClick={handleToggleStatus}
+              >
+                {selectedListas.size > 0 
+                  ? Array.from(selectedListas).some(id => {
+                      const lista = listas.find(l => l.IDLISTAOK === id);
+                      return lista && lista.ACTIVED === false || lista.DELETED === true;
+                    })
+                    ? 'Activar'
+                    : 'Desactivar'
+                  : 'Activar'}
+              </Button>
+
+              {/* Botón Eliminar */}
+              <Button 
+                icon="delete" 
+                design="Negative" 
+                disabled={selectedListas.size === 0 || loading}
+                onClick={handleDeleteSelected}
               >
                 Eliminar
               </Button>
+
               {loading && <BusyIndicator active size="Small" />}
               <Label
                 style={{
@@ -268,16 +380,6 @@ const PreciosListasTable = () => {
           </MessageStrip>
         )}
 
-        {messageStrip && (
-          <MessageStrip
-            design={messageStrip.type === 'Success' ? 'Positive' : 'Information'}
-            style={{ marginBottom: '1rem' }}
-            onClose={() => setMessageStrip(null)}
-          >
-            {messageStrip.message}
-          </MessageStrip>
-        )}
-
         {/* === Estado de carga === */}
         {loading && filteredListas.length === 0 ? (
           <FlexBox justifyContent="Center" alignItems="Center" style={{ height: '200px', flexDirection: 'column' }}>
@@ -295,80 +397,165 @@ const PreciosListasTable = () => {
           // === Tabla de datos ===
           <Table
             noDataText="No hay listas para mostrar"
+            style={{ width: '100%' }}
             headerRow={
               <TableRow>
-                <TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}>
                   <CheckBox
-                    checked={selectedIds.length > 0 && selectedIds.length === filteredListas.length}
-                    indeterminate={selectedIds.length > 0 && selectedIds.length < filteredListas.length}
-                    onChange={() => {
-                      // Toggle select all visible
-                      if (selectedIds.length === filteredListas.length) {
-                        setSelectedIds([]);
-                      } else {
-                        setSelectedIds(filteredListas.map(l => l.IDLISTAOK).filter(Boolean));
-                      }
-                    }}
+                    checked={filteredListas.length > 0 && selectedListas.size === filteredListas.length}
+                    onChange={handleSelectAll}
                   />
                 </TableCell>
-                <TableCell><Text>ID Lista</Text></TableCell>
-                <TableCell><Text>SKU ID</Text></TableCell>
-                <TableCell><Text>Descripción</Text></TableCell>
-                <TableCell><Text>Instituto</Text></TableCell>
-                <TableCell><Text>Tipo Lista</Text></TableCell>
-                <TableCell><Text>Tipo General</Text></TableCell>
-                <TableCell><Text>Tipo Fórmula</Text></TableCell>
-                <TableCell><Text>Inicio Vigencia</Text></TableCell>
-                <TableCell><Text>Fin Vigencia</Text></TableCell>
-                <TableCell><Text>Registro</Text></TableCell>
-                <TableCell><Text>Modificación</Text></TableCell>
-                <TableCell><Text>Estado</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>ID Lista</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>SKU ID</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Descripción</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Instituto</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Tipo Lista</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Tipo General</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Tipo Fórmula</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Inicio Vigencia</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Fin Vigencia</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Registro</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Modificación</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Estado</Text></TableCell>
               </TableRow>
             }
           >
             {filteredListas.map((lista, index) => {
               const status = getListaStatus(lista);
+              const lastAction = getLastAction(lista);
               return (
                 <TableRow 
                   key={lista.IDLISTAOK || index} 
                   className="ui5-table-row-hover"
-                  onClick={() => handleEdit(lista)}
-                  style={{ cursor: 'pointer' }}
+                  style={{
+                    backgroundColor: selectedListas.has(lista.IDLISTAOK) ? '#f0f7ff' : 'transparent',
+                    cursor: 'pointer'
+                  }}
                 >
                   <TableCell>
                     <CheckBox
-                      checked={selectedIds.includes(lista.IDLISTAOK)}
-                      onChange={() => {
-                        setSelectedIds(prev => {
-                          if (prev.includes(lista.IDLISTAOK)) return prev.filter(id => id !== lista.IDLISTAOK);
-                          return [...prev, lista.IDLISTAOK];
-                        });
-                      }}
-                      onClick={(e) => e.stopPropagation()}
+                      checked={selectedListas.has(lista.IDLISTAOK)}
+                      onChange={() => handleSelectLista(lista.IDLISTAOK)}
                     />
                   </TableCell>
-                  <TableCell><Text style={{ fontFamily: 'monospace' }}>{lista.IDLISTAOK}</Text></TableCell>
-                  <TableCell><Text>{lista.SKUID || '-'}</Text></TableCell>
-                  <TableCell><Text>{lista.DESLISTA || '-'}</Text></TableCell>
-                  <TableCell><Text>{lista.IDINSTITUTOOK || '-'}</Text></TableCell>
-                  <TableCell><Text>{lista.IDTIPOLISTAOK || '-'}</Text></TableCell>
-                  <TableCell><Text>{lista.IDTIPOGENERALISTAOK || '-'}</Text></TableCell>
-                  <TableCell><Text>{lista.IDTIPOFORMULAOK || '-'}</Text></TableCell>
-                  <TableCell><Text>{formatDate(lista.FECHAEXPIRAINI)}</Text></TableCell>
-                  <TableCell><Text>{formatDate(lista.FECHAEXPIRAFIN)}</Text></TableCell>
+                  <TableCell>
+                    <Text style={{ fontFamily: 'monospace', fontWeight: '600' }}>
+                      {lista.IDLISTAOK}
+                    </Text>
+                  </TableCell>
+                  <TableCell>
+                    {Array.isArray(lista.SKUSIDS) && lista.SKUSIDS.length > 0 ? (
+                      <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
+                        <Label 
+                          onClick={() => handleToggleSKUExpand(lista.IDLISTAOK)}
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: '#e3f2fd',
+                            color: '#1976d2',
+                            borderRadius: '0.25rem',
+                            fontSize: '0.55rem',
+                            fontWeight: '600',
+                            display: 'inline-block',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            border: expandedSKURows[lista.IDLISTAOK] ? '1px solid #1976d2' : '1px solid transparent',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {lista.SKUSIDS[0]} {lista.SKUSIDS.length > 1 && `+${lista.SKUSIDS.length - 1}`}
+                        </Label>
+                        
+                        {expandedSKURows[lista.IDLISTAOK] && (
+                          <FlexBox direction="Column" style={{ gap: '0.5rem', marginTop: '0.5rem' }}>
+                            {lista.SKUSIDS.map((sku, idx) => (
+                              <Label
+                                key={idx}
+                                style={{
+                                  padding: '0.25rem 0.5rem',
+                                  backgroundColor: '#f5f5f5ff',
+                                  color: '#333',
+                                  borderRadius: '0.25rem',
+                                  fontSize: '0.5rem',
+                                  border: '1px solid #ddd',
+                                  display: 'inline-block'
+                                }}
+                              >
+                                {sku}
+                              </Label>
+                            ))}
+                          </FlexBox>
+                        )}
+                      </FlexBox>
+                    ) : (
+                      <Text>-</Text>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Text style={{ fontWeight: '500' }}>
+                      {lista.DESLISTA || '-'}
+                    </Text>
+                  </TableCell>
+                  <TableCell>
+                    <Text>{lista.IDINSTITUTOOK || '-'}</Text>
+                  </TableCell>
+                  <TableCell>
+                    <Text>{lista.IDTIPOLISTAOK || '-'}</Text>
+                  </TableCell>
+                  <TableCell>
+                    <Text>{lista.IDTIPOGENERALISTAOK || '-'}</Text>
+                  </TableCell>
+                  <TableCell>
+                    <Text>{lista.IDTIPOFORMULAOK || '-'}</Text>
+                  </TableCell>
+                  <TableCell>
+                    <Text style={{ fontSize: '0.875rem' }}>
+                      {formatDate(lista.FECHAEXPIRAINI)}
+                    </Text>
+                  </TableCell>
+                  <TableCell>
+                    <Text style={{ fontSize: '0.875rem' }}>
+                      {formatDate(lista.FECHAEXPIRAFIN)}
+                    </Text>
+                  </TableCell>
                   <TableCell>
                     <FlexBox direction={FlexBoxDirection.Column}>
-                      <Text style={{ fontSize: '0.875rem' }}>{lista.REGUSER || 'N/A'}</Text>
+                      <Text style={{ fontSize: '0.875rem' }}>
+                        {lista.REGUSER || 'N/A'}
+                      </Text>
                     </FlexBox>
                   </TableCell>
                   <TableCell>
                     <FlexBox direction={FlexBoxDirection.Column}>
-                      <Text style={{ fontSize: '0.875rem' }}>{lista.MODUSER || 'N/A'}</Text>
-                      <Text style={{ fontSize: '0.75rem', color: '#666' }}>{formatDate(lista.MODDATE)}</Text>
+                      <Label
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          backgroundColor: lastAction.action === 'CREATE' ? '#e8f5e8' : '#fff3e0',
+                          color: lastAction.action === 'CREATE' ? '#2e7d32' : '#f57c00',
+                          borderRadius: '0.25rem',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          display: 'inline-block',
+                          marginBottom: '0.5rem'
+                        }}
+                      >
+                        {lastAction.action}
+                      </Label>
+                      <Text 
+                        style={{ 
+                          fontSize: '0.75rem', 
+                          color: '#666',
+                          display: 'block'
+                        }}
+                      >
+                        {lastAction.user} - {formatDate(lastAction.date)}
+                      </Text>
                     </FlexBox>
                   </TableCell>
                   <TableCell>
-                    <ObjectStatus state={status.state}>{status.text}</ObjectStatus>
+                    <Tag design={status.design}>
+                      {status.text}
+                    </Tag>
                   </TableCell>
                 </TableRow>
               );
@@ -392,6 +579,9 @@ const PreciosListasTable = () => {
               </Text>
               <Text style={{ fontSize: '0.875rem', color: '#666' }}>
                 Eliminadas: {listas.filter(l => l.DELETED === true).length}
+              </Text>
+              <Text style={{ fontSize: '0.875rem', color: '#666' }}>
+                Seleccionadas: {selectedListas.size}
               </Text>
               <Text style={{ fontSize: '0.875rem', color: '#666' }}>
                 Total: {listas.length}

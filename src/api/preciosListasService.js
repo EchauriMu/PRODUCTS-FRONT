@@ -1,15 +1,14 @@
 
 import axiosInstance from './axiosInstance';
 
-/** Helper para desenvolver respuestas anidadas de la API */
+/** Helper para desenvolver posibles respuestas CAP/OData */
 function unwrapCAP(res) {
- 
-  const data = res?.data?.value?.[0]?.data?.[0]?.dataRes;
-
-  if (data) {
-    return data;
-  }
-  return res?.data ?? [];
+  return (
+    res?.data?.value?.[0]?.data?.[0]?.dataRes ??
+    res?.data?.dataRes ??
+    res?.data ??
+    []
+  );
 }
 
 /**
@@ -38,27 +37,6 @@ const preciosListasService = {
       return true;
     } catch (error) {
       console.error('❌ Error al desactivar la lista:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * 🔹 Desactivar lógicamente una lista (ProcessType=DeleteLogic)
-   */
-  async deleteLogic(idListaOK) {
-    try {
-      const params = new URLSearchParams({
-        ProcessType: 'DeleteLogic',
-        IDLISTAOK: idListaOK
-      }).toString();
-      const res = await axiosInstance.post(
-        `/ztprecios-listas/preciosListasCRUD?${params}`
-      );
-      if (res.status !== 200) {
-        throw new Error(`Error del servidor: ${res.status}`);
-      }
-      return true;
-    } catch (error) {
       throw error;
     }
   },
@@ -152,7 +130,7 @@ const preciosListasService = {
    */
   async update(idListaOK, payload) {
     try {
-      console.log(' Actualizando lista de precios:', { idListaOK, payload });
+      console.log('📝 Actualizando lista de precios:', { idListaOK, payload });
       
       // Crear payload con solo los campos necesarios, como en Postman
       const cleanPayload = {
@@ -210,8 +188,7 @@ const preciosListasService = {
       // Usar los parámetros exactos como en Postman
       const params = new URLSearchParams({
         ProcessType: 'DeleteHard',
-        IDLISTAOK: idListaOK, // Usar IDLISTAOK en lugar de idListaOK
-        LoggedUser: 'HANNIAALIDELUNA' // Usuario actual del sistema
+        IDLISTAOK: idListaOK
       }).toString();
 
       // Para DeleteHard no necesitamos payload
@@ -248,7 +225,7 @@ const preciosListasService = {
     try {
       const params = new URLSearchParams({
         ProcessType: 'ActivateOne',
-        idListaOK,
+        IDLISTAOK: idListaOK,  // ✅ Corregido: IDLISTAOK en mayúsculas
       }).toString();
 
       const res = await axiosInstance.post(
@@ -279,8 +256,8 @@ const preciosListasService = {
       const res = await axiosInstance.post(
         `/ztprecios-listas/preciosListasCRUD?${params}`
       );
-      const dataRes = unwrapCAP(res);
 
+      const dataRes = unwrapCAP(res);
       return Array.isArray(dataRes) ? dataRes : (dataRes ? [dataRes] : []);
     } catch (error) {
       console.error(`❌ Error al obtener listas por SKUID ${skuid}:`, error);

@@ -7,6 +7,7 @@ import {
   Label,
   Text,
   FlexBox,
+  FlexBoxDirection,
   Input,
   MessageStrip,
   BusyIndicator,
@@ -154,6 +155,22 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
     }
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Fecha inválida';
+    }
+  };
+
   return (
     <Dialog
       open={open}
@@ -267,12 +284,47 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
 
           {formData.PadreCATID && (
             <FlexBox wrap="Wrap" style={{ gap: "0.5rem", marginTop: "0.5rem" }}>
-              <Tag colorScheme="8">
+              <Tag colorScheme="3">
                 {availableCategories.find(cat => cat.CATID === formData.PadreCATID)?.Nombre || formData.PadreCATID}
               </Tag>
             </FlexBox>
           )}
         </div>
+
+        {/* === Sección de Auditoría === */}
+        {isEdit && (
+          <div style={{ width: "85%", marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid #ddd" }}>
+            <Title level="H6" style={{ fontSize: "0.875rem", fontWeight: "600", marginBottom: "1rem" }}>
+              Información de Auditoría
+            </Title>
+            
+            {/* Creado Por */}
+            <div style={{ marginBottom: "1.5rem" }}>
+              <Label style={{ fontSize: "0.75rem", color: "#666" }}>Creado Por</Label>
+              <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem", marginTop: "0.5rem" }}>
+                <Text style={{ fontSize: "0.875rem", fontWeight: "500" }}>
+                  {formData.REGUSER || 'N/A'}
+                </Text>
+                <Text style={{ fontSize: "0.75rem", color: "#999" }}>
+                  {formatDate(formData.REGDATE)}
+                </Text>
+              </FlexBox>
+            </div>
+
+            {/* Modificado Por */}
+            <div>
+              <Label style={{ fontSize: "0.75rem", color: "#666" }}>Modificado Por</Label>
+              <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem", marginTop: "0.5rem" }}>
+                <Text style={{ fontSize: "0.875rem", fontWeight: "500" }}>
+                  {formData.MODUSER || 'N/A'}
+                </Text>
+                <Text style={{ fontSize: "0.75rem", color: "#999" }}>
+                  {formatDate(formData.MODDATE)}
+                </Text>
+              </FlexBox>
+            </div>
+          </div>
+        )}
       </div>
     </Dialog>
   );

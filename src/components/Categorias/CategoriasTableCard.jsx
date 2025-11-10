@@ -10,11 +10,12 @@ import {
   BusyIndicator,
   MessageStrip,
   FlexBox,
+  FlexBoxDirection,
   Label,
   Button,
   Input,
-  ObjectStatus,
-  CheckBox
+  CheckBox,
+  Tag
 } from '@ui5/webcomponents-react';
 import categoriasService from '../../api/categoriasService';
 import CategoriaDetailModal from './CategoriaDetailModal';
@@ -56,6 +57,39 @@ const CategoriasTableCard = () => {
       }
       return next;
     });
+  };
+
+  const handleToggleStatus = async () => {
+    if (selectedCategories.size === 0) return;
+    
+    // Determinar si la mayoría están activas o inactivas
+    const categoriesArray = Array.from(selectedCategories).map(id => categories.find(c => c.CATID === id));
+    const activasCount = categoriesArray.filter(c => c && c.ACTIVED === true).length;
+    const inactivasCount = categoriesArray.filter(c => c && (c.ACTIVED === false || c.DELETED === true)).length;
+    
+    // Si la mayoría están activas, desactivas. Si la mayoría están inactivas, activas.
+    const shouldActivate = inactivasCount > activasCount;
+    const action = shouldActivate ? 'activar' : 'desactivar';
+    
+    if (!confirm(`¿Está seguro que desea ${action} ${selectedCategories.size} categoría(s)?`)) return;
+
+    setLoading(true);
+    try {
+      for (const catId of selectedCategories) {
+        if (shouldActivate) {
+          await categoriasService.UpdateOneZTCategoria(catId, { ACTIVED: true });
+        } else {
+          await categoriasService.UpdateOneZTCategoria(catId, { ACTIVED: false });
+        }
+      }
+      await loadCategories();
+      setSelectedCategories(new Set());
+      setError('');
+    } catch (err) {
+      setError(`Error al ${action} categorías: ` + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Cargar categorías desde la API
@@ -105,9 +139,29 @@ setCategories(list);
 
   // Estado de la categoría
   const getStatus = (cat) => {
-    if (cat.DELETED === true) return { state: 'Error', text: 'Eliminada' };
-    if (cat.ACTIVED === true) return { state: 'Success', text: 'Activa' };
-    return { state: 'Warning', text: 'Inactiva' };
+    if (cat.DELETED === true) return { design: 'Negative', text: 'Eliminada' };
+    if (cat.ACTIVED === true) return { design: 'Positive', text: 'Activa' };
+    return { design: 'Critical', text: 'Inactiva' };
+  };
+
+  const getLastAction = (cat) => {
+    // Determinar si fue creado recientemente o modificado
+    if (cat.REGDATE && cat.MODDATE) {
+      const regDate = new Date(cat.REGDATE);
+      const modDate = new Date(cat.MODDATE);
+      const isRecent = (modDate.getTime() - regDate.getTime()) < 1000; // menos de 1 segundo = recién creado
+      const action = isRecent ? 'CREATE' : 'UPDATE';
+      return {
+        action,
+        user: cat.MODUSER || 'N/A',
+        date: cat.MODDATE
+      };
+    }
+    return {
+      action: 'CREATE',
+      user: cat.REGUSER || 'N/A',
+      date: cat.REGDATE
+    };
   };
 
   const handleRowClick = useCallback((cat) => {
@@ -162,55 +216,21 @@ setCategories(list);
                   Editar
                 </Button>
 
-                {/* Botón de Activar/Desactivar */}
+                {/* Botón Activar/Desactivar unificado */}
                 <Button
                   icon="accept"
                   design="Positive"
                   disabled={selectedCategories.size === 0 || loading}
-                  onClick={async () => {
-                    if (!confirm(`¿Activar ${selectedCategories.size} categorías?`)) return;
-                    setLoading(true);
-                    try {
-                      for (const catId of selectedCategories) {
-                        await categoriasService.UpdateOneZTCategoria(catId, {
-                          ACTIVED: true,
-                        });
-                      }
-                      await loadCategories();
-                      setSelectedCategories(new Set());
-                    } catch (err) {
-                      setError(err.response?.data?.message || err.message);
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
+                  onClick={handleToggleStatus}
                 >
-                  Activar
-                </Button>
-
-                <Button
-                  icon="cancel"
-                  design="Attention"
-                  disabled={selectedCategories.size === 0 || loading}
-                  onClick={async () => {
-                    if (!confirm(`¿Desactivar ${selectedCategories.size} categorías?`)) return;
-                    setLoading(true);
-                    try {
-                      for (const catId of selectedCategories) {
-                        await categoriasService.UpdateOneZTCategoria(catId, {
-                          ACTIVED: false,
-                        });
-                      }
-                      await loadCategories();
-                      setSelectedCategories(new Set());
-                    } catch (err) {
-                      setError(err.response?.data?.message || err.message);
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                >
-                  Desactivar
+                  {selectedCategories.size > 0 
+                    ? Array.from(selectedCategories).some(id => {
+                        const categoria = categories.find(c => c.CATID === id);
+                        return categoria && (categoria.ACTIVED === false || categoria.DELETED === true);
+                      })
+                      ? 'Activar'
+                      : 'Desactivar'
+                    : 'Activar'}
                 </Button>
 
                 {/* Botón de Eliminar */}
@@ -282,21 +302,22 @@ setCategories(list);
         ) : (
           <Table
             noDataText="No hay categorías para mostrar"
+            style={{ width: '100%' }}
             headerRow={
               <TableRow>
-                <TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}>
                   <CheckBox
                     checked={selectedCategories.size === categories.length}
                     onChange={handleSelectAll}
                     style={{ margin: 0 }}
                   />
                 </TableCell>
-                <TableCell><Text style={{ fontWeight: 'bold' }}>CATID</Text></TableCell>
-                <TableCell><Text style={{ fontWeight: 'bold' }}>Nombre</Text></TableCell>
-                <TableCell><Text style={{ fontWeight: 'bold' }}>Padre</Text></TableCell>
-                <TableCell><Text style={{ fontWeight: 'bold' }}>Creado Por</Text></TableCell>
-                <TableCell><Text style={{ fontWeight: 'bold' }}>Fecha</Text></TableCell>
-                <TableCell><Text style={{ fontWeight: 'bold' }}>Estado</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>CATID</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Nombre</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Padre</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Fecha</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Modificación</Text></TableCell>
+                <TableCell style={{ fontWeight: 'bold' }}><Text>Estado</Text></TableCell>
               </TableRow>
             }
           >
@@ -311,6 +332,7 @@ setCategories(list);
               })
               .map((cat, index) => {
               const status = getStatus(cat);
+              const lastAction = getLastAction(cat);
               return (
                 <TableRow
                   key={cat.CATID || index}
@@ -328,12 +350,86 @@ setCategories(list);
                       style={{ margin: 0 }}
                     />
                   </TableCell>
-                  <TableCell><Text>{cat.CATID || `CAT-${index + 1}`}</Text></TableCell>
-                  <TableCell><Text>{cat.Nombre || 'Sin nombre'}</Text></TableCell>
-                  <TableCell><Label>{cat.PadreCATID || 'N/A'}</Label></TableCell>
-                  <TableCell><Text>{cat.REGUSER || 'N/A'}</Text></TableCell>
-                  <TableCell><Text>{formatDate(cat.REGDATE)}</Text></TableCell>
-                  <TableCell><ObjectStatus state={status.state}>{status.text}</ObjectStatus></TableCell>
+                  <TableCell>
+                    <Label 
+                      style={{
+                        padding: '0.35rem 0.75rem',
+                        backgroundColor: '#e3f2fd',
+                        color: '#1976d2',
+                        borderRadius: '0.25rem',
+                        fontSize: '0.65rem',
+                        fontWeight: '600',
+                        display: 'inline-block',
+                        border: '1px solid #90caf9',
+                        wordBreak: 'break-word',
+                        whiteSpace: 'normal',
+                        maxWidth: '150px'
+                      }}
+                    >
+                      {cat.CATID || `CAT-${index + 1}`}
+                    </Label>
+                  </TableCell>
+                  <TableCell>
+                    <Text style={{ fontWeight: '500', fontSize: '0.65rem', color: '#32363a', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                      {cat.Nombre || 'Sin nombre'}
+                    </Text>
+                  </TableCell>
+                  <TableCell>
+                    <Label 
+                      style={{
+                        padding: '0.35rem 0.75rem',
+                        backgroundColor: '#e8f5e9',
+                        color: '#2e7d32',
+                        borderRadius: '0.25rem',
+                        fontSize: '0.65rem',
+                        fontWeight: '600',
+                        display: 'inline-block',
+                        border: '1px solid #81c784',
+                        wordBreak: 'break-word',
+                        whiteSpace: 'normal',
+                        maxWidth: '150px'
+                      }}
+                    >
+                      {cat.PadreCATID || 'N/A'}
+                    </Label>
+                  </TableCell>
+                  <TableCell>
+                    <Text style={{ fontSize: '0.875rem' }}>
+                      {formatDate(cat.REGDATE)}
+                    </Text>
+                  </TableCell>
+                  <TableCell>
+                    <FlexBox direction="Column">
+                      <Label
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          backgroundColor: lastAction.action === 'CREATE' ? '#e8f5e8' : '#fff3e0',
+                          color: lastAction.action === 'CREATE' ? '#2e7d32' : '#f57c00',
+                          borderRadius: '0.25rem',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          display: 'inline-block',
+                          marginBottom: '0.5rem'
+                        }}
+                      >
+                        {lastAction.action}
+                      </Label>
+                      <Text 
+                        style={{ 
+                          fontSize: '0.75rem', 
+                          color: '#666',
+                          display: 'block'
+                        }}
+                      >
+                        {lastAction.user} - {formatDate(lastAction.date)}
+                      </Text>
+                    </FlexBox>
+                  </TableCell>
+                  <TableCell>
+                    <Tag design={status.design}>
+                      {status.text}
+                    </Tag>
+                  </TableCell>
                 </TableRow>
               );
             })}
