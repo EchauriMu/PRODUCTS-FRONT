@@ -42,25 +42,19 @@ const EditPresentationPage = () => {
       setIsLoading(true);
       setError('');
       try {
-        // SOLUCIÓN 100% FUNCIONAL:
-        // El error 400 se debe a que la función del servicio no recibe el usuario.
-        // En lugar de hacer un fetch manual, llamamos a la función del servicio
-        // pasándole explícitamente el usuario, igual que en las partes que sí funcionan.
-        // NOTA: Esto asume que la función `getPresentacionById` en tu servicio está definida como `async (id, user) => ...`
-        const presentationToEdit = await productPresentacionesService.getPresentacionById(presentaId);
+        // SOLUCIÓN: La función del servicio necesita el usuario para evitar un error 400.
+        // Se pasa explícitamente el usuario, igual que en otras partes de la aplicación.
+        const presentationToEdit = await productPresentacionesService.getPresentacionById(presentaId, 'EECHAURIM');
 
         if (presentationToEdit) {
           setNombrePresentacion(presentationToEdit.NombrePresentacion || '');
           setDescripcion(presentationToEdit.Descripcion || '');
           setActivo(presentationToEdit.ACTIVED);
 
-          // Cargar propiedades extras (parseando el JSON)
-          if (presentationToEdit.PropiedadesExtras) {
+          // Cargar propiedades extras, asegurando que sea un string antes de parsear
+          if (typeof presentationToEdit.PropiedadesExtras === 'string') {
             try {
-              // El backend puede devolver un string o ya un objeto.
-              const props = typeof presentationToEdit.PropiedadesExtras === 'string'
-                ? JSON.parse(presentationToEdit.PropiedadesExtras)
-                : presentationToEdit.PropiedadesExtras;
+              const props = JSON.parse(presentationToEdit.PropiedadesExtras);
               setPropiedadesExtras(props);
             } catch {
               setPropiedadesExtras({}); // Si el JSON es inválido
@@ -68,7 +62,7 @@ const EditPresentationPage = () => {
           }
 
           // Los archivos ya deberían venir en la respuesta de getPresentacionById
-          setFiles(presentationToEdit.files || []);
+          setFiles(presentationToEdit.Files || []);
         } else {
           setError('No se encontró la presentación para editar.');
         }
@@ -81,7 +75,7 @@ const EditPresentationPage = () => {
     };
 
     fetchFullPresentationData();
-  }, [presentaId]);
+  }, [presentaId, skuid]);
 
   // Funciones para manejar propiedades y archivos (copiadas de AddPresentationPage)
   const handleAddProperty = () => {
@@ -133,12 +127,27 @@ const EditPresentationPage = () => {
     setIsSubmitting(true);
     setError('');
     try {
+      // Procesar archivos para el payload:
+      // - Los archivos nuevos tienen 'fileBase64'.
+      // - Los archivos existentes (que vienen del backend) no lo tienen.
+      // El backend espera que los archivos existentes no se envíen con la propiedad 'fileBase64'.
+      const processedFiles = files.map(f => {
+        // Si es un archivo existente (tiene FILEID) y no es un archivo nuevo (no tiene fileBase64),
+        // lo enviamos tal cual. Si es un archivo nuevo, también.
+        // Si es un archivo existente que por alguna razón tiene fileBase64 (no debería), lo limpiamos.
+        if (f.FILEID && f.fileBase64) {
+          const { fileBase64, ...rest } = f; // Quitamos fileBase64 para no reenviarlo
+          return rest;
+        }
+        return f;
+      });
+
       const updatedData = {
         NOMBREPRESENTACION: nombrePresentacion,
         Descripcion: descripcion,
         ACTIVED: activo,
         PropiedadesExtras: JSON.stringify(propiedadesExtras),
-        files: files,
+        files: processedFiles,
         MODUSER: 'EECHAURIM' // Usuario que modifica
       };
 
