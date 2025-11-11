@@ -58,9 +58,12 @@ const CrearPromocion = () => {
   };
 
   // Filters callback
-  const handleFiltersChange = (filters) => {
-    if (filters && Array.isArray(filters._filteredProducts)) {
-      setFilteredProducts(filters._filteredProducts);
+  const handleFiltersChange = (selectedProducts) => {
+    // AdvancedFilters ahora envía directamente el array de productos seleccionados
+    if (Array.isArray(selectedProducts)) {
+      setFilteredProducts(selectedProducts);
+    } else {
+      setFilteredProducts([]);
     }
   };
     // Info por paso para encabezados/etiquetas

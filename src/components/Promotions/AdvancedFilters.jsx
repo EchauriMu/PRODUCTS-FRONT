@@ -29,7 +29,7 @@ import categoryService from '../../api/categoryService';
 import promoService from '../../api/promoService';
 
 // DATOS ESTÁTICOS/MOCK PARA FILTROS
-const AdvancedFilters = ({ onFiltersChange, initialFilters = {} }) => {
+const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProducts = new Set() }) => {
   const [filters, setFilters] = useState({
     categorias: [],
     marcas: [],
@@ -52,7 +52,7 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {} }) => {
   const [temporadaActiva, setTemporadaActiva] = useState(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [filteredProducts, setFilteredProducts] = useState([]);
-  const [selectedProducts, setSelectedProducts] = useState(new Set()); // Productos seleccionados
+  const [selectedProducts, setSelectedProducts] = useState(preselectedProducts); // Inicializar con preseleccionados
   const [searchTerm, setSearchTerm] = useState(''); // Término de búsqueda
 
   // Estados para creación de promociones
@@ -122,6 +122,13 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {} }) => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Actualizar productos seleccionados cuando cambien los preseleccionados
+  useEffect(() => {
+    if (preselectedProducts && preselectedProducts.size > 0) {
+      setSelectedProducts(new Set(preselectedProducts));
+    }
+  }, [preselectedProducts]);
 
   const loadData = async () => {
     setLoading(true);
@@ -580,6 +587,14 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {} }) => {
   };
 
   const getSelectedProductsCount = () => selectedProducts.size;
+
+  // Notificar al padre cuando cambien los productos seleccionados
+  useEffect(() => {
+    if (onFiltersChange && typeof onFiltersChange === 'function') {
+      const selectedProductsList = productos.filter(p => selectedProducts.has(p.SKUID));
+      onFiltersChange(selectedProductsList);
+    }
+  }, [selectedProducts, productos]);
 
   return (
     <div style={{ padding: '0.5rem', backgroundColor: '#f8f9fa' }}>

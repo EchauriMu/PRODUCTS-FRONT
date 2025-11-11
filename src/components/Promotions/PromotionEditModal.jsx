@@ -29,6 +29,7 @@ import {
 } from '@ui5/webcomponents-react';
 import promoService from '../../api/promoService';
 import productService from '../../api/productService';
+import AdvancedFilters from './AdvancedFilters';
 
 const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   const [editData, setEditData] = useState({
@@ -52,7 +53,12 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   // Estados para gestión de productos
   const [allProducts, setAllProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState(new Set());
+  const [originalProducts, setOriginalProducts] = useState(new Set()); // Productos originales de la promo
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Estados para modal de agregar productos
+  const [showAddProductsModal, setShowAddProductsModal] = useState(false);
+  const [filteredProductsToAdd, setFilteredProductsToAdd] = useState([]);
 
   // Extraer SKUs de distintas formas posibles en la promo
   const extractSkusFromPromotion = (promo) => {
@@ -84,8 +90,10 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         skuids: Array.from(extractSkusFromPromotion(promotion))
       });
 
-      // Establecer productos seleccionados
-      setSelectedProducts(extractSkusFromPromotion(promotion));
+      // Establecer productos seleccionados y guardar los originales
+      const productsInPromo = extractSkusFromPromotion(promotion);
+      setSelectedProducts(productsInPromo);
+      setOriginalProducts(new Set(productsInPromo)); // Guardar copia de los originales
 
       // Cargar productos disponibles
       loadProducts();
@@ -286,11 +294,60 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     });
   };
 
+  // Función para recibir productos filtrados del componente AdvancedFilters
+  const handleFiltersChange = (filteredProducts) => {
+    console.log('📦 Productos filtrados recibidos:', filteredProducts);
+    if (Array.isArray(filteredProducts)) {
+      // Filtrar solo los productos NUEVOS (que no estaban originalmente en la promoción)
+      const newProducts = filteredProducts.filter(p => !originalProducts.has(p.SKUID));
+      setFilteredProductsToAdd(newProducts);
+      console.log('✨ Productos NUEVOS a agregar:', newProducts.length);
+    } else {
+      setFilteredProductsToAdd([]);
+    }
+  };
+
+  // Función para agregar los productos filtrados a la promoción
+  const handleAddFilteredProducts = () => {
+    if (!Array.isArray(filteredProductsToAdd) || filteredProductsToAdd.length === 0) {
+      alert('No hay productos filtrados para agregar');
+      return;
+    }
+
+    const newProducts = new Set(selectedProducts);
+    const newOriginals = new Set(originalProducts);
+    let addedCount = 0;
+
+    filteredProductsToAdd.forEach(product => {
+      if (product?.SKUID && !newProducts.has(product.SKUID)) {
+        newProducts.add(product.SKUID);
+        newOriginals.add(product.SKUID); // También agregar a originales para que se muestre
+        addedCount++;
+      }
+    });
+
+    setSelectedProducts(newProducts);
+    setOriginalProducts(newOriginals); // Actualizar originales
+    setShowAddProductsModal(false);
+    setFilteredProductsToAdd([]);
+    
+    if (addedCount > 0) {
+      alert(`Se agregaron ${addedCount} producto(s) a la promoción`);
+    } else {
+      alert('Los productos ya estaban incluidos en la promoción');
+    }
+  };
+
   const getFilteredProducts = () => {
-    if (!searchTerm) return allProducts;
+    // Mostrar productos que estaban originalmente O que se han agregado (aunque estén deseleccionados)
+    const productsToShow = allProducts.filter(product => 
+      originalProducts.has(product.SKUID) || selectedProducts.has(product.SKUID)
+    );
+
+    if (!searchTerm) return productsToShow;
     
     const searchLower = searchTerm.toLowerCase();
-    return allProducts.filter(product => 
+    return productsToShow.filter(product => 
       product.PRODUCTNAME?.toLowerCase().includes(searchLower) ||
       product.SKUID?.toLowerCase().includes(searchLower) ||
       product.MARCA?.toLowerCase().includes(searchLower)
@@ -327,6 +384,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   const status = formatPromotionStatus();
 
   return (
+    <>
     <Dialog
       open={open}
       headerText={`Editar Promoción: ${promotion.IdPromoOK}`}
@@ -378,7 +436,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         />
       }
     >
-  <div style={{ padding: '0.5rem', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+  <div style={{ padding: '0.5rem', height: '100%', overflow: 'hidden' }}>
         
         {error && (
           <MessageStrip 
@@ -417,14 +475,14 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         {/* Tabs de navegación */}
         <TabContainer
           onTabSelect={(e) => setActiveTab(e.detail.tab.dataset.key)}
-          style={{ height: '100%', minHeight: 0, '--_ui5_tc_header_height': '44px', '--_ui5_tc_item_height': '40px' }}
+          style={{ '--_ui5_tc_header_height': '44px', '--_ui5_tc_item_height': '40px' }}
         >
           <Tab 
             text="Detalles" 
             data-key="details"
             selected={activeTab === 'details'}
           >
-            <div style={{ padding: '0.5rem', height: '100%', overflow: 'auto' }}>
+            <div style={{ padding: '0.5rem', height: '60vh', overflowY: 'auto', overflowX: 'hidden' }}>
               <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
                 
                 {/* Información básica */}
@@ -539,13 +597,20 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
             data-key="products"
             selected={activeTab === 'products'}
           >
-            <div style={{ padding: '0.4rem', height: 'calc(96vh - 250px)', display: 'flex', flexDirection: 'column' }}>
-              <Card style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '0.4rem' }}>
+              <Card>
                 <CardHeader 
                   titleText={`Productos en la Promoción (${selectedProducts.size})`}
                   style={{ flexShrink: 0 }}
                   action={
                     <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+                      <Button
+                        icon="add"
+                        design="Emphasized"
+                        onClick={() => setShowAddProductsModal(true)}
+                      >
+                        Agregar Productos
+                      </Button>
                       <Text style={{ fontSize: '0.875rem', color: '#666' }}>
                         {selectedProducts.size} de {getFilteredProducts().length} productos seleccionados
                       </Text>
@@ -566,10 +631,10 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                     </FlexBox>
                   }
                 />
-                <div style={{ padding: '0.4rem', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <div style={{ padding: '0.4rem' }}>
                   
                   {/* Buscador */}
-                  <FlexBox alignItems="Center" style={{ gap: '0.4rem', marginBottom: '0.5rem', flexShrink: 0 }}>
+                  <FlexBox alignItems="Center" style={{ gap: '0.4rem', marginBottom: '0.5rem' }}>
                     <Label style={{ margin: 0 }}>Buscar productos:</Label>
                     <div style={{ flex: 1 }}>
                       <Input
@@ -588,14 +653,30 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                     </FlexBox>
                   ) : (
                     <div style={{ 
-                      flex: 1,
+                      height: '55vh',
                       overflowY: 'auto',
+                      overflowX: 'hidden',
                       border: '1px solid #e8e8e8',
                       borderRadius: '4px',
                       padding: '0.25rem'
                     }}>
-                      <FlexBox direction="Column" style={{ gap: '0.3rem' }}>
-                        {getFilteredProducts().map((product, index) => (
+                      {getFilteredProducts().length === 0 ? (
+                        <FlexBox 
+                          justifyContent="Center" 
+                          alignItems="Center" 
+                          style={{ padding: '2rem', flexDirection: 'column', gap: '1rem' }}
+                        >
+                          <Icon name="product" style={{ fontSize: '3rem', color: '#ccc' }} />
+                          <Text style={{ color: '#666', textAlign: 'center' }}>
+                            {selectedProducts.size === 0 
+                              ? 'No hay productos en esta promoción. Usa el botón "Agregar Productos" para incluir productos.'
+                              : 'No se encontraron productos con ese criterio de búsqueda.'
+                            }
+                          </Text>
+                        </FlexBox>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                          {getFilteredProducts().map((product, index) => (
                           <FlexBox 
                             key={product.SKUID || index} 
                             justifyContent="SpaceBetween" 
@@ -626,7 +707,8 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                             </ObjectStatus>
                           </FlexBox>
                         ))}
-                      </FlexBox>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -639,6 +721,49 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
 
       </div>
     </Dialog>
+
+    {/* Modal para agregar productos con filtros */}
+    <Dialog
+      open={showAddProductsModal}
+      onAfterClose={() => {
+        setShowAddProductsModal(false);
+        setFilteredProductsToAdd([]);
+      }}
+      headerText="Agregar Productos a la Promoción"
+      style={{ width: '90vw', height: '90vh' }}
+      footer={
+        <Bar
+          endContent={
+            <>
+              <Button
+                design="Transparent"
+                onClick={() => {
+                  setShowAddProductsModal(false);
+                  setFilteredProductsToAdd([]);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                design="Emphasized"
+                onClick={handleAddFilteredProducts}
+                disabled={!Array.isArray(filteredProductsToAdd) || filteredProductsToAdd.length === 0}
+              >
+                Agregar {Array.isArray(filteredProductsToAdd) ? filteredProductsToAdd.length : 0} Producto(s)
+              </Button>
+            </>
+          }
+        />
+      }
+    >
+      <div style={{ height: '100%', overflow: 'auto', padding: '0.5rem' }}>
+        <AdvancedFilters 
+          onFiltersChange={handleFiltersChange} 
+          preselectedProducts={selectedProducts}
+        />
+      </div>
+    </Dialog>
+    </>
   );
 };
 
