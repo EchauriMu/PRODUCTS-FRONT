@@ -67,7 +67,11 @@ const SelectPresentationToEditPage = () => {
     setError('');
 
     try {
-      await productPresentacionesService.deletePresentacion(presentationToDelete.IdPresentaOK);
+      // La API de borrado permanente requiere el ID y el usuario.
+      // Asumimos un usuario 'admin01' como en el ejemplo de la API.
+      // En una aplicación real, este usuario vendría del estado de autenticación.
+      const loggedUser = 'admin01';
+      await productPresentacionesService.deletePresentacion(presentationToDelete.IdPresentaOK, loggedUser);
       // Actualizar la lista de presentaciones en el estado
       setPresentations(prev => prev.filter(p => p.IdPresentaOK !== presentationToDelete.IdPresentaOK));
     } catch (err) {
