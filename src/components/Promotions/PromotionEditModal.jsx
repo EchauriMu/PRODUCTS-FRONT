@@ -611,9 +611,6 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                       >
                         Agregar Productos
                       </Button>
-                      <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                        {selectedProducts.size} de {getFilteredProducts().length} productos seleccionados
-                      </Text>
                       <Button
                         design="Transparent"
                         onClick={() => setSelectedProducts(new Set(allProducts.map(p => p.SKUID)))}
@@ -730,7 +727,20 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         setFilteredProductsToAdd([]);
       }}
       headerText="Agregar Productos a la Promoción"
-      style={{ width: '90vw', height: '90vh' }}
+      style={{ 
+        '--_ui5_popup_content_padding_s': '0',
+        '--_ui5_popup_content_padding_m_l_xl': '0',
+        width: '95vw',
+        height: '85vh',
+        maxWidth: '1600px'
+      }}
+      contentStyle={{
+        padding: 0,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1
+      }}
       footer={
         <Bar
           endContent={
@@ -756,12 +766,11 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         />
       }
     >
-      <div style={{ height: '100%', overflow: 'auto', padding: '0.5rem' }}>
-        <AdvancedFilters 
-          onFiltersChange={handleFiltersChange} 
-          preselectedProducts={selectedProducts}
-        />
-      </div>
+      <AdvancedFilters 
+        onFiltersChange={handleFiltersChange} 
+        preselectedProducts={selectedProducts}
+        lockedProducts={originalProducts}
+      />
     </Dialog>
     </>
   );
