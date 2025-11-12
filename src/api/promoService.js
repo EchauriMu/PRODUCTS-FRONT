@@ -75,33 +75,46 @@ const promoService = {
   },
 
   /**
-   * Crear una nueva promoción con múltiples productos
+   * Crear una nueva promoción con múltiples presentaciones
    * @param {Object} promotionData - Datos de la promoción
-   * @param {Array} selectedProducts - Array de productos seleccionados
+   * @param {Array} selectedPresentaciones - Array de presentaciones seleccionadas
    * @param {Object} filters - Filtros aplicados
    * @param {string} loggedUser - Usuario que crea la promoción (opcional, se usa el del interceptor)
    * @returns {Promise} Promoción creada
    */
-  async createPromotionWithProducts(promotionData, selectedProducts = [], filters = {}, loggedUser = null) {
+  async createPromotionWithProducts(promotionData, selectedPresentaciones = [], filters = {}, loggedUser = null) {
     try {
       // Generar ID único para la promoción
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
       const idPromoOK = `PROMO_${timestamp}_${randomSuffix}`;
       
-      // Preparar productos aplicables - solo SKUIDs en objetos mínimos
-      const productosAplicables = selectedProducts.map(producto => ({
-        SKUID: producto.SKUID
-      }));
+      // Preparar presentaciones aplicables con el schema actualizado del backend
+      const presentacionesAplicables = selectedPresentaciones
+        .filter(presentacion => presentacion && presentacion.IdPresentaOK) // Filtrar presentaciones válidas
+        .map(presentacion => ({
+          IdPresentaOK: presentacion.IdPresentaOK,
+          SKUID: presentacion.producto?.SKUID || presentacion.SKUID || '',
+          NombreProducto: presentacion.producto?.PRODUCTNAME || '',
+          NombrePresentacion: presentacion.NOMBREPRESENTACION || '',
+          PrecioOriginal: presentacion.Precio || 0
+        }));
       
-      // Preparar payload simplificado
+      console.log('📋 Presentaciones a enviar:', presentacionesAplicables);
+      
+      // Validar que haya al menos una presentación válida
+      if (presentacionesAplicables.length === 0) {
+        throw new Error('No hay presentaciones válidas seleccionadas');
+      }
+      
+      // Preparar payload
       const promoPayload = {
         IdPromoOK: idPromoOK,
         Titulo: promotionData.titulo || 'Nueva Promoción',
         Descripcion: promotionData.descripcion || '',
         FechaIni: new Date(promotionData.fechaInicio).toISOString(),
         FechaFin: new Date(promotionData.fechaFin).toISOString(),
-        ProductosAplicables: productosAplicables,
+        ProductosAplicables: presentacionesAplicables, // Backend espera ProductosAplicables, pero enviamos presentaciones
         TipoDescuento: promotionData.tipoDescuento || 'PORCENTAJE',
         DescuentoPorcentaje: promotionData.tipoDescuento === 'PORCENTAJE' ? promotionData.descuentoPorcentaje : 0,
         DescuentoMonto: promotionData.tipoDescuento === 'MONTO_FIJO' ? promotionData.descuentoMonto : 0,
@@ -142,7 +155,8 @@ const promoService = {
         errorMessage = 'Endpoint no encontrado (404). Verifica la URL de la API.';
       } else if (error.response?.status === 400) {
         console.log('🔍 Detalles del error 400:', error.response?.data);
-        errorMessage = error.response?.data?.message || error.response?.data?.error?.message || 'Datos de promoción no válidos (400).';
+        console.log('🔍 Error completo:', JSON.stringify(error.response?.data, null, 2));
+        errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.response?.data?.error || 'Datos de promoción no válidos (400).';
       } else if (error.response?.status === 500) {
         errorMessage = 'Error interno del servidor (500). Revisa los logs del backend.';
       } else if (error.message) {
