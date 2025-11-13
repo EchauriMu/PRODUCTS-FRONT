@@ -1,89 +1,100 @@
-import React, { useState, useEffect } from 'react';
-import { FlexBox, Label, Switch, Tag, Text } from '@ui5/webcomponents-react';
-import ValueState from '@ui5/webcomponents-base/dist/types/ValueState.js';
+import React, { useState } from 'react';
+import {
+  FlexBox,
+  Switch,
+  Text,
+  MessageStrip,
+  Icon
+} from '@ui5/webcomponents-react';
+import productPresentacionesService from '../../api/productPresentacionesService';
 
-// Mock del servicio de presentaciones, para simular llamadas a la API.
-const presentationService = {
-  async togglePresentacionStatus(idpresentaok, newStatus) {
-    console.log(`Simulando cambio de estado para presentación ${idpresentaok}: ${newStatus}`);
-    // Simula una llamada a la API que puede fallar o tener éxito
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // 90% de probabilidad de éxito
-        if (Math.random() > 0.1) {
-          resolve({ IdPresentaOK: idpresentaok, ACTIVED: newStatus });
-        } else {
-          reject(new Error('Error de red simulado.'));
-        }
-      }, 500);
-    });
-  }
-};
-
+/**
+ * Props:
+ *  - presentation: { IdPresentaOK, ACTIVED, ... }
+ *  - onStatusChange(updatedPresentation)
+ *
+ * El switch SOLO cambia ACTIVED y fuerza DELETED=false (no oculta nada).
+ * Muestra un chip verde/rojo MUY visible según el estado.
+ */
 const PresentationStatus = ({ presentation, onStatusChange }) => {
-  const [isActive, setIsActive] = useState(!!presentation.ACTIVED);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
 
-  // Sincroniza el estado si la prop de presentación cambia desde fuera
-  useEffect(() => {
-    setIsActive(presentation.ACTIVED);
-  }, [presentation.ACTIVED]);
+  const id = presentation?.IdPresentaOK;
+  const isActive = !!presentation?.ACTIVED;
 
-  const getStatusInfo = (pres) => {
-    if (pres.DELETED) {
-      return { design: 'Negative', text: 'Eliminado', state: ValueState.Error };
-    }
-    if (pres.ACTIVED) {
-      return { design: 'Positive', text: 'Activo', state: ValueState.Success };
-    }
-    return { design: 'Critical', text: 'Inactivo', state: ValueState.Warning };
-  };
+  const handleToggle = async (e) => {
+    e?.stopPropagation?.();
+    if (!id) return;
 
-  const handleSwitchChange = async (e) => {
-    const newStatus = e.target.checked;
-    setIsSubmitting(true);
-    setError('');
+    const targetActive = !isActive;
+    setSaving(true);
+    setErr('');
 
     try {
-      await presentationService.togglePresentacionStatus(presentation.IdPresentaOK, newStatus);
-      setIsActive(newStatus);
-      // Notifica al componente padre sobre el cambio exitoso
-      if (onStatusChange) {
-        onStatusChange({ ...presentation, ACTIVED: newStatus });
-      }
-    } catch (err) {
-      setError(err.message || 'Error al cambiar el estado.');
-      // Revertir el switch si la API falla
-      setTimeout(() => setError(''), 3000); // Limpiar error después de 3s
+      // No usa DeleteLogic; nunca pone DELETED=true
+      const updated = await productPresentacionesService.togglePresentacionStatus(
+        id,
+        targetActive
+      );
+
+      // Merge para conservar props locales (ej. files)
+      const merged = {
+        ...presentation,
+        ...updated,
+        ACTIVED: targetActive,
+        DELETED: false
+      };
+      onStatusChange?.(merged);
+    } catch (error) {
+      setErr(
+        error?.response?.data?.messageUSR ||
+          error?.message ||
+          'No se pudo cambiar el estado.'
+      );
     } finally {
-      setIsSubmitting(false);
+      setSaving(false);
     }
   };
 
-  const statusInfo = getStatusInfo({ ...presentation, ACTIVED: isActive });
+  // Chip verde/rojo (colores visibles)
+  const chipStyle = isActive
+    ? {
+        backgroundColor: '#e8f8f0',
+        color: '#107e3e',
+        border: '1px solid #b7e1cd'
+      }
+    : {
+        backgroundColor: '#fdecea',
+        color: '#b00020',
+        border: '1px solid #f5c2c7'
+      };
 
   return (
-    <FlexBox direction="Column" style={{ minWidth: '120px' }}>
-      <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
-        <Tag design={statusInfo.design} style={{ flexShrink: 0 }}>
-          {statusInfo.text}
-        </Tag>
+    <FlexBox alignItems="Center" style={{ gap: '0.75rem' }}>
+      <span
+        style={{
+          ...chipStyle,
+          borderRadius: 9999,
+          padding: '2px 10px',
+          fontWeight: 600,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          lineHeight: 1
+        }}
+        title={isActive ? 'Activo' : 'Inactivo'}
+      >
+        <Icon name={isActive ? 'accept' : 'decline'} />
+        {isActive ? 'Activo' : 'Inactivo'}
+      </span>
 
-        <Switch
-          checked={isActive}
-          disabled={isSubmitting || presentation.DELETED}
-          onChange={handleSwitchChange}
-        />
-        <Label>
-          {isSubmitting ? 'Actualizando...' : (isActive ? 'Desactivar' : 'Activar')}
-        </Label>
+      <FlexBox alignItems="Center" style={{ gap: 6 }}>
+        <Text>{isActive ? 'Desactivar' : 'Activar'}</Text>
+        <Switch checked={isActive} disabled={saving} onChange={handleToggle} />
       </FlexBox>
-      {error && (
-        <Text style={{ color: 'var(--sapNegativeColor)', fontSize: 'var(--sapFontSize)' }}>
-          {error}
-        </Text>
-      )}
+
+      {err && <MessageStrip design="Negative">{err}</MessageStrip>}
     </FlexBox>
   );
 };

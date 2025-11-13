@@ -27,9 +27,17 @@ import {
 import productService from '../../api/productService';
 import categoryService from '../../api/categoryService';
 import promoService from '../../api/promoService';
+import productPresentacionesService from '../../api/productPresentacionesService';
+import preciosItemsService from '../../api/preciosItemsService';
 
 // DATOS ESTÁTICOS/MOCK PARA FILTROS
-const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProducts = new Set() }) => {
+const AdvancedFilters = ({ 
+  onFiltersChange, 
+  initialFilters = {}, 
+  preselectedProducts = new Set(), 
+  lockedProducts = new Set(),
+  preselectedPresentaciones = [] // Array de presentaciones pre-seleccionadas
+}) => {
   const [filters, setFilters] = useState({
     categorias: [],
     marcas: [],
@@ -54,6 +62,14 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState(preselectedProducts); // Inicializar con preseleccionados
   const [searchTerm, setSearchTerm] = useState(''); // Término de búsqueda
+  
+  // Estados para presentaciones
+  const [expandedProducts, setExpandedProducts] = useState(new Set()); // Productos con presentaciones expandidas
+  const [productPresentaciones, setProductPresentaciones] = useState({}); // { SKUID: [presentaciones] }
+  const [loadingPresentaciones, setLoadingPresentaciones] = useState({}); // { SKUID: boolean }
+  const [selectedPresentaciones, setSelectedPresentaciones] = useState(new Set()); // IDs de presentaciones seleccionadas
+  const [presentacionesPrecios, setPresentacionesPrecios] = useState({}); // { IdPresentaOK: [precios] }
+  const [lockedPresentaciones, setLockedPresentaciones] = useState(new Set()); // IDs de presentaciones bloqueadas (ya en la promoción)
 
   // Estados para creación de promociones
   const [showCreatePromoModal, setShowCreatePromoModal] = useState(false);
@@ -129,6 +145,121 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
       setSelectedProducts(new Set(preselectedProducts));
     }
   }, [preselectedProducts]);
+
+  // Cargar y seleccionar presentaciones pre-seleccionadas
+  useEffect(() => {
+    const loadPreselectedPresentaciones = async () => {
+      if (!preselectedPresentaciones || preselectedPresentaciones.length === 0) {
+        setLockedPresentaciones(new Set());
+        return;
+      }
+      
+      console.log('🔄 Cargando presentaciones pre-seleccionadas:', preselectedPresentaciones);
+      
+      try {
+        // Agrupar presentaciones por SKUID
+        const presentacionesPorSKU = {};
+        const skuidsUnicos = new Set();
+        const idsPresent = new Set();
+        
+        preselectedPresentaciones.forEach(pres => {
+          if (pres && pres.SKUID && pres.IdPresentaOK) {
+            skuidsUnicos.add(pres.SKUID);
+            idsPresent.add(pres.IdPresentaOK);
+            
+            if (!presentacionesPorSKU[pres.SKUID]) {
+              presentacionesPorSKU[pres.SKUID] = [];
+            }
+            // Asegurar que la presentación tenga todos los campos necesarios
+            const presentacionCompleta = {
+              ...pres,
+              ACTIVED: true, // Marcar como activa para que se muestre
+              NOMBREPRESENTACION: pres.NOMBREPRESENTACION || pres.NombrePresentacion || 'Sin nombre'
+            };
+            presentacionesPorSKU[pres.SKUID].push(presentacionCompleta);
+          }
+        });
+
+        // Marcar productos como expandidos
+        setExpandedProducts(skuidsUnicos);
+        
+        // Marcar las presentaciones como bloqueadas PRIMERO
+        setLockedPresentaciones(idsPresent);
+        
+        // Cargar TODAS las presentaciones del servidor para cada SKUID
+        const presentacionesPromises = Array.from(skuidsUnicos).map(async (skuid) => {
+          try {
+            const presentaciones = await productPresentacionesService.getPresentacionesBySKUID(skuid);
+            return { skuid, presentaciones: presentaciones || [] };
+          } catch (error) {
+            console.error(`Error loading presentaciones for ${skuid}:`, error);
+            return { skuid, presentaciones: [] };
+          }
+        });
+        
+        const presentacionesResults = await Promise.all(presentacionesPromises);
+        
+        // Combinar presentaciones del servidor con las bloqueadas
+        const presentacionesCombinadas = {};
+        presentacionesResults.forEach(({ skuid, presentaciones }) => {
+          const presentacionesMap = new Map();
+          
+          // Primero agregar las presentaciones bloqueadas
+          if (presentacionesPorSKU[skuid]) {
+            presentacionesPorSKU[skuid].forEach(p => {
+              presentacionesMap.set(p.IdPresentaOK, p);
+            });
+          }
+          
+          // Luego agregar las del servidor (sin sobrescribir las bloqueadas)
+          presentaciones.forEach(p => {
+            if (!presentacionesMap.has(p.IdPresentaOK)) {
+              presentacionesMap.set(p.IdPresentaOK, p);
+            }
+          });
+          
+          presentacionesCombinadas[skuid] = Array.from(presentacionesMap.values());
+        });
+        
+        // Guardar las presentaciones combinadas
+        setProductPresentaciones(prev => ({ ...prev, ...presentacionesCombinadas }));
+        
+        // Cargar precios para TODAS las presentaciones
+        const todasLasPresentaciones = Object.values(presentacionesCombinadas).flat();
+        const preciosPromises = todasLasPresentaciones.map(async (presentacion) => {
+          try {
+            const precios = await preciosItemsService.getPricesByIdPresentaOK(presentacion.IdPresentaOK);
+            return { idPresentaOK: presentacion.IdPresentaOK, precios };
+          } catch (error) {
+            console.error(`Error loading prices for ${presentacion.IdPresentaOK}:`, error);
+            return { idPresentaOK: presentacion.IdPresentaOK, precios: [] };
+          }
+        });
+        
+        const preciosResults = await Promise.all(preciosPromises);
+        
+        // Actualizar estado de precios
+        setPresentacionesPrecios(prev => {
+          const newPrecios = { ...prev };
+          preciosResults.forEach(({ idPresentaOK, precios }) => {
+            newPrecios[idPresentaOK] = precios;
+          });
+          return newPrecios;
+        });
+        
+        console.log('✅ Presentaciones cargadas:', {
+          productos: skuidsUnicos.size,
+          presentacionesBloqueadas: idsPresent.size,
+          presentacionesTotales: todasLasPresentaciones.length
+        });
+        
+      } catch (error) {
+        console.error('❌ Error cargando presentaciones pre-seleccionadas:', error);
+      }
+    };
+
+    loadPreselectedPresentaciones();
+  }, [preselectedPresentaciones]);
 
   const loadData = async () => {
     setLoading(true);
@@ -401,15 +532,28 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
 
   // MANEJAR CREACIÓN DE PROMOCIÓN
   const handleCreatePromotion = () => {
-    const selectedProductsList = getFilteredProducts().filter(p => selectedProducts.has(p.SKUID));
+    // Obtener lista de presentaciones seleccionadas
+    const selectedPresentacionesList = [];
     
-    if (selectedProductsList.length === 0) {
-      alert('Por favor selecciona al menos un producto para crear la promoción.');
+    Object.entries(productPresentaciones).forEach(([skuid, presentaciones]) => {
+      presentaciones.forEach(presentacion => {
+        if (selectedPresentaciones.has(presentacion.IdPresentaOK)) {
+          const producto = productos.find(p => p.SKUID === skuid);
+          selectedPresentacionesList.push({
+            ...presentacion,
+            producto: producto
+          });
+        }
+      });
+    });
+    
+    if (selectedPresentacionesList.length === 0) {
+      alert('Por favor selecciona al menos una presentación para crear la promoción.');
       return;
     }
     
     // Generar título automático
-    const autoTitle = generatePromotionTitle(selectedProductsList);
+    const autoTitle = generatePromotionTitle(selectedPresentacionesList);
     
     // Configurar fechas por defecto
     const today = new Date();
@@ -417,7 +561,7 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
     
     setPromoFormData({
       titulo: autoTitle,
-      descripcion: `Promoción aplicable a ${selectedProductsList.length} producto(s) seleccionado(s)`,
+      descripcion: `Promoción aplicable a ${selectedPresentacionesList.length} presentación(es) seleccionada(s)`,
       fechaInicio: today.toISOString().split('T')[0],
       fechaFin: oneMonthLater.toISOString().split('T')[0],
       tipoDescuento: 'PORCENTAJE',
@@ -435,7 +579,20 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
     try {
       setCreatingPromo(true);
       
-      const selectedProductsList = getFilteredProducts().filter(p => selectedProducts.has(p.SKUID));
+      // Obtener lista de presentaciones seleccionadas
+      const selectedPresentacionesList = [];
+      
+      Object.entries(productPresentaciones).forEach(([skuid, presentaciones]) => {
+        presentaciones.forEach(presentacion => {
+          if (selectedPresentaciones.has(presentacion.IdPresentaOK)) {
+            const producto = productos.find(p => p.SKUID === skuid);
+            selectedPresentacionesList.push({
+              ...presentacion,
+              producto: producto
+            });
+          }
+        });
+      });
       
       // Validaciones básicas
       if (!promoFormData.titulo.trim()) {
@@ -463,10 +620,10 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
         return;
       }
       
-      // Crear promoción
+      // Crear promoción con presentaciones
       const result = await promoService.createPromotionWithProducts(
         promoFormData,
-        selectedProductsList,
+        selectedPresentacionesList,
         filters
         // LoggedUser se maneja automáticamente por el interceptor de axios
       );
@@ -474,11 +631,12 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
       console.log('Promoción creada exitosamente:', result);
       
       // Mostrar mensaje de éxito
-      alert(`Promoción "${promoFormData.titulo}" creada exitosamente!`);
+      alert(`Promoción "${promoFormData.titulo}" creada exitosamente con ${selectedPresentacionesList.length} presentación(es)!`);
       
       // Limpiar formulario y cerrar modal
       setShowCreatePromoModal(false);
       setSelectedProducts(new Set());
+      setSelectedPresentaciones(new Set());
       
       // Notificar al componente padre si hay callback
       if (onFiltersChange) {
@@ -497,7 +655,7 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
   };
 
   // GENERAR TÍTULO AUTOMÁTICO PARA LA PROMOCIÓN
-  const generatePromotionTitle = (selectedProductsList = []) => {
+  const generatePromotionTitle = (selectedPresentacionesList = []) => {
     const parts = [];
     
     if (temporadaActiva) {
@@ -517,12 +675,14 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
       parts.push(`${filters.categorias.length} categorías`);
     }
     
-    // Si hay productos específicos seleccionados
-    if (selectedProductsList.length === 1) {
-      const producto = selectedProductsList[0];
-      parts.push(producto.PRODUCTNAME || `Producto ${producto.SKUID}`);
-    } else if (selectedProductsList.length > 1) {
-      parts.push(`${selectedProductsList.length} productos`);
+    // Si hay presentaciones específicas seleccionadas
+    if (selectedPresentacionesList.length === 1) {
+      const presentacion = selectedPresentacionesList[0];
+      parts.push(presentacion.NOMBREPRESENTACION || presentacion.producto?.PRODUCTNAME || 'Presentación');
+    } else if (selectedPresentacionesList.length > 1) {
+      // Contar productos únicos
+      const productosUnicos = new Set(selectedPresentacionesList.map(p => p.producto?.SKUID).filter(Boolean));
+      parts.push(`${selectedPresentacionesList.length} presentaciones de ${productosUnicos.size} producto(s)`);
     }
     
     if (parts.length === 0) {
@@ -565,61 +725,299 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
   };
 
   // FUNCIONES DE SELECCIÓN DE PRODUCTOS
-  const toggleProductSelection = (productId) => {
+  const toggleProductSelection = async (productId) => {
+    // No permitir deseleccionar productos bloqueados
+    if (lockedProducts.has(productId)) {
+      return;
+    }
+    
     setSelectedProducts(prev => {
       const newSelection = new Set(prev);
-      if (newSelection.has(productId)) {
-        newSelection.delete(productId);
-      } else {
+      const isSelecting = !newSelection.has(productId);
+      
+      if (isSelecting) {
         newSelection.add(productId);
+        // Cargar y seleccionar todas las presentaciones
+        loadAndSelectPresentaciones(productId);
+      } else {
+        newSelection.delete(productId);
+        // Deseleccionar todas las presentaciones del producto
+        deselectAllPresentacionesForProduct(productId);
+      }
+      
+      return newSelection;
+    });
+  };
+
+  // Función auxiliar para cargar y seleccionar presentaciones automáticamente
+  const loadAndSelectPresentaciones = async (skuid) => {
+    // Si no están cargadas, cargarlas
+    if (!productPresentaciones[skuid]) {
+      await loadPresentaciones(skuid);
+    }
+    
+    // Seleccionar todas las presentaciones activas
+    const presentaciones = productPresentaciones[skuid] || [];
+    const activePresentaciones = presentaciones.filter(p => p.ACTIVED);
+    
+    setSelectedPresentaciones(prev => {
+      const newSelection = new Set(prev);
+      activePresentaciones.forEach(p => newSelection.add(p.IdPresentaOK));
+      return newSelection;
+    });
+  };
+
+  const selectAllProducts = async () => {
+    const allProductIds = getFilteredProducts().map(p => p.SKUID);
+    setSelectedProducts(new Set(allProductIds));
+    
+    // Cargar y seleccionar todas las presentaciones de todos los productos
+    for (const skuid of allProductIds) {
+      await loadAndSelectPresentaciones(skuid);
+    }
+  };
+
+  const deselectAllProducts = () => {
+    // Mantener los productos bloqueados incluso al limpiar
+    setSelectedProducts(new Set(lockedProducts));
+    
+    // Limpiar todas las presentaciones seleccionadas
+    setSelectedPresentaciones(new Set());
+  };
+
+  const getSelectedProductsCount = () => selectedProducts.size;
+
+  // FUNCIONES PARA MANEJAR PRESENTACIONES
+  const toggleProductExpansion = async (productId) => {
+    const newExpanded = new Set(expandedProducts);
+    
+    if (newExpanded.has(productId)) {
+      // Contraer
+      newExpanded.delete(productId);
+    } else {
+      // Expandir y cargar presentaciones si no están cargadas
+      newExpanded.add(productId);
+      
+      if (!productPresentaciones[productId]) {
+        await loadPresentaciones(productId);
+      }
+    }
+    
+    setExpandedProducts(newExpanded);
+  };
+
+  const loadPresentaciones = async (skuid) => {
+    setLoadingPresentaciones(prev => ({ ...prev, [skuid]: true }));
+    
+    try {
+      const presentaciones = await productPresentacionesService.getPresentacionesBySKUID(skuid);
+      
+      // Usar Map para evitar duplicados y mantener las bloqueadas
+      const presentacionesMap = new Map();
+      
+      // Primero agregar las presentaciones que ya teníamos (incluidas las bloqueadas)
+      if (productPresentaciones[skuid]) {
+        productPresentaciones[skuid].forEach(p => {
+          presentacionesMap.set(p.IdPresentaOK, p);
+        });
+      }
+      
+      // Luego agregar/actualizar con las del servidor
+      if (presentaciones && presentaciones.length > 0) {
+        presentaciones.forEach(p => {
+          // Si ya existe (bloqueada), mantener la versión bloqueada pero actualizar otros campos
+          if (presentacionesMap.has(p.IdPresentaOK)) {
+            const existing = presentacionesMap.get(p.IdPresentaOK);
+            presentacionesMap.set(p.IdPresentaOK, {
+              ...p,
+              ...existing, // Mantener campos de la bloqueada (como ACTIVED: true)
+            });
+          } else {
+            presentacionesMap.set(p.IdPresentaOK, p);
+          }
+        });
+      }
+      
+      const presentacionesCombinadas = Array.from(presentacionesMap.values());
+      
+      setProductPresentaciones(prev => ({
+        ...prev,
+        [skuid]: presentacionesCombinadas
+      }));
+      
+      // Cargar precios para cada presentación
+      if (presentacionesCombinadas && presentacionesCombinadas.length > 0) {
+        const preciosPromises = presentacionesCombinadas.map(async (presentacion) => {
+          try {
+            const precios = await preciosItemsService.getPricesByIdPresentaOK(presentacion.IdPresentaOK);
+            return { idPresentaOK: presentacion.IdPresentaOK, precios };
+          } catch (error) {
+            console.error(`Error loading prices for ${presentacion.IdPresentaOK}:`, error);
+            return { idPresentaOK: presentacion.IdPresentaOK, precios: [] };
+          }
+        });
+        
+        const preciosResults = await Promise.all(preciosPromises);
+        
+        // Actualizar estado de precios
+        setPresentacionesPrecios(prev => {
+          const newPrecios = { ...prev };
+          preciosResults.forEach(({ idPresentaOK, precios }) => {
+            newPrecios[idPresentaOK] = precios;
+          });
+          return newPrecios;
+        });
+      }
+    } catch (error) {
+      console.error(`Error loading presentaciones for ${skuid}:`, error);
+      setProductPresentaciones(prev => ({
+        ...prev,
+        [skuid]: []
+      }));
+    } finally {
+      setLoadingPresentaciones(prev => ({ ...prev, [skuid]: false }));
+    }
+  };
+
+  const togglePresentacionSelection = (presentacionId, skuid) => {
+    setSelectedPresentaciones(prev => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(presentacionId)) {
+        newSelection.delete(presentacionId);
+        
+        // Verificar si quedan presentaciones seleccionadas de este producto
+        const presentaciones = productPresentaciones[skuid] || [];
+        const remainingSelected = presentaciones.some(p => 
+          p.IdPresentaOK !== presentacionId && newSelection.has(p.IdPresentaOK)
+        );
+        
+        // Si no quedan presentaciones seleccionadas, deseleccionar el producto
+        if (!remainingSelected) {
+          setSelectedProducts(prevProducts => {
+            const newProducts = new Set(prevProducts);
+            newProducts.delete(skuid);
+            return newProducts;
+          });
+        }
+      } else {
+        newSelection.add(presentacionId);
+        
+        // Si se selecciona una presentación, asegurar que el producto esté seleccionado
+        setSelectedProducts(prevProducts => {
+          const newProducts = new Set(prevProducts);
+          newProducts.add(skuid);
+          return newProducts;
+        });
       }
       return newSelection;
     });
   };
 
-  const selectAllProducts = () => {
-    const allProductIds = getFilteredProducts().map(p => p.SKUID);
-    setSelectedProducts(new Set(allProductIds));
+  const selectAllPresentacionesForProduct = (skuid) => {
+    const presentaciones = productPresentaciones[skuid] || [];
+    const activePresentaciones = presentaciones.filter(p => p.ACTIVED);
+    
+    setSelectedPresentaciones(prev => {
+      const newSelection = new Set(prev);
+      activePresentaciones.forEach(p => newSelection.add(p.IdPresentaOK));
+      return newSelection;
+    });
   };
 
-  const deselectAllProducts = () => {
-    setSelectedProducts(new Set());
+  const deselectAllPresentacionesForProduct = (skuid) => {
+    const presentaciones = productPresentaciones[skuid] || [];
+    
+    setSelectedPresentaciones(prev => {
+      const newSelection = new Set(prev);
+      presentaciones.forEach(p => newSelection.delete(p.IdPresentaOK));
+      return newSelection;
+    });
   };
 
-  const getSelectedProductsCount = () => selectedProducts.size;
+  // Función helper para obtener el precio de una presentación
+  const getPrecioPresentacion = (idPresentaOK) => {
+    const precios = presentacionesPrecios[idPresentaOK] || [];
+    
+    if (precios.length === 0) {
+      return null;
+    }
+    
+    // Buscar el precio de la lista principal o el primer precio disponible
+    // Puedes ajustar esta lógica según tus necesidades
+    const precioActivo = precios.find(p => p.ACTIVO === true) || precios[0];
+    
+    return precioActivo?.Precio || null;
+  };
 
-  // Notificar al padre cuando cambien los productos seleccionados
+  // Notificar al padre cuando cambien las presentaciones seleccionadas
   useEffect(() => {
     if (onFiltersChange && typeof onFiltersChange === 'function') {
-      const selectedProductsList = productos.filter(p => selectedProducts.has(p.SKUID));
-      onFiltersChange(selectedProductsList);
+      // Recopilar todas las presentaciones seleccionadas con información del producto
+      const selectedPresentacionesList = [];
+      
+      Object.entries(productPresentaciones).forEach(([skuid, presentaciones]) => {
+        if (!Array.isArray(presentaciones)) return; // Validar que sea un array
+        
+        presentaciones.forEach(presentacion => {
+          // Validar que la presentación tenga IdPresentaOK, esté seleccionada Y NO esté bloqueada
+          if (presentacion && 
+              presentacion.IdPresentaOK && 
+              selectedPresentaciones.has(presentacion.IdPresentaOK) &&
+              !lockedPresentaciones.has(presentacion.IdPresentaOK)) { // NO incluir bloqueadas
+            // Encontrar el producto correspondiente
+            const producto = productos.find(p => p.SKUID === skuid);
+            const precio = getPrecioPresentacion(presentacion.IdPresentaOK);
+            
+            selectedPresentacionesList.push({
+              ...presentacion,
+              Precio: precio, // Precio desde precios_items
+              producto: producto ? {
+                SKUID: producto.SKUID,
+                PRODUCTNAME: producto.PRODUCTNAME,
+                MARCA: producto.MARCA,
+                PRECIO: producto.PRECIO
+              } : null
+            });
+          }
+        });
+      });
+      
+      // Solo enviar si hay presentaciones válidas
+      onFiltersChange(selectedPresentacionesList);
     }
-  }, [selectedProducts, productos]);
+  }, [selectedPresentaciones, productPresentaciones, productos, presentacionesPrecios, lockedPresentaciones]);
 
   return (
-    <div style={{ padding: '0.5rem', backgroundColor: '#f8f9fa' }}>
+    <div style={{ 
+      backgroundColor: '#f8f9fa', 
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }}>
       <FlexBox style={{ 
-        gap: '2rem', 
-        margin: '0', 
-        maxWidth: '1400px',
-        marginLeft: 'auto',
-        marginRight: 'auto',
-        height: '60vh',
-        alignItems: 'stretch'
+        gap: '1rem', 
+        margin: '0',
+        padding: '0.5rem',
+        width: '100%',
+        flex: 1,
+        minHeight: 0,
+        maxHeight: '100%',
+        alignItems: 'stretch',
+        overflow: 'hidden'
       }}>
         
         {/* COLUMNA IZQUIERDA - FILTROS */}
         <Card style={{ 
-          flex: '1', 
-          minWidth: '420px',
-          maxWidth: '50%',
-          borderRadius: '12px',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+          flex: '0 0 35%',
+          minWidth: '320px',
+          height: '100%',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
           border: '1px solid #e0e6ed',
-          background: 'linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)',
+          background: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
-          height: '60vh',
           overflow: 'hidden'
         }}>
         <CardHeader
@@ -628,7 +1026,8 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
           style={{
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white',
-            borderRadius: '12px 12px 0 0'
+            borderRadius: '8px 8px 0 0',
+            flexShrink: 0
           }}
           action={
             <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
@@ -669,39 +1068,19 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
 
       {filtersExpanded && (
         <div style={{ 
-          padding: '1rem',
-          flex: '1',
+          padding: '0.75rem',
+          paddingBottom: '1.5rem',
+          flex: '1 1 auto',
           overflowY: 'auto',
           overflowX: 'hidden',
-          height: 'calc(60vh - 120px)',
-          minHeight: '0'
+          minHeight: 0,
+          maxHeight: 'calc(100vh - 180px)'
         }}>
-          <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
+          <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
             
             {/* FILTROS POR CATEGORÍA */}
-            <Card 
-              header={
-                <CardHeader 
-                  titleText="Filtros por Categoría" 
-                  style={{
-                    background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-                    color: 'white',
-                    borderRadius: '8px 8px 0 0'
-                  }}
-                  action={
-                    <Icon name="folder" style={{ color: 'white', fontSize: '1.2rem' }} />
-                  }
-                />
-              }
-              style={{
-                marginBottom: '1rem',
-                borderRadius: '8px',
-                border: '1px solid #e0e6ed',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
-              }}
-            >
-              <div style={{ padding: '1rem' }}>
-                <Label>Categorías de Productos:</Label>
+            <div style={{ marginBottom: '0.5rem' }}>
+              <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Categorías de Productos:</Label>
                 {categorias.length > 0 ? (
                   <>
                     <MultiComboBox
@@ -737,33 +1116,11 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
                     {loading ? 'Cargando categorías...' : `No hay categorías disponibles (Total encontradas: ${categorias.length})`}
                   </Text>
                 )}
-              </div>
-            </Card>
+            </div>
 
             {/* FILTROS POR MARCA */}
-            <Card 
-              header={
-                <CardHeader 
-                  titleText="Filtros por Marca" 
-                  style={{
-                    background: 'linear-gradient(135deg, #FF9800 0%, #F57C00 100%)',
-                    color: 'white',
-                    borderRadius: '8px 8px 0 0'
-                  }}
-                  action={
-                    <Icon name="tag" style={{ color: 'white', fontSize: '1.2rem' }} />
-                  }
-                />
-              }
-              style={{
-                marginBottom: '1rem',
-                borderRadius: '8px',
-                border: '1px solid #e0e6ed',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
-              }}
-            >
-              <div style={{ padding: '1rem' }}>
-                <Label>Marcas de Productos:</Label>
+            <div style={{ marginBottom: '1rem' }}>
+              <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Marcas de Productos:</Label>
                 {marcas.length > 0 ? (
                   <>
                     <MultiComboBox
@@ -799,34 +1156,13 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
                     {loading ? 'Cargando marcas...' : 'No hay marcas disponibles'}
                   </Text>
                 )}
-              </div>
-            </Card>
+            </div>
 
             {/* FILTROS POR PRECIO */}
-            <Card 
-              header={
-                <CardHeader 
-                  titleText="Filtros por Precio" 
-                  style={{
-                    background: 'linear-gradient(135deg, #2196F3 0%, #1976D2 100%)',
-                    color: 'white',
-                    borderRadius: '8px 8px 0 0'
-                  }}
-                  action={
-                    <Icon name="money-bills" style={{ color: 'white', fontSize: '1.2rem' }} />
-                  }
-                />
-              }
-              style={{
-                marginBottom: '1rem',
-                borderRadius: '8px',
-                border: '1px solid #e0e6ed',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
-              }}
-            >
-              <div style={{ padding: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
+              <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Rango de Precios:</Label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                 <div>
-                  <Label>Rango de Precios:</Label>
                   <Select
                     onChange={(e) => {
                       const rango = RANGOS_PRECIOS.find(r => r.id === e.target.value);
@@ -838,7 +1174,7 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
                         handleFilterChange('precioMax', '');
                       }
                     }}
-                    style={{ width: '100%', marginTop: '0.25rem' }}
+                    style={{ width: '100%' }}
                   >
                     <Option value="">Seleccionar rango...</Option>
                     {RANGOS_PRECIOS.map(rango => (
@@ -850,71 +1186,50 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
                 </div>
                 
                 <div>
-                  <Label>Precio Mínimo:</Label>
                   <Input
                     type="number"
-                    placeholder="$0"
+                    placeholder="Precio Mínimo"
                     value={filters.precioMin}
                     onInput={(e) => handleFilterChange('precioMin', e.target.value)}
-                    style={{ width: '100%', marginTop: '0.25rem' }}
+                    style={{ width: '100%' }}
                   />
                 </div>
                 
                 <div>
-                  <Label>Precio Máximo:</Label>
                   <Input
                     type="number"
-                    placeholder="Sin límite"
+                    placeholder="Precio Máximo"
                     value={filters.precioMax}
                     onInput={(e) => handleFilterChange('precioMax', e.target.value)}
-                    style={{ width: '100%', marginTop: '0.25rem' }}
+                    style={{ width: '100%' }}
                   />
                 </div>
               </div>
-            </Card>
+            </div>
 
             {/*  FILTROS POR FECHA */}
-            <Card 
-              header={
-                <CardHeader 
-                  titleText="Filtros por Fecha de Ingreso" 
-                  style={{
-                    background: 'linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)',
-                    color: 'white',
-                    borderRadius: '8px 8px 0 0'
-                  }}
-                  action={
-                    <Icon name="calendar" style={{ color: 'white', fontSize: '1.2rem' }} />
-                  }
-                />
-              }
-              style={{
-                marginBottom: '1rem',
-                borderRadius: '8px',
-                border: '1px solid #e0e6ed',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
-              }}
-            >
-              <div style={{ padding: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
+              <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Fecha de Ingreso:</Label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                 <div>
-                  <Label>Fecha Desde:</Label>
                   <DatePicker
+                    placeholder="Fecha Desde"
                     value={filters.fechaIngresoDesde}
                     onChange={(e) => handleFilterChange('fechaIngresoDesde', e.target.value)}
-                    style={{ width: '100%', marginTop: '0.25rem' }}
+                    style={{ width: '100%' }}
                   />
                 </div>
                 
                 <div>
-                  <Label>Fecha Hasta:</Label>
                   <DatePicker
+                    placeholder="Fecha Hasta"
                     value={filters.fechaIngresoHasta}
                     onChange={(e) => handleFilterChange('fechaIngresoHasta', e.target.value)}
-                    style={{ width: '100%', marginTop: '0.25rem' }}
+                    style={{ width: '100%' }}
                   />
                 </div>
               </div>
-            </Card>
+            </div>
 
           </FlexBox>
           </div>
@@ -923,27 +1238,27 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
 
         {/* COLUMNA DERECHA - PRODUCTOS ENCONTRADOS */}
         <Card style={{ 
-          flex: '1', 
-          minWidth: '420px',
-          maxWidth: '50%',
-          borderRadius: '12px',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+          flex: '1',
+          minWidth: '400px',
+          height: '100%',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
           border: '1px solid #e0e6ed',
-          background: 'linear-gradient(145deg, #ffffff 0%, #f8fff8 100%)',
+          background: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
-          height: '60vh',
           overflow: 'hidden'
         }}>
           {/* Encabezado eliminado a petición: sin título ni botón de crear promoción */}
 
           <div style={{ 
-            padding: '1rem',
-            flex: '1',
+            padding: '0.75rem',
+            paddingBottom: '1.5rem',
+            flex: '1 1 auto',
             overflowY: 'auto',
             overflowX: 'hidden',
-            height: 'calc(60vh - 120px)',
-            minHeight: '0'
+            minHeight: 0,
+            maxHeight: 'calc(100vh - 150px)'
           }}>
             {loading ? (
               <FlexBox justifyContent="Center" style={{ padding: '2rem' }}>
@@ -1012,7 +1327,7 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
                   </FlexBox>
                   <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
                     <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                      {getSelectedProductsCount()} de {getFilteredProducts().length} seleccionados
+                      {selectedPresentaciones.size} presentación(es) seleccionada(s)
                     </Text>
                     {getSelectedProductsCount() > 0 && (
                       <Button 
@@ -1028,78 +1343,159 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
                 </FlexBox>
 
                 <FlexBox direction="Column" style={{ 
-                  gap: '0.75rem'
+                  gap: '0.5rem'
                 }}>
-                  {getFilteredProducts().slice(0, 20).map(producto => (
-                  <Card 
-                    key={producto.SKUID} 
-                    style={{ 
-                      padding: '1.25rem',
-                      border: '1px solid #e8ecef',
-                      borderRadius: '8px',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      cursor: 'pointer',
-                      background: 'linear-gradient(145deg, #ffffff 0%, #fafbfc 100%)',
-                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#4CAF50';
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(76, 175, 80, 0.15)';
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = '#e8ecef';
-                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.05)';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }}
-                  >
-                    <FlexBox justifyContent="SpaceBetween" alignItems="Center">
-                      <FlexBox alignItems="Center" style={{ gap: '1rem', flex: 1 }}>
-                        <CheckBox 
-                          checked={selectedProducts.has(producto.SKUID)}
-                          onChange={() => toggleProductSelection(producto.SKUID)}
-                        />
-                        <FlexBox direction="Column" style={{ flex: 1 }}>
-                          <FlexBox alignItems="Center" style={{ gap: '0.5rem', marginBottom: '0.25rem' }}>
-                            <Title level="H6" style={{ 
-                              margin: 0, 
-                              fontSize: '1rem', 
-                              fontWeight: '600',
-                              color: '#2c3e50',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              maxWidth: '300px'
-                            }}>
-                              {producto.PRODUCTNAME || `Producto ${producto.SKUID}` || 'Producto sin nombre'}
-                            </Title>
+                  {getFilteredProducts().map(producto => (
+                  <div key={producto.SKUID}>
+                    <Card 
+                      style={{ 
+                        padding: '0.75rem',
+                        border: selectedProducts.has(producto.SKUID) ? '1px solid #4CAF50' : '1px solid #e8ecef',
+                        borderRadius: '6px',
+                        transition: 'all 0.2s ease',
+                        background: selectedProducts.has(producto.SKUID) ? '#f0f9f1' : '#ffffff',
+                        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+                      }}
+                    >
+                      <FlexBox justifyContent="SpaceBetween" alignItems="Center">
+                        <FlexBox alignItems="Center" style={{ gap: '0.75rem', flex: 1 }}>
+                          <CheckBox 
+                            checked={selectedProducts.has(producto.SKUID)}
+                            disabled={lockedProducts.has(producto.SKUID)}
+                            onChange={() => toggleProductSelection(producto.SKUID)}
+                          />
+                          <FlexBox direction="Column" style={{ flex: 1, minWidth: 0 }}>
+                            <FlexBox alignItems="Center" style={{ gap: '0.5rem', marginBottom: '0.15rem' }}>
+                              <Title level="H6" style={{ 
+                                margin: 0, 
+                                fontSize: '0.95rem', 
+                                fontWeight: '600',
+                                color: '#2c3e50',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flex: 1
+                              }}>
+                                {producto.PRODUCTNAME || `Producto ${producto.SKUID}` || 'Producto sin nombre'}
+                              </Title>
+                          </FlexBox>
+                          <Text style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.15rem' }}>
+                            SKU: {producto.SKUID} • Marca: {producto.MARCA || 'Sin marca'}
+                          </Text>
+                          {producto.CATEGORIAS && producto.CATEGORIAS.length > 0 && (
+                            <Text style={{ fontSize: '0.75rem', color: '#888' }}>
+                              {producto.CATEGORIAS.slice(0, 2).join(', ')}
+                            </Text>
+                          )}
                         </FlexBox>
-                        <Text style={{ fontSize: '0.875rem', color: '#666', marginBottom: '0.25rem' }}>
-                          SKU: {producto.SKUID} • Marca: {producto.MARCA || 'Sin marca'}
-                        </Text>
-                        <Text style={{ fontSize: '0.75rem', color: '#888' }}>
-                          Categorías: {producto.CATEGORIAS?.join(', ') || 'Sin categoría'}
-                        </Text>
+                        <FlexBox direction="Column" alignItems="End" style={{ gap: '0.15rem', marginLeft: '0.5rem' }}>
+                          <Text style={{ fontSize: '0.7rem', color: '#666' }}>
+                            {new Date(producto.REGDATE).toLocaleDateString()}
+                          </Text>
+                        </FlexBox>
+                        <Button 
+                          icon={expandedProducts.has(producto.SKUID) ? "navigation-up-arrow" : "navigation-down-arrow"}
+                          design="Transparent"
+                          onClick={() => toggleProductExpansion(producto.SKUID)}
+                          style={{ marginLeft: '0.5rem' }}
+                          tooltip={expandedProducts.has(producto.SKUID) ? "Ocultar presentaciones" : "Ver presentaciones"}
+                        />
+                        </FlexBox>
                       </FlexBox>
-                      <FlexBox direction="Column" alignItems="End" style={{ gap: '0.25rem' }}>
-                        <ObjectStatus state="Success" style={{ fontSize: '1rem', fontWeight: 'bold' }}>
-                          ${producto.PRECIO?.toLocaleString() || 'N/A'}
-                        </ObjectStatus>
-                        <Text style={{ fontSize: '0.75rem', color: '#666' }}>
-                          Agregado: {new Date(producto.REGDATE).toLocaleDateString()}
-                        </Text>
-                      </FlexBox>
-                      </FlexBox>
-                    </FlexBox>
-                  </Card>
+                    </Card>
+
+                    {/* Sección de Presentaciones Expandible */}
+                    {expandedProducts.has(producto.SKUID) && (
+                      <div style={{ 
+                        marginLeft: '2rem', 
+                        marginTop: '0.5rem',
+                        marginBottom: '0.5rem',
+                        padding: '0.5rem',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '6px',
+                        border: '1px solid #e0e6ed'
+                      }}>
+                        {loadingPresentaciones[producto.SKUID] ? (
+                          <FlexBox justifyContent="Center" style={{ padding: '0.5rem' }}>
+                            <BusyIndicator active size="Small" />
+                            <Text style={{ marginLeft: '0.5rem', color: '#666', fontSize: '0.875rem' }}>Cargando...</Text>
+                          </FlexBox>
+                        ) : (
+                          <>
+                            {(!productPresentaciones[producto.SKUID] || productPresentaciones[producto.SKUID].length === 0) ? (
+                              <MessageStrip type="Information">
+                                No hay presentaciones disponibles
+                              </MessageStrip>
+                            ) : (
+                              <FlexBox direction="Column" style={{ gap: '0.35rem' }}>
+                                {productPresentaciones[producto.SKUID]
+                                  .filter(p => p.ACTIVED || lockedPresentaciones.has(p.IdPresentaOK))
+                                  .map(presentacion => {
+                                    const isLocked = lockedPresentaciones.has(presentacion.IdPresentaOK);
+                                    return (
+                                      <div key={presentacion.IdPresentaOK} style={{ 
+                                        padding: '0.5rem',
+                                        backgroundColor: isLocked ? '#f5f5f5' : selectedPresentaciones.has(presentacion.IdPresentaOK) ? '#e8f5e9' : '#ffffff',
+                                        border: isLocked ? '1px solid #bdbdbd' : selectedPresentaciones.has(presentacion.IdPresentaOK) ? '1px solid #4CAF50' : '1px solid #dee2e6',
+                                        borderRadius: '4px',
+                                        opacity: isLocked ? 0.7 : 1
+                                      }}>
+                                        <FlexBox justifyContent="SpaceBetween" alignItems="Center">
+                                          <FlexBox alignItems="Center" style={{ gap: '0.5rem', flex: 1 }}>
+                                            <CheckBox 
+                                              checked={isLocked || selectedPresentaciones.has(presentacion.IdPresentaOK)}
+                                              disabled={isLocked}
+                                              onChange={() => togglePresentacionSelection(presentacion.IdPresentaOK, producto.SKUID)}
+                                            />
+                                            <FlexBox direction="Column" style={{ flex: 1 }}>
+                                              <FlexBox alignItems="Center" style={{ gap: '0.3rem' }}>
+                                                <Text style={{ fontWeight: '600', fontSize: '0.875rem', color: isLocked ? '#757575' : '#2c3e50' }}>
+                                                  {presentacion.NOMBREPRESENTACION || 'Sin nombre'}
+                                                </Text>
+                                                {isLocked && (
+                                                  <ObjectStatus state="Information" style={{ fontSize: '0.65rem', padding: '0 0.3rem' }}>
+                                                    Ya en promoción
+                                                  </ObjectStatus>
+                                                )}
+                                              </FlexBox>
+                                              {presentacion.Descripcion && (
+                                                <Text style={{ fontSize: '0.75rem', color: '#666' }}>
+                                                  {presentacion.Descripcion}
+                                                </Text>
+                                              )}
+                                            </FlexBox>
+                                          </FlexBox>
+                                          <FlexBox direction="Column" alignItems="End" style={{ gap: '0.25rem' }}>
+                                            {(() => {
+                                              const precio = getPrecioPresentacion(presentacion.IdPresentaOK);
+                                              return precio ? (
+                                                <ObjectStatus state="Success" style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>
+                                                  ${precio?.toLocaleString()}
+                                                </ObjectStatus>
+                                              ) : (
+                                                <ObjectStatus state="Warning" style={{ fontSize: '0.75rem' }}>
+                                                  Sin precio
+                                                </ObjectStatus>
+                                              );
+                                            })()}
+                                            {presentacion.CostoIni && (
+                                              <Text style={{ fontSize: '0.7rem', color: '#888', textDecoration: 'line-through' }}>
+                                                Costo: ${presentacion.CostoIni?.toLocaleString()}
+                                              </Text>
+                                            )}
+                                          </FlexBox>
+                                        </FlexBox>
+                                      </div>
+                                    );
+                                  })}
+                              </FlexBox>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ))}
-                
-                {getFilteredProducts().length > 20 && (
-                  <MessageStrip type="Information" icon="hint" style={{ marginTop: '1rem' }}>
-                    Mostrando primeros 20 de {getFilteredProducts().length} productos. 
-                    La promoción incluirá todos los productos filtrados.
-                  </MessageStrip>
-                )}
                 </FlexBox>
               </>
             )}
@@ -1135,7 +1531,7 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
           />
         }
       >
-        <div style={{ padding: '1rem' }}>
+        <div style={{ padding: '1rem', maxHeight: '60vh', overflowY: 'auto' }}>
           <FlexBox direction="Column" style={{ gap: '1rem' }}>
             
             {/* Título sugerido */}
@@ -1191,7 +1587,7 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
             {/* Vista previa de productos */}
             <Card>
               <CardHeader titleText={`Productos Incluidos (${filteredProducts.length})`} />
-              <div style={{ padding: '1rem' }}>
+              <div style={{ padding: '1rem', maxHeight: '400px', overflowY: 'auto' }}>
                 {filteredProducts.length > 0 ? (
                   <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
                     {filteredProducts.slice(0, 10).map((producto, index) => (
@@ -1243,9 +1639,9 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
         open={showCreatePromoModal} 
         onAfterClose={() => setShowCreatePromoModal(false)}
         headerText="Crear Nueva Promoción"
-        style={{ width: '600px' }}
+        style={{ width: '600px', maxHeight: '90vh' }}
       >
-        <div style={{ padding: '1rem' }}>
+        <div style={{ padding: '1rem', maxHeight: '70vh', overflowY: 'auto' }}>
           <FlexBox direction="Column" style={{ gap: '1rem' }}>
             
             {/* Título */}
@@ -1383,7 +1779,7 @@ const AdvancedFilters = ({ onFiltersChange, initialFilters = {}, preselectedProd
 
             {/* Resumen */}
             <MessageStrip type="Information">
-              <strong>Resumen:</strong> Se aplicará a {selectedProducts.size} producto(s) seleccionado(s)
+              <strong>Resumen:</strong> Se aplicará a {selectedPresentaciones.size} presentación(es) seleccionada(s)
             </MessageStrip>
 
           </FlexBox>

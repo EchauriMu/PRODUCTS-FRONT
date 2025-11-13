@@ -274,34 +274,46 @@ const CrearPromocion = () => {
                 {form.limiteUsos ? ` • Límite: ${form.limiteUsos}` : ''}
               </Text>
 
-              {/* Lista de productos incluidos */}
+              {/* Lista de presentaciones incluidas */}
               <Card>
-                <CardHeader titleText={`Productos a afectar (${filteredProducts.length})`} subtitleText="Vista previa de los artículos a los que se aplicará la promoción" />
+                <CardHeader titleText={`Presentaciones a afectar (${filteredProducts.length})`} subtitleText="Vista previa de las presentaciones a las que se aplicará la promoción" />
                 <div style={{ padding: '0.5rem 1rem 1rem 1rem' }}>
                   {filteredProducts.length === 0 ? (
-                    <MessageStrip type="Warning">No hay productos seleccionados desde los filtros.</MessageStrip>
+                    <MessageStrip type="Warning">No hay presentaciones seleccionadas desde los filtros.</MessageStrip>
                   ) : (
                     <div style={{ border: '1px solid #e0e0e0', borderRadius: 8, overflow: 'hidden' }}>
                       {/* Encabezados */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 160px 120px', background: '#f7f9fb', padding: '0.5rem 0.75rem', fontWeight: 600, color: '#2c3e50' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 140px 120px', background: '#f7f9fb', padding: '0.5rem 0.75rem', fontWeight: 600, color: '#2c3e50' }}>
                         <div>SKU</div>
-                        <div>Producto</div>
+                        <div>Producto / Presentación</div>
                         <div>Marca</div>
                         <div style={{ textAlign: 'right' }}>Precio</div>
                       </div>
                       <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
-                        {filteredProducts.slice(0, 50).map((p, idx) => (
-                          <div key={p.SKUID || idx} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 160px 120px', padding: '0.5rem 0.75rem', borderTop: '1px solid #eef2f5', alignItems: 'center' }}>
-                            <div style={{ fontFamily: 'monospace' }}>{p.SKUID}</div>
-                            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.PRODUCTNAME || '—'}</div>
-                            <div>{p.MARCA || '—'}</div>
-                            <div style={{ textAlign: 'right' }}>${(p.PRECIO ?? 0).toLocaleString()}</div>
+                        {filteredProducts
+                          .filter(p => p && p.IdPresentaOK) // Filtrar presentaciones válidas
+                          .slice(0, 50)
+                          .map((presentacion, idx) => (
+                          <div key={presentacion.IdPresentaOK || idx} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 140px 120px', padding: '0.5rem 0.75rem', borderTop: '1px solid #eef2f5', alignItems: 'center' }}>
+                            <div style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{presentacion.producto?.SKUID || presentacion.SKUID || '—'}</div>
+                            <div>
+                              <div style={{ fontWeight: '600', fontSize: '0.875rem', marginBottom: '0.15rem' }}>
+                                {presentacion.producto?.PRODUCTNAME || '—'}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: '#666' }}>
+                                {presentacion.NOMBREPRESENTACION || '—'}
+                              </div>
+                            </div>
+                            <div>{presentacion.producto?.MARCA || '—'}</div>
+                            <div style={{ textAlign: 'right', fontWeight: '600' }}>
+                              ${(presentacion.Precio ?? 0).toLocaleString()}
+                            </div>
                           </div>
                         ))}
                       </div>
                       {filteredProducts.length > 50 && (
                         <div style={{ padding: '0.5rem 0.75rem', background: '#fbfcfe', borderTop: '1px solid #eef2f5' }}>
-                          Mostrando 50 de {filteredProducts.length}. La promoción se aplicará a todos los productos filtrados.
+                          Mostrando 50 de {filteredProducts.length}. La promoción se aplicará a todas las presentaciones seleccionadas.
                         </div>
                       )}
                     </div>
@@ -309,7 +321,7 @@ const CrearPromocion = () => {
                 </div>
               </Card>
 
-              <MessageStrip type="Information">La promoción aplicará a todos los productos filtrados del paso 2.</MessageStrip>
+              <MessageStrip type="Information">La promoción aplicará a todas las presentaciones seleccionadas del paso 2.</MessageStrip>
             </FlexBox>
           </div>
         </Card>

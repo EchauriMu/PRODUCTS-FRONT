@@ -1,6 +1,7 @@
+// src/api/productPresentacionesService.js
 import axiosInstance from './axiosInstance';
 
-/** Helper para desenvolver posibles respuestas CAP/OData */
+/** Desempaqueta respuestas CAP/OData con distintos envoltorios */
 function unwrapCAP(res) {
   return (
     res?.data?.value?.[0]?.data?.[0]?.dataRes ??
@@ -10,172 +11,138 @@ function unwrapCAP(res) {
   );
 }
 
+/** Construye querystring sin undefined/null */
+function qs(obj = {}) {
+  const p = new URLSearchParams();
+  Object.entries(obj).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') p.append(k, v);
+  });
+  return p.toString();
+}
+
+const BASE_PRESENT = '/ztproducts-presentaciones/productsPresentacionesCRUD';
+const BASE_FILES   = '/ztproducts-files/productsFilesCRUD';
+
 const productPresentacionesService = {
   /**
-   * Obtener presentaciones por SKUID (ProcessType=GetBySKUID)
+   * Obtener presentaciones por SKUID (ProcessType=GetBySKUID) + merge de archivos
    */
   async getPresentacionesBySKUID(skuid) {
-    try {
-      const params = new URLSearchParams({
-        ProcessType: 'GetBySKUID',
-        skuid
-      }).toString();
+    const params = qs({ ProcessType: 'GetBySKUID', skuid });
 
-      // 1. Obtener los datos base de las presentaciones (incluyendo el estado ACTIVED)
-      const presentationsRes = await axiosInstance.post(
-        `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`
-      );
-      const presentations = unwrapCAP(presentationsRes);
+    // Presentaciones
+    const presRes = await axiosInstance.post(`${BASE_PRESENT}?${params}`);
+    const presentaciones = unwrapCAP(presRes);
+    if (!Array.isArray(presentaciones) || presentaciones.length === 0) return [];
 
-      if (!Array.isArray(presentations) || presentations.length === 0) {
-        return [];
-      }
-
-      // 2. Obtener todos los archivos para el SKUID
-      const filesRes = await axiosInstance.post(
-        `/ztproducts-files/productsFilesCRUD?${params}`
-      );
-      const files = unwrapCAP(filesRes);
-      if (!Array.isArray(files)) {
-        // Si no hay archivos, devolvemos las presentaciones sin ellos.
-        return presentations.map(p => ({ ...p, files: [] }));
-      }
-
-      // 3. Agrupar archivos por IdPresentaOK
-      const filesByPresentaId = new Map();
-      files.forEach(file => {
-        if (!filesByPresentaId.has(file.IdPresentaOK)) {
-          filesByPresentaId.set(file.IdPresentaOK, []);
-        }
-        filesByPresentaId.get(file.IdPresentaOK).push(file);
-      });
-
-      // 4. Combinar presentaciones con sus archivos
-      return presentations.map(p => ({
-        ...p,
-        files: filesByPresentaId.get(p.IdPresentaOK) || []
-      }));
-    } catch (error) {
-      console.error('Error fetching product presentaciones:', error);
-      throw error;
+    // Archivos por SKUID
+    const filesRes = await axiosInstance.post(`${BASE_FILES}?${params}`);
+    const files = unwrapCAP(filesRes);
+    if (!Array.isArray(files)) {
+      return presentaciones.map(p => ({ ...p, files: [] }));
     }
+
+    const byPresenta = new Map();
+    for (const f of files) {
+      if (!byPresenta.has(f.IdPresentaOK)) byPresenta.set(f.IdPresentaOK, []);
+      byPresenta.get(f.IdPresentaOK).push(f);
+    }
+
+    return presentaciones.map(p => ({
+      ...p,
+      files: byPresenta.get(p.IdPresentaOK) || []
+    }));
   },
 
-  /**
-   * Crear una nueva Presentación (ProcessType=AddOne)
-   * payload: { IdPresentaOK, SKUID, NOMBREPRESENTACION, Descripcion, CostoIni, CostoFin, ACTIVED }
-   */
+  // ALIAS para compatibilidad
+  async getBySKUID(skuid) { return this.getPresentacionesBySKUID(skuid); },
+  async getBySKU(skuid)   { return this.getPresentacionesBySKUID(skuid); },
+
+  /** Crear */
   async addPresentacion(payload) {
-    try {
-      const params = new URLSearchParams({
-        ProcessType: 'AddOne'
-      }).toString();
-
-    const res = await axiosInstance.post(
-      `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
-      payload,
-      { headers: { 'Content-Type': 'application/json' } }
-    );
-
+    const params = qs({ ProcessType: 'AddOne' });
+    const res = await axiosInstance.post(`${BASE_PRESENT}?${params}`, payload, {
+      headers: { 'Content-Type': 'application/json' }
+    });
     const dataRes = unwrapCAP(res);
-    return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
-  } catch (error) {
-    console.error('Error adding presentacion:', error.response?.data || error);
-    throw error;
-  }
-},
+    return Array.isArray(dataRes) ? dataRes[0] ?? null : (dataRes ?? null);
+  },
 
-
-  /**
-   * Actualizar una Presentación (ProcessType=UpdateOne)
-   */
+  /** Actualizar */
   async updatePresentacion(idpresentaok, cambios) {
-    const params = new URLSearchParams({
-      ProcessType: 'UpdateOne',
-      idpresentaok
-    }).toString();
-
-    const res = await axiosInstance.post( // Se cambia a POST, ya que la API parece usarlo para todas las operaciones
-      `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
-      cambios
-    );
-
+    const params = qs({ ProcessType: 'UpdateOne', idpresentaok });
+    const res = await axiosInstance.post(`${BASE_PRESENT}?${params}`, cambios);
     const dataRes = unwrapCAP(res);
-    return Array.isArray(dataRes) ? dataRes[0] || null : dataRes;
+    return Array.isArray(dataRes) ? dataRes[0] ?? null : dataRes;
   },
 
-  /**
-   * Eliminar (lógico) una Presentación (ProcessType=DeleteLogic)
-   */
-  async deletePresentacion(idpresentaok) {
-    const params = new URLSearchParams({
-      ProcessType: 'DeleteLogic',
-      idpresentaok
-    }).toString();
-
-    const res = await axiosInstance.post(
-      `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`
-    );
-
+  /** Eliminar (Hard por defecto) / lógica con { hard:false } */
+  async deletePresentacion(idpresentaok, { hard = true } = {}) {
+    const ProcessType = hard ? 'DeleteHard' : 'DeleteLogic';
+    const params = qs({ ProcessType, idpresentaok });
+    const res = await axiosInstance.post(`${BASE_PRESENT}?${params}`);
     const dataRes = unwrapCAP(res);
-    return Array.isArray(dataRes) ? dataRes[0] || null : dataRes;
+    return Array.isArray(dataRes) ? dataRes[0] ?? null : dataRes;
   },
 
-  /**
-   * Helper: Eliminar varias presentaciones (llama DeleteLogic en paralelo)
-   * Devuelve un arreglo con los resultados en el mismo orden que los IDs.
-   */
-  async deletePresentacionesBulk(ids = []) {
+  /** ✅ Desactivar: solo cambia estado. NO usa DeleteLogic (no oculta). */
+  async deactivatePresentacion(idpresentaok) {
+    return this.updatePresentacion(idpresentaok, { ACTIVED: false, DELETED: false });
+  },
+
+  /** ✅ Activar: asegura visible */
+  async activatePresentacion(idpresentaok) {
+    return this.updatePresentacion(idpresentaok, { ACTIVED: true, DELETED: false });
+  },
+
+  /** Borrado masivo (N llamadas) */
+  async deletePresentacionesBulk(ids = [], { hard = true, concurrency = 5 } = {}) {
     if (!Array.isArray(ids) || ids.length === 0) return [];
-    const results = await Promise.all(
-      ids.map((id) => this.deletePresentacion(id))
-    );
+    const results = [];
+    const queue = [...ids];
+
+    const worker = async () => {
+      while (queue.length) {
+        const id = queue.shift();
+        try {
+          await this.deletePresentacion(id, { hard });
+          results.push({ idpresentaok: id, ok: true });
+        } catch (err) {
+          results.push({
+            idpresentaok: id,
+            ok: false,
+            error: err?.response?.data?.messageUSR || err?.message || 'Error'
+          });
+        }
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(concurrency, ids.length) }, worker);
+    await Promise.all(workers);
     return results;
   },
 
-  // (Opcional) Si tu back expone ProcessType=GetById, esto refresca una presentación tras editar.
+  /** GetOne */
   async getPresentacionById(idpresentaok) {
-   
-    const params = new URLSearchParams({
-      ProcessType: 'GetOne',
-      idpresentaok,
-      LoggedUser: 'Ed' // Requerido por el backend para trazabilidad
-    }).toString();
-
-    const res = await axiosInstance.post(
-      `/ztproducts-presentaciones/productsPresentacionesCRUD?${params}`,
-      {} 
-    );
-
+    const params = qs({ ProcessType: 'GetOne', idpresentaok });
+    const res = await axiosInstance.post(`${BASE_PRESENT}?${params}`, {});
     const dataRes = unwrapCAP(res);
-    return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
+    return Array.isArray(dataRes) ? dataRes[0] ?? null : (dataRes ?? null);
   },
 
-  // Helper para obtener los archivos de una presentación
+  /** Archivos por IdPresentaOK */
   async getFilesByPresentacionId(idpresentaok) {
-    const params = new URLSearchParams({
-      ProcessType: 'GetByIdPresentaOK',
-      idpresentaok
-    }).toString();
-    const res = await axiosInstance.post(
-      `/ztproducts-files/productsFilesCRUD?${params}` // Apuntando al servicio de archivos
-    );
+    const params = qs({ ProcessType: 'GetByIdPresentaOK', idpresentaok });
+    const res = await axiosInstance.post(`${BASE_FILES}?${params}`);
     const dataRes = unwrapCAP(res);
     return Array.isArray(dataRes) ? dataRes : (dataRes ? [dataRes] : []);
   },
 
-  // Cambia el estado ACTIVED de una presentación
+  /** ✅ Toggle real: nunca pone DELETED=true */
   async togglePresentacionStatus(idpresentaok, newStatus) {
-    console.log(`Simulando cambio de estado para ${idpresentaok}: ${newStatus}`);
-    try {
-      // En un futuro, esto llamaría al endpoint de actualización real
-
-      const result = await this.updatePresentacion(idpresentaok, { ACTIVED: newStatus });
-      return result;
-    } catch (error) {
-      console.error('Error simulado al cambiar estado:', error);
-      throw new Error('No se pudo cambiar el estado de la presentación.');
-    }
+    return newStatus
+      ? this.activatePresentacion(idpresentaok)
+      : this.deactivatePresentacion(idpresentaok);
   }
 };
 

@@ -241,7 +241,9 @@ const EditPresentationPage = () => {
           {error && <MessageStrip design="Negative" style={{ marginTop: '1rem' }}>{error}</MessageStrip>}
 
           <FlexBox justifyContent="End" style={{ gap: '0.5rem', marginTop: '1rem' }}>
-            <Button design="Transparent" onClick={() => navigate(`/products/${skuid}/presentations/select-edit`)} disabled={isSubmitting}>Cancelar</Button>
+            <Button design="Transparent"   
+            onClick={() => navigate(`/products/${skuid}/presentations/select-edit`, { replace: true })}
+                 disabled={isSubmitting}>Cancelar</Button>
             <Button design="Emphasized" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : 'Guardar Cambios'}</Button>
           </FlexBox>
         </div>
