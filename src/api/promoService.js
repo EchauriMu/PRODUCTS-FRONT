@@ -84,10 +84,10 @@ const promoService = {
    */
   async createPromotionWithProducts(promotionData, selectedPresentaciones = [], filters = {}, loggedUser = null) {
     try {
-      // Generar ID único para la promoción
+      // Generar ID único y simple para la promoción
       const timestamp = Date.now();
-      const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const idPromoOK = `PROMO_${timestamp}_${randomSuffix}`;
+      const shortId = timestamp.toString().slice(-6); // Últimos 6 dígitos del timestamp
+      const idPromoOK = `PROMO-${shortId}`;
       
       // Preparar presentaciones aplicables con el schema actualizado del backend
       const presentacionesAplicables = selectedPresentaciones

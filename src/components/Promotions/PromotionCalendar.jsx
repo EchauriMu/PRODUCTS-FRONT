@@ -150,6 +150,46 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
     });
   };
 
+  // Función para exportar promociones a CSV
+  const handleExport = () => {
+    const filtered = getFilteredPromotions();
+    
+    if (filtered.length === 0) {
+      alert('No hay promociones para exportar');
+      return;
+    }
+
+    // Preparar datos CSV
+    const headers = ['ID', 'Título', 'Descripción', 'Fecha Inicio', 'Fecha Fin', 'Descuento %', 'Estado', 'Creado Por'];
+    const rows = filtered.map(promo => [
+      promo.IdPromoOK || '',
+      promo.Titulo || '',
+      promo.Descripcion || '',
+      formatDateFull(promo.FechaIni),
+      formatDateFull(promo.FechaFin),
+      promo['Descuento%'] || promo.DescuentoPorcentaje || '0',
+      getStatusText(getPromotionStatus(promo)),
+      promo.REGUSER || ''
+    ]);
+
+    // Crear CSV
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Descargar archivo
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `promociones_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Obtener color basado en el tipo de promoción
   const getPromotionColor = (promotion) => {
     if (!promotion) return '#757575';
@@ -162,13 +202,12 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
 
   // Obtener ícono basado en el tipo de promoción
   const getPromotionIcon = (promotion) => {
-    if (!promotion) return '📋';
+    if (!promotion) return 'P';
     
-    const tipo = promotion.TipoPromocion || '';
-    if (tipo.includes('PRODUCTO')) return '🛍️';
-    if (tipo.includes('CATEGORIA')) return '📦';
-    if (tipo.includes('MARCA')) return '🏷️';
-    return '🎉';
+    const status = getPromotionStatus(promotion);
+    if (status === 'active') return '●';
+    if (status === 'scheduled') return '○';
+    return '◌';
   };
 
   // Obtener promociones por mes
@@ -219,14 +258,13 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
     return days;
   };
 
-  // Manejar click en promoción
+  // Manejar click en promoción - Abre modal informativo
   const handlePromotionClick = (promotion) => {
     setSelectedPromotion(promotion);
     // Cargar los productos aplicables de la promoción
     const productos = promotion.ProductosAplicables || [];
     setSelectedProducts(productos);
     setShowPromotionDetail(true);
-    if (onPromotionClick) onPromotionClick(promotion);
   };
 
   // Cargar productos de la API
@@ -346,7 +384,6 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
               >
                 <Option value="month">Vista Mensual</Option>
                 <Option value="agenda">Vista Agenda</Option>
-                <Option value="timeline">Timeline</Option>
               </Select>
             </FlexBox>
           }
@@ -364,9 +401,9 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                 style={{ minWidth: '150px' }}
               >
                 <Option value="all">Todas</Option>
-                <Option value="active">🟢 Activas</Option>
-                <Option value="scheduled">🔵 Programadas</Option>
-                <Option value="finished">⚫ Finalizadas</Option>
+                <Option value="active">Activas</Option>
+                <Option value="scheduled">Programadas</Option>
+                <Option value="finished">Finalizadas</Option>
               </Select>
             </div>
 
@@ -381,10 +418,7 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
             </div>
 
             <FlexBox alignItems="End" style={{ gap: '0.5rem' }}>
-              <Button design="Transparent" icon="filter">
-                Más Filtros
-              </Button>
-              <Button design="Transparent" icon="download">
+              <Button design="Emphasized" icon="download" onClick={handleExport}>
                 Exportar
               </Button>
             </FlexBox>
@@ -528,28 +562,33 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                       <Card 
                         key={promo.IdPromoOK}
                         style={{ 
-                          cursor: 'pointer',
                           border: `2px solid ${color}20`,
-                          borderLeft: `4px solid ${color}`
+                          borderLeft: `4px solid ${color}`,
+                          cursor: 'pointer'
                         }}
                         onClick={() => handlePromotionClick(promo)}
                       >
                         <div style={{ padding: '1rem' }}>
                           <FlexBox justifyContent="SpaceBetween" alignItems="Start">
-                            <FlexBox alignItems="Center" style={{ gap: '0.75rem' }}>
+                            <FlexBox alignItems="Center" style={{ gap: '0.75rem', flex: 1 }}>
                               <Avatar 
                                 size="M" 
-                                style={{ backgroundColor: color }}
-                              >
-                                <Text style={{ fontSize: '1.2rem' }}>{icon}</Text>
-                              </Avatar>
-                              <FlexBox direction="Column">
+                                style={{ 
+                                  backgroundColor: color,
+                                  color: 'white',
+                                  fontWeight: 'bold'
+                                }}
+                                initials={promo.Titulo?.charAt(0).toUpperCase() || 'P'}
+                              />
+                              <FlexBox direction="Column" style={{ flex: 1 }}>
                                 <Title level="H5" style={{ margin: 0 }}>
                                   {promo.Titulo || 'Sin título'}
                                 </Title>
-                                <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                                  {promo.Descripcion || 'Sin descripción'}
-                                </Text>
+                                {promo.Descripcion && (
+                                  <Text style={{ fontSize: '0.875rem', color: '#666' }}>
+                                    {promo.Descripcion}
+                                  </Text>
+                                )}
                                 <FlexBox style={{ gap: '0.5rem', marginTop: '0.25rem' }}>
                                   <Text style={{ fontSize: '0.75rem' }}>
                                     {formatDateFull(promo.FechaIni)} - {formatDateFull(promo.FechaFin)}
@@ -563,22 +602,26 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                                 {getStatusText(status)}
                               </ObjectStatus>
                               <FlexBox style={{ gap: '1rem' }}>
+                                {descuento && (
+                                  <FlexBox direction="Column" alignItems="Center">
+                                    <Text style={{ fontSize: '0.75rem', color: '#666' }}>Descuento</Text>
+                                    <Text style={{ fontWeight: 'bold' }}>
+                                      {promo.TipoDescuento === 'PORCENTAJE' ? `${descuento}%` : `$${descuento}`}
+                                    </Text>
+                                  </FlexBox>
+                                )}
                                 <FlexBox direction="Column" alignItems="Center">
-                                  <Text style={{ fontSize: '0.75rem', color: '#666' }}>Descuento</Text>
-                                  <Text style={{ fontWeight: 'bold' }}>
-                                    {promo.TipoDescuento === 'PORCENTAJE' ? `${descuento}%` : `$${descuento}`}
-                                  </Text>
-                                </FlexBox>
-                                <FlexBox direction="Column" alignItems="Center">
-                                  <Text style={{ fontSize: '0.75rem', color: '#666' }}>Productos</Text>
+                                  <Text style={{ fontSize: '0.75rem', color: '#666' }}>Presentaciones</Text>
                                   <Text style={{ fontWeight: 'bold' }}>{productosCount}</Text>
                                 </FlexBox>
-                                <FlexBox direction="Column" alignItems="Center">
-                                  <Text style={{ fontSize: '0.75rem', color: '#666' }}>Tipo</Text>
-                                  <Text style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
-                                    {promo.TipoPromocion || 'N/A'}
-                                  </Text>
-                                </FlexBox>
+                                {promo.TipoPromocion && (
+                                  <FlexBox direction="Column" alignItems="Center">
+                                    <Text style={{ fontSize: '0.75rem', color: '#666' }}>Tipo</Text>
+                                    <Text style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
+                                      {promo.TipoPromocion}
+                                    </Text>
+                                  </FlexBox>
+                                )}
                               </FlexBox>
                             </FlexBox>
                           </FlexBox>
@@ -598,23 +641,11 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
         </Card>
       )}
 
-      {/* Vista Timeline */}
-      {viewMode === 'timeline' && (
-        <Card>
-          <CardHeader titleText="Timeline de Promociones" />
-          <div style={{ padding: '1rem' }}>
-            <MessageStrip type="Information">
-              Vista Timeline será implementada en la próxima versión. Por ahora usa Vista Mensual o Agenda.
-            </MessageStrip>
-          </div>
-        </Card>
-      )}
-
-      {/* Modal de Detalle de Promoción */}
+      {/* Modal de Detalle de Promoción - Solo Informativo */}
       <Dialog
         open={showPromotionDetail}
-        headerText={selectedPromotion ? `${getPromotionIcon(selectedPromotion)} ${selectedPromotion.Titulo}` : 'Detalle de Promoción'}
-        style={{ width: '900px', maxWidth: '90vw' }}
+        headerText={selectedPromotion ? selectedPromotion.Titulo : 'Detalle de Promoción'}
+        style={{ width: '800px', maxWidth: '90vw' }}
         footer={
           <Bar
             endContent={
@@ -622,8 +653,15 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                 <Button design="Transparent" onClick={() => setShowPromotionDetail(false)}>
                   Cerrar
                 </Button>
-                <Button design="Emphasized" onClick={handleSaveProductChanges}>
-                  💾 Guardar Cambios
+                <Button 
+                  design="Emphasized" 
+                  icon="edit"
+                  onClick={() => {
+                    setShowPromotionDetail(false);
+                    if (onPromotionClick) onPromotionClick(selectedPromotion);
+                  }}
+                >
+                  Gestionar Promoción
                 </Button>
               </FlexBox>
             }
@@ -633,290 +671,160 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
         {selectedPromotion && (
           <div style={{ padding: '1.5rem' }}>
             
-            {/* Tabs para organizar la información */}
-            <TabContainer>
+            {/* Información General - Vista Informativa */}
+            <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
               
-              {/* Tab 1: Información General */}
-              <Tab text="Información General">
-                <div style={{ padding: '1rem 0' }}>
-                  <FlexBox direction="Column" style={{ gap: '1rem' }}>
-                    
-                    <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
-                      <Avatar 
-                        size="L" 
-                        style={{ backgroundColor: getPromotionColor(selectedPromotion) }}
-                      >
-                        <Text style={{ fontSize: '1.5rem' }}>{getPromotionIcon(selectedPromotion)}</Text>
-                      </Avatar>
-                      <FlexBox direction="Column">
-                        <Title level="H4">{selectedPromotion.Titulo || 'Sin título'}</Title>
-                        <Text style={{ color: '#666' }}>{selectedPromotion.Descripcion || 'Sin descripción'}</Text>
-                        <ObjectStatus state={getStatusColor(getPromotionStatus(selectedPromotion))}>
-                          {getStatusText(getPromotionStatus(selectedPromotion))}
-                        </ObjectStatus>
-                      </FlexBox>
-                    </FlexBox>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                      <Card>
-                        <div style={{ padding: '1rem', textAlign: 'center' }}>
-                          <Text style={{ fontSize: '0.875rem', color: '#666' }}>Fecha de Inicio</Text>
-                          <Title level="H5">{formatDateFull(selectedPromotion.FechaIni)}</Title>
-                        </div>
-                      </Card>
-                      <Card>
-                        <div style={{ padding: '1rem', textAlign: 'center' }}>
-                          <Text style={{ fontSize: '0.875rem', color: '#666' }}>Fecha de Fin</Text>
-                          <Title level="H5">{formatDateFull(selectedPromotion.FechaFin)}</Title>
-                        </div>
-                      </Card>
-                      <Card>
-                        <div style={{ padding: '1rem', textAlign: 'center' }}>
-                          <Text style={{ fontSize: '0.875rem', color: '#666' }}>Descuento</Text>
-                          <Title level="H5">
-                            {selectedPromotion.TipoDescuento === 'PORCENTAJE' 
-                              ? `${selectedPromotion.DescuentoPorcentaje}%` 
-                              : `$${selectedPromotion.DescuentoMonto}`
-                            }
-                          </Title>
-                        </div>
-                      </Card>
-                      <Card>
-                        <div style={{ padding: '1rem', textAlign: 'center' }}>
-                          <Text style={{ fontSize: '0.875rem', color: '#666' }}>Productos Seleccionados</Text>
-                          <Title level="H5">{selectedProducts.length}</Title>
-                        </div>
-                      </Card>
-                    </div>
-
-                    <Card>
-                      <div style={{ padding: '1rem' }}>
-                        <Text style={{ fontSize: '0.875rem', color: '#666' }}>Tipo de Promoción</Text>
-                        <Title level="H3" style={{ color: getPromotionColor(selectedPromotion) }}>
-                          {selectedPromotion.TipoPromocion || 'General'}
-                        </Title>
-                      </div>
-                    </Card>
-
-                  </FlexBox>
-                </div>
-              </Tab>
-
-              {/* Tab 2: Productos Seleccionados */}
-              <Tab text={`Productos Seleccionados (${selectedProducts.length})`}>
-                <div style={{ padding: '1rem 0' }}>
-                  
-                  {/* Header con estadísticas */}
-                  <Card style={{ marginBottom: '1rem' }}>
-                    <div style={{ padding: '1rem' }}>
-                      <FlexBox justifyContent="SpaceBetween" alignItems="Center">
-                        <FlexBox direction="Column">
-                          <Title level="H5">Productos en esta Promoción</Title>
-                          <Text style={{ color: '#666' }}>
-                            {selectedProducts.length} productos seleccionados
-                          </Text>
-                        </FlexBox>
-                        <FlexBox style={{ gap: '1rem' }}>
-                          <FlexBox direction="Column" alignItems="Center">
-                            <Text style={{ fontSize: '0.75rem', color: '#666' }}>Valor Total</Text>
-                            <Text style={{ fontWeight: 'bold' }}>
-                              ${selectedProducts.reduce((sum, p) => sum + (p.PrecioOriginal || 0), 0).toLocaleString()}
-                            </Text>
-                          </FlexBox>
-                          <FlexBox direction="Column" alignItems="Center">
-                            <Text style={{ fontSize: '0.75rem', color: '#666' }}>Descuento</Text>
-                            <Text style={{ fontWeight: 'bold', color: getPromotionColor(selectedPromotion) }}>
-                              {selectedPromotion.TipoDescuento === 'PORCENTAJE' 
-                                ? `${selectedPromotion.DescuentoPorcentaje}%` 
-                                : `$${selectedPromotion.DescuentoMonto}`
-                              }
-                            </Text>
-                          </FlexBox>
-                        </FlexBox>
-                      </FlexBox>
-                    </div>
-                  </Card>
-
-                  {/* Lista de productos seleccionados */}
-                  <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-                    {selectedProducts.length === 0 ? (
-                      <MessageStrip type="Information">
-                        No hay productos seleccionados para esta promoción. Ve al tab "Gestionar Productos" para añadir productos.
-                      </MessageStrip>
-                    ) : (
-                      selectedProducts.map((product, index) => {
-                        const descuentoValor = selectedPromotion.TipoDescuento === 'PORCENTAJE' 
-                          ? product.PrecioOriginal * (selectedPromotion.DescuentoPorcentaje / 100)
-                          : selectedPromotion.DescuentoMonto;
-                        const precioConDescuento = product.PrecioOriginal - descuentoValor;
-                        
-                        return (
-                          <Card key={product.SKUID || index} style={{ borderLeft: `4px solid ${getPromotionColor(selectedPromotion)}` }}>
-                            <div style={{ padding: '1rem' }}>
-                              <FlexBox justifyContent="SpaceBetween" alignItems="Center">
-                                <FlexBox direction="Column" style={{ flex: 1 }}>
-                                  <Title level="H6">{product.NombreProducto || 'Sin nombre'}</Title>
-                                  <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                                    SKU: {product.SKUID}
-                                  </Text>
-                                </FlexBox>
-                                <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
-                                  <FlexBox direction="Column" alignItems="End">
-                                    <Text style={{ fontSize: '0.75rem', color: '#666' }}>Precio Original</Text>
-                                    <Text style={{ fontWeight: 'bold' }}>${product.PrecioOriginal?.toLocaleString()}</Text>
-                                  </FlexBox>
-                                  <FlexBox direction="Column" alignItems="End">
-                                    <Text style={{ fontSize: '0.75rem', color: '#666' }}>Precio con Descuento</Text>
-                                    <Text style={{ fontWeight: 'bold', color: getPromotionColor(selectedPromotion) }}>
-                                      ${Math.round(precioConDescuento).toLocaleString()}
-                                    </Text>
-                                  </FlexBox>
-                                  <Button 
-                                    design="Transparent" 
-                                    icon="delete"
-                                    onClick={() => handleProductToggle(product)}
-                                  >
-                                    Quitar
-                                  </Button>
-                                </FlexBox>
-                              </FlexBox>
-                            </div>
-                          </Card>
-                        );
-                      })
+              {/* Header con Avatar y Título */}
+              <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
+                <Avatar 
+                  size="L" 
+                  style={{ 
+                    backgroundColor: getPromotionColor(selectedPromotion),
+                    color: 'white',
+                    fontWeight: 'bold'
+                  }}
+                  initials={selectedPromotion.Titulo?.charAt(0).toUpperCase() || 'P'}
+                />
+                <FlexBox direction="Column" style={{ flex: 1 }}>
+                  <Title level="H4">{selectedPromotion.Titulo || 'Sin título'}</Title>
+                  {selectedPromotion.Descripcion && (
+                    <Text style={{ color: '#666', marginTop: '0.25rem' }}>
+                      {selectedPromotion.Descripcion}
+                    </Text>
+                  )}
+                  <FlexBox style={{ gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <ObjectStatus state={getStatusColor(getPromotionStatus(selectedPromotion))}>
+                      {getStatusText(getPromotionStatus(selectedPromotion))}
+                    </ObjectStatus>
+                    {selectedPromotion.REGUSER && (
+                      <Text style={{ fontSize: '0.875rem', color: '#666' }}>
+                        Creado por: {selectedPromotion.REGUSER}
+                      </Text>
                     )}
                   </FlexBox>
-                  
-                </div>
-              </Tab>
+                </FlexBox>
+              </FlexBox>
 
-              {/* Tab 3: Gestionar Productos */}
-              <Tab text="Gestionar Productos">
-                <div style={{ padding: '1rem 0' }}>
-                  
-                  {/* Buscador de productos */}
-                  <Card style={{ marginBottom: '1rem' }}>
-                    <CardHeader 
-                      titleText="Buscar y Añadir Productos"
-                      subtitleText={`${getFilteredAvailableProducts().length} productos disponibles`}
-                    />
-                    <div style={{ padding: '1rem' }}>
-                      <FlexBox style={{ gap: '1rem' }}>
-                        <Input
-                          value={productSearchTerm}
-                          onChange={(e) => setProductSearchTerm(e.target.value)}
-                          placeholder="Buscar por nombre o categoría..."
-                          style={{ flex: 1 }}
-                        />
-                        <Button design="Transparent" icon="refresh" onClick={loadAllProducts}>
-                          Recargar
-                        </Button>
-                      </FlexBox>
+              {/* Tarjetas con información clave */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+                {selectedPromotion.FechaIni && (
+                  <Card>
+                    <div style={{ padding: '1rem', textAlign: 'center' }}>
+                      <Text style={{ fontSize: '0.875rem', color: '#666', display: 'block', marginBottom: '0.5rem' }}>
+                        Fecha de Inicio
+                      </Text>
+                      <Title level="H5">{formatDateFull(selectedPromotion.FechaIni)}</Title>
                     </div>
                   </Card>
+                )}
+                {selectedPromotion.FechaFin && (
+                  <Card>
+                    <div style={{ padding: '1rem', textAlign: 'center' }}>
+                      <Text style={{ fontSize: '0.875rem', color: '#666', display: 'block', marginBottom: '0.5rem' }}>
+                        Fecha de Fin
+                      </Text>
+                      <Title level="H5">{formatDateFull(selectedPromotion.FechaFin)}</Title>
+                    </div>
+                  </Card>
+                )}
+                {(selectedPromotion.DescuentoPorcentaje || selectedPromotion.DescuentoMonto) && (
+                  <Card>
+                    <div style={{ padding: '1rem', textAlign: 'center' }}>
+                      <Text style={{ fontSize: '0.875rem', color: '#666', display: 'block', marginBottom: '0.5rem' }}>
+                        Descuento
+                      </Text>
+                      <Title level="H5" style={{ color: getPromotionColor(selectedPromotion) }}>
+                        {selectedPromotion.TipoDescuento === 'PORCENTAJE' 
+                          ? `${selectedPromotion.DescuentoPorcentaje}%` 
+                          : `$${selectedPromotion.DescuentoMonto}`
+                        }
+                      </Title>
+                      <Text style={{ fontSize: '0.75rem', color: '#666' }}>
+                        {selectedPromotion.TipoDescuento === 'PORCENTAJE' ? 'Porcentaje' : 'Monto Fijo'}
+                      </Text>
+                    </div>
+                  </Card>
+                )}
+                <Card>
+                  <div style={{ padding: '1rem', textAlign: 'center' }}>
+                    <Text style={{ fontSize: '0.875rem', color: '#666', display: 'block', marginBottom: '0.5rem' }}>
+                      Presentaciones
+                    </Text>
+                    <Title level="H5">{selectedPromotion.ProductosAplicables?.length || 0}</Title>
+                    <Text style={{ fontSize: '0.75rem', color: '#666' }}>
+                      en esta promoción
+                    </Text>
+                  </div>
+                </Card>
+              </div>
 
-                  {/* Lista de productos disponibles */}
-                  {loadingProducts ? (
-                    <FlexBox justifyContent="Center" style={{ padding: '2rem' }}>
-                      <BusyIndicator active size="Large" />
-                    </FlexBox>
-                  ) : (
-                    <Card>
-                      <div style={{ maxHeight: '400px', overflow: 'auto' }}>
-                        {getFilteredAvailableProducts().length === 0 ? (
-                          <div style={{ padding: '2rem', textAlign: 'center' }}>
-                            <Text style={{ color: '#666' }}>
-                              {productSearchTerm ? 
-                                `No se encontraron productos que coincidan con "${productSearchTerm}"` :
-                                'No hay productos disponibles'
-                              }
-                            </Text>
-                          </div>
-                        ) : (
-                          <FlexBox direction="Column" style={{ gap: '0.5rem', padding: '1rem' }}>
-                            {getFilteredAvailableProducts().slice(0, 50).map(product => {
-                              const isSelected = selectedProducts.some(p => p.SKUID === product.SKUID);
-                              const color = getPromotionColor(selectedPromotion);
-                              const descuentoValor = selectedPromotion.TipoDescuento === 'PORCENTAJE' 
-                                ? (product.PRECIO || 0) * (selectedPromotion.DescuentoPorcentaje / 100)
-                                : selectedPromotion.DescuentoMonto;
-                              const precioConDescuento = (product.PRECIO || 0) - descuentoValor;
-                              
-                              return (
-                                <Card 
-                                  key={product.SKUID}
-                                  style={{ 
-                                    padding: '0.75rem',
-                                    backgroundColor: isSelected ? color + '10' : 'transparent',
-                                    borderLeft: isSelected ? `3px solid ${color}` : '3px solid transparent',
-                                    cursor: 'pointer'
-                                  }}
-                                  onClick={() => handleProductToggle(product)}
-                                >
-                                  <FlexBox justifyContent="SpaceBetween" alignItems="Center">
-                                    <FlexBox alignItems="Center" style={{ gap: '1rem', flex: 1 }}>
-                                      <CheckBox
-                                        checked={isSelected}
-                                        onChange={() => handleProductToggle(product)}
-                                      />
-                                      <FlexBox direction="Column" style={{ flex: 1 }}>
-                                        <Text style={{ fontWeight: isSelected ? 'bold' : 'normal' }}>
-                                          {product.PRODUCTNAME || 'Sin nombre'}
-                                        </Text>
-                                        <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                                          SKU: {product.SKUID} • {product.MARCA || 'Sin marca'}
-                                        </Text>
-                                      </FlexBox>
-                                    </FlexBox>
-                                    <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
-                                      <FlexBox direction="Column" alignItems="End">
-                                        <Text style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>
-                                          ${(product.PRECIO || 0).toLocaleString()}
-                                        </Text>
-                                        {isSelected && (
-                                          <Text style={{ 
-                                            fontSize: '0.75rem', 
-                                            color: color,
-                                            fontWeight: 'bold'
-                                          }}>
-                                            ${Math.round(precioConDescuento).toLocaleString()} (
-                                              {selectedPromotion.TipoDescuento === 'PORCENTAJE' 
-                                                ? `${selectedPromotion.DescuentoPorcentaje}% OFF` 
-                                                : `$${selectedPromotion.DescuentoMonto} OFF`
-                                              }
-                                            )
-                                          </Text>
-                                        )}
-                                      </FlexBox>
-                                      {isSelected && (
-                                        <Token style={{ backgroundColor: color, color: 'white' }}>
-                                          ✓ Incluido
-                                        </Token>
-                                      )}
-                                    </FlexBox>
-                                  </FlexBox>
-                                </Card>
-                              );
-                            })}
+              {/* Lista de Presentaciones */}
+              {selectedPromotion.ProductosAplicables && selectedPromotion.ProductosAplicables.length > 0 && (
+                <Card>
+                  <CardHeader titleText="Presentaciones Incluidas" />
+                  <div style={{ padding: '1rem', maxHeight: '300px', overflowY: 'auto' }}>
+                    <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
+                      {selectedPromotion.ProductosAplicables.map((presentacion, index) => (
+                        <FlexBox 
+                          key={presentacion.IdPresentaOK || index}
+                          justifyContent="SpaceBetween"
+                          alignItems="Center"
+                          style={{ 
+                            padding: '0.75rem', 
+                            border: '1px solid #e0e0e0', 
+                            borderRadius: '4px',
+                            backgroundColor: '#fafafa'
+                          }}
+                        >
+                          <FlexBox direction="Column">
+                            {presentacion.NombrePresentacion && (
+                              <Text style={{ fontWeight: '600' }}>
+                                {presentacion.NombrePresentacion}
+                              </Text>
+                            )}
+                            {presentacion.SKUID && (
+                              <Text style={{ fontSize: '0.875rem', color: '#666' }}>
+                                SKU: {presentacion.SKUID}
+                              </Text>
+                            )}
                           </FlexBox>
-                        )}
-                      </div>
-                      
-                      {getFilteredAvailableProducts().length > 50 && (
-                        <div style={{ padding: '1rem', textAlign: 'center', borderTop: '1px solid #e0e0e0' }}>
-                          <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                            Mostrando primeros 50 productos. Usa el buscador para filtrar más específicamente.
-                          </Text>
-                        </div>
+                          {presentacion.PrecioOriginal && (
+                            <FlexBox direction="Column" alignItems="End">
+                              <Text style={{ fontSize: '0.875rem', color: '#666' }}>Precio Original</Text>
+                              <Text style={{ fontWeight: 'bold' }}>
+                                ${presentacion.PrecioOriginal.toLocaleString()}
+                              </Text>
+                            </FlexBox>
+                          )}
+                        </FlexBox>
+                      ))}
+                    </FlexBox>
+                  </div>
+                </Card>
+              )}
+
+              {/* Información Adicional */}
+              {selectedPromotion.REGDATE && (
+                <Card>
+                  <div style={{ padding: '1rem' }}>
+                    <FlexBox justifyContent="SpaceBetween" alignItems="Center">
+                      <FlexBox direction="Column">
+                        <Text style={{ fontSize: '0.875rem', color: '#666' }}>Fecha de Creación</Text>
+                        <Text style={{ fontWeight: '600' }}>{formatDateFull(selectedPromotion.REGDATE)}</Text>
+                      </FlexBox>
+                      {selectedPromotion.MODDATE && (
+                        <FlexBox direction="Column" alignItems="End">
+                          <Text style={{ fontSize: '0.875rem', color: '#666' }}>Última Modificación</Text>
+                          <Text style={{ fontWeight: '600' }}>{formatDateFull(selectedPromotion.MODDATE)}</Text>
+                        </FlexBox>
                       )}
-                    </Card>
-                  )}
+                    </FlexBox>
+                  </div>
+                </Card>
+              )}
 
-                </div>
-              </Tab>
-
-            </TabContainer>
-
+            </FlexBox>
+            
           </div>
         )}
       </Dialog>

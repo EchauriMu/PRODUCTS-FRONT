@@ -595,7 +595,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         />
       }
     >
-  <div style={{ padding: '0.5rem', height: '100%', overflow: 'hidden' }}>
+  <div style={{ padding: '0.5rem', height: 'calc(96vh - 140px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         
         {error && (
           <MessageStrip 
@@ -609,7 +609,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
 
         {/* Header con información básica */}
         {/* Encabezado compacto para ahorrar espacio */}
-        <Card style={{ marginBottom: '0.25rem' }}>
+        <Card style={{ marginBottom: '0.25rem', flexShrink: 0 }}>
           <CardHeader 
             titleText={`Promoción ${promotion.IdPromoOK}`}
             subtitleText={`Creada por ${promotion.REGUSER || 'N/A'} el ${new Date(promotion.REGDATE).toLocaleDateString()}`}
@@ -634,14 +634,26 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         {/* Tabs de navegación */}
         <TabContainer
           onTabSelect={(e) => setActiveTab(e.detail.tab.dataset.key)}
-          style={{ '--_ui5_tc_header_height': '44px', '--_ui5_tc_item_height': '40px' }}
+          style={{ 
+            '--_ui5_tc_header_height': '44px', 
+            '--_ui5_tc_item_height': '40px',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}
         >
           <Tab 
             text="Detalles" 
             data-key="details"
             selected={activeTab === 'details'}
           >
-            <div style={{ padding: '0.5rem', height: '60vh', overflowY: 'auto', overflowX: 'hidden' }}>
+            <div style={{ 
+              padding: '0.5rem', 
+              height: '100%',
+              overflowY: 'auto', 
+              overflowX: 'hidden'
+            }}>
               <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
                 
                 {/* Información básica */}
@@ -756,8 +768,19 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
             data-key="products"
             selected={activeTab === 'products'}
           >
-            <div style={{ padding: '0.4rem' }}>
-              <Card>
+            <div style={{ 
+              padding: '0.4rem',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}>
+              <Card style={{ 
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                overflow: 'hidden'
+              }}>
                 <CardHeader 
                   titleText={`Presentaciones en la Promoción (${selectedPresentaciones.length})`}
                   style={{ flexShrink: 0 }}
@@ -790,10 +813,10 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                     </FlexBox>
                   }
                 />
-                <div style={{ padding: '0.4rem' }}>
+                <div style={{ padding: '0.4rem', flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                   
                   {/* Buscador */}
-                  <FlexBox alignItems="Center" style={{ gap: '0.4rem', marginBottom: '0.5rem' }}>
+                  <FlexBox alignItems="Center" style={{ gap: '0.4rem', marginBottom: '0.5rem', flexShrink: 0 }}>
                     <Label style={{ margin: 0 }}>Buscar productos:</Label>
                     <div style={{ flex: 1 }}>
                       <Input
@@ -812,7 +835,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                     </FlexBox>
                   ) : (
                     <div style={{ 
-                      height: '55vh',
+                      flexGrow: 1,
                       overflowY: 'auto',
                       overflowX: 'hidden',
                       border: '1px solid #e8e8e8',

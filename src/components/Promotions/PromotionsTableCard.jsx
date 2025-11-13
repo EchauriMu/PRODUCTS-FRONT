@@ -409,8 +409,9 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
                     backgroundColor: isActive ? '#f8fff8' : 'transparent'
                   }}
                   className="ui5-table-row-hover"
+                  onClick={() => handleRowClick(promotion)}
                 >
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <CheckBox
                       checked={selectedIds.has(promotion.IdPromoOK)}
                       onChange={() => toggleSelect(promotion.IdPromoOK)}
@@ -426,7 +427,6 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
                     <Text 
                       style={{ fontWeight: '500' }}
                       title={promotion.Titulo}
-                      onClick={() => handleRowClick(promotion)}
                     >
                       {promotion.Titulo || 'Sin título'}
                     </Text>
