@@ -21,6 +21,8 @@ import '@ui5/webcomponents/dist/Assets.js';
 import '@ui5/webcomponents-fiori/dist/Assets.js';
 // La importación de ValueState desde la base es correcta
 import ValueState from '@ui5/webcomponents-base/dist/types/ValueState'; 
+import '@ui5/webcomponents-icons/dist/attachment.js';
+import '@ui5/webcomponents-icons/dist/delete.js';
 
 
 const initialPresentationState = {

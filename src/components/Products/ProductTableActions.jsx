@@ -72,7 +72,7 @@ const ProductTableActions = ({
   };
 
   return (
-    <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+    <FlexBox alignItems="Center" justifyContent="End" wrap="Wrap" style={{ gap: '0.5rem' }}>
       <Button icon="add" design="Emphasized" onClick={() => navigate('/add-products')}>
         Añadir Producto
       </Button>
@@ -82,12 +82,7 @@ const ProductTableActions = ({
       <Button icon="delete" design="Negative" disabled={selectedSKUIDs.length === 0} onClick={handleDelete}>
         Eliminar
       </Button>
-      <Button 
-        icon={canActivate ? "activate" : "decline"} 
-        design={canActivate ? "Positive" : "Attention"} 
-        disabled={selectedSKUIDs.length === 0 || isMixedState} 
-        onClick={handleToggleActiveState}
-      >
+      <Button icon={canActivate ? "activate" : "decline"} design={canActivate ? "Positive" : "Attention"} disabled={selectedSKUIDs.length === 0 || isMixedState} onClick={handleToggleActiveState}>
         {canActivate ? 'Activar' : 'Desactivar'}
       </Button>
       {loading && <BusyIndicator active size="Small" />}

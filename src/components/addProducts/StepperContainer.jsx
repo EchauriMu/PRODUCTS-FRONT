@@ -9,7 +9,9 @@ import {
   ProgressIndicator,
   Bar,
   Label,
+  MessageBox,
   MessageStrip,
+  MessageBoxAction,
   BusyIndicator
 } from '@ui5/webcomponents-react';
 import '@ui5/webcomponents/dist/Assets.js';
@@ -18,7 +20,29 @@ import ComponenteUno from './ComponenteUno';
 import ComponenteDos from './ComponenteDos';
 import ComponenteTres from './ComponenteTres';
 import addProductApi from '../../api/addProductApi'; // SUCCESS: Usando el nuevo servicio con Axios
+import * as yup from 'yup';
 import { useNavigate } from 'react-router-dom';
+
+// Esquema de validación para el producto principal
+const productValidationSchema = yup.object().shape({
+  PRODUCTNAME: yup.string().required('El nombre del producto es obligatorio.').min(3, 'El nombre del producto debe tener al menos 3 caracteres.'),
+  DESSKU: yup.string().required('La descripción es obligatoria.'),
+  MARCA: yup.string().required('La marca es obligatoria.'),
+  IDUNIDADMEDIDA: yup.string().required('La unidad de medida es obligatoria.'),
+});
+
+// Esquema de validación para cada presentación
+const presentationValidationSchema = yup.object().shape({
+  IdPresentaOK: yup.string().required('El ID de la presentación es obligatorio.'),
+  NOMBREPRESENTACION: yup.string().required('El nombre de la presentación es obligatorio.'),
+  Descripcion: yup.string().required('La descripción de la presentación es obligatoria.'),
+  PropiedadesExtras: yup.string().test(
+    'is-json',
+    'Las propiedades extras no son un JSON válido.',
+    value => { try { JSON.parse(value); return true; } catch (e) { return false; } }
+  ),
+  files: yup.array().optional(),
+});
 
 const StepperContainer = () => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -35,6 +59,7 @@ const StepperContainer = () => {
   });
   const [presentations, setPresentations] = useState([]);
   const [apiStatus, setApiStatus] = useState({ loading: false, error: null, success: null });
+  const [isSaving, setIsSaving] = useState(false);
 
   const stepTitles = [
     "Información General",
@@ -44,27 +69,36 @@ const StepperContainer = () => {
 
   const totalSteps = 3;
 
-  const isStepValid = () => {
-    if (currentStep === 0) {
-      // Validación para el Paso 1
-      return productData.PRODUCTNAME.trim() !== '' && productData.DESSKU.trim() !== '' && productData.MARCA.trim() !== '';
-    }
-    if (currentStep === 1) {
-      // Validación para el Paso 2
-      return presentations.length > 0;
-    }
-    return true; // El paso 3 siempre es válido para finalizar
-  };
-
-  const handleNext = () => {
-    if (!isStepValid()) {
-      // Opcional: mostrar un mensaje de error general si se intenta avanzar sin validar
-      setApiStatus({ loading: false, error: 'Por favor, complete todos los campos obligatorios para continuar.', success: null });
-      return;
-    }
+  const handleNext = async () => {
+    setIsSaving(true);
     setApiStatus({ loading: false, error: null, success: null }); // Limpiar errores al avanzar
-    if (currentStep < totalSteps - 1) {
-      setCurrentStep(currentStep + 1);
+
+    try {
+      if (currentStep === 0) {
+        // Validación para el Paso 1
+        await productValidationSchema.validate(productData, { abortEarly: false });
+      }
+      if (currentStep === 1) {
+        // Validación para el Paso 2
+        if (presentations.length === 0) {
+          throw new yup.ValidationError('Debe agregar al menos una presentación.');
+        }
+      }
+
+      // Si la validación es exitosa, avanza al siguiente paso
+      if (currentStep < totalSteps - 1) {
+        setCurrentStep(currentStep + 1);
+      }
+    } catch (error) {
+      const errorMessages = (
+        <ul>
+          {error.errors.map((e, index) => <li key={index}>{e}</li>)}
+        </ul>
+      );
+      setApiStatus({ loading: false, error: errorMessages, success: null });
+    } finally {
+      setIsSaving(false);
+      return;
     }
   };
 
@@ -74,8 +108,49 @@ const StepperContainer = () => {
     }
   };
 
+  const isStepValid = () => {
+    if (currentStep === 0) {
+      // Basic validation for step 1: check if required fields are filled.
+      return productData.PRODUCTNAME && productData.DESSKU && productData.MARCA && productData.IDUNIDADMEDIDA;
+    }
+    if (currentStep === 1) {
+      // Validation for step 2: ensure at least one presentation is added.
+      return presentations.length > 0;
+    }
+    // For other steps, the button is either not 'Next' or always enabled.
+    return true;
+  };
+
+
   const handleFinalize = async () => {
+    setIsSaving(true);
     setApiStatus({ loading: true, error: null, success: null });
+
+    try {
+      // 1. Validar el producto principal
+      await productValidationSchema.validate(productData, { abortEarly: false });
+
+      // 2. Validar cada presentación
+      await Promise.all(presentations.map((pres, index) => {
+        return presentationValidationSchema.validate(pres, { abortEarly: false })
+          .catch(err => {
+            // Añadir contexto a los errores de presentación
+            const presentationErrors = err.inner.map(e => `Presentación #${index + 1}: ${e.message}`);
+            throw new Error(presentationErrors.join('\n'));
+          });
+      }));
+
+      // Si todas las validaciones pasan, continuamos con el envío
+    } catch (error) {
+      const errorMessages = (
+        <ul>
+          {error.errors.map((e, index) => <li key={index}>{e}</li>)}
+        </ul>
+      );
+      setApiStatus({ loading: false, error: errorMessages, success: null });
+      return; // Detener la ejecución si hay errores de validación
+    }
+    setIsSaving(false);
 
     try {
       // Desestructuramos productData para excluir SKUID del payload final.
@@ -153,7 +228,18 @@ const StepperContainer = () => {
       )}
       <Card style={{ marginBottom: '20px' }}>
         <div style={{ padding: '1rem 1.5rem' }}>
-          {apiStatus.error && <MessageStrip design="Negative" style={{ marginBottom: '1rem' }}>{apiStatus.error}</MessageStrip>}
+          {apiStatus.error && typeof apiStatus.error === 'string' && (
+            <MessageStrip design="Negative" style={{ marginBottom: '1rem' }}>{apiStatus.error}</MessageStrip>
+          )}
+          <MessageBox
+            open={!!apiStatus.error && typeof apiStatus.error !== 'string'}
+            type="Error"
+            titleText="Errores de Validación"
+            actions={[MessageBoxAction.OK]}
+            onClose={() => setApiStatus({ loading: false, error: null, success: null })}
+          >
+            {apiStatus.error}
+          </MessageBox>
           {apiStatus.success && <MessageStrip design="Positive" style={{ marginBottom: '1rem' }}>{apiStatus.success}</MessageStrip>}
 
           <FlexBox justifyContent="SpaceBetween" alignItems="Center" style={{ marginBottom: '1rem' }}>
@@ -178,16 +264,13 @@ const StepperContainer = () => {
         }
         endContent={
           <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
-            <Button design="Transparent" onClick={() => alert('Funcionalidad para guardar borrador no implementada.')}>
-              Guardar Borrador
-            </Button>
             {currentStep === totalSteps - 1 ? (
               <Button
                 design="Emphasized"
                 onClick={handleFinalize}
-                disabled={apiStatus.loading || !isStepValid()}
+                disabled={isSaving || apiStatus.loading}
               >
-                {apiStatus.loading ? 'Enviando...' : 'Finalizar'}
+                {isSaving || apiStatus.loading ? 'Enviando...' : 'Finalizar'}
               </Button>
             ) : (
               <Button design="Emphasized" onClick={handleNext} disabled={!isStepValid()}>

@@ -12,7 +12,7 @@ export default function ProductList() {
         <div style={{}}>
          
         
-            <div className="content-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', marginBottom: '24px' }}>
+            <div className="content-grid" >
           
             <ProductsTableCard/>
             </div>

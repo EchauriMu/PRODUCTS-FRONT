@@ -14,11 +14,22 @@ import {
   Switch,
   Title,
   FileUploader,
-  Icon
+  Icon,
+  MessageBox,
+  MessageBoxAction
 } from '@ui5/webcomponents-react';
 import productPresentacionesService from '../../api/productPresentacionesService';
+import * as yup from 'yup';
 
 export default function AddPresentationPage() {
+  // Esquema de validación con Yup
+  const presentationValidationSchema = yup.object().shape({
+    IdPresentaOK: yup.string().required('El ID de la presentación es obligatorio.'),
+    NOMBREPRESENTACION: yup.string().required('El nombre de la presentación es obligatorio.').min(3, 'El nombre debe tener al menos 3 caracteres.'),
+    Descripcion: yup.string().required('La descripción es obligatoria.'),
+    // No validamos PropiedadesExtras o files aquí, ya que su estructura es más compleja y se maneja en la UI.
+  });
+
   const navigate = useNavigate();
   const { skuid } = useParams();
   const { search } = useLocation();
@@ -39,6 +50,7 @@ export default function AddPresentationPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [okMsg, setOkMsg] = useState('');
+  const [validationErrors, setValidationErrors] = useState(null);
   
   useEffect(() => {
     // Lógica inspirada en ComponenteDos.jsx para autogenerar el IdPresentaOK
@@ -102,20 +114,12 @@ export default function AddPresentationPage() {
 
   async function handleSubmit() {
     setErrorMsg('');
+    setValidationErrors(null);
     setOkMsg('');
-
-    if (!idPresentaOK?.trim() || !skuid?.trim() || !nombrePresentacion?.trim()) {
-      setErrorMsg('Completa los campos obligatorios: Id, SKU y Nombre.');
-      return;
-    }
+    setIsSubmitting(true);
 
     const descripcionSafe = (descripcion || nombrePresentacion).trim();
-    if (!descripcionSafe) {
-      setErrorMsg('La descripción no puede ir vacía.');
-      return;
-    }
 
-    // Payload completo como en el ejemplo
     const payload = {
       IdPresentaOK: idPresentaOK.trim(),
       SKUID: skuid.trim(),
@@ -127,11 +131,24 @@ export default function AddPresentationPage() {
     };
 
     try {
-      setIsSubmitting(true);
+      // 1. Validar los datos antes de enviar
+      await presentationValidationSchema.validate({
+        IdPresentaOK: payload.IdPresentaOK,
+        NOMBREPRESENTACION: payload.NOMBREPRESENTACION,
+        Descripcion: payload.Descripcion
+      }, { abortEarly: false });
+
+      // 2. Si la validación es exitosa, llamar a la API
       await productPresentacionesService.addPresentacion(payload);
       setOkMsg('Presentación creada correctamente.');
       setTimeout(() => navigate(-1), 400);
     } catch (err) {
+      if (err instanceof yup.ValidationError) {
+        // Capturar errores de validación de Yup
+        const errorMessages = <ul>{err.inner.map((e, i) => <li key={i}>{e.message}</li>)}</ul>;
+        setValidationErrors(errorMessages);
+        return; // No continuar si hay errores de validación
+      }
       const apiMsg =
         err?.response?.data?.messageDEV ||
         err?.response?.data?.messageUSR ||
@@ -160,6 +177,16 @@ export default function AddPresentationPage() {
               {okMsg}
             </MessageStrip>
           )}
+          {/* MessageBox para errores de validación */}
+          <MessageBox
+            open={!!validationErrors}
+            type="Error"
+            titleText="Errores de Validación"
+            actions={[MessageBoxAction.OK]}
+            onClose={() => setValidationErrors(null)}
+          >
+            {validationErrors}
+          </MessageBox>
 
           <FlexBox direction="Column" style={{ gap: '1rem' }}>
             <div>

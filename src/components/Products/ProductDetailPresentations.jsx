@@ -236,7 +236,7 @@ const ProductDetailPresentations = ({ product, presentaciones, onPresentacionesC
   };
 
   return (
-    <div style={{ padding: '1.5rem', overflowY: 'auto', height: '100%' }}>
+    <div style={{ padding: '1.5rem', height: 'auto' }}>
       <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
         <FlexBox direction="Column" style={{ gap: '1rem' }}>
           <FlexBox alignItems="Center" justifyContent="SpaceBetween">

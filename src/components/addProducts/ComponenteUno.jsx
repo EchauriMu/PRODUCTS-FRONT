@@ -16,6 +16,7 @@ import {
   Tag
 } from '@ui5/webcomponents-react';
 import '@ui5/webcomponents/dist/Assets.js';
+import { unidadesDeMedida } from '../../utils/constants';
 import '@ui5/webcomponents-fiori/dist/Assets.js';
 import '@ui5/webcomponents-icons/dist/AllIcons.js';
 import addProductApi from '../../api/addProductApi';
@@ -191,21 +192,14 @@ const ComponenteUno = ({ productData, setProductData }) => {
               style={{ width: '100%' }}
               onChange={handleSelectChange}
             >
-              <Option selected={!productData.IDUNIDADMEDIDA} disabled>Seleccione una unidad</Option>
-              <Option data-value="PZA" selected={productData.IDUNIDADMEDIDA === 'PZA'}>PZA - Pieza</Option>
-              <Option data-value="KG" selected={productData.IDUNIDADMEDIDA === 'KG'}>KG - Kilogramo</Option>
-              <Option data-value="G" selected={productData.IDUNIDADMEDIDA === 'G'}>G - Gramo</Option>
-              <Option data-value="L" selected={productData.IDUNIDADMEDIDA === 'L'}>L - Litro</Option>
-              <Option data-value="ML" selected={productData.IDUNIDADMEDIDA === 'ML'}>ML - Mililitro</Option>
-              <Option data-value="M" selected={productData.IDUNIDADMEDIDA === 'M'}>M - Metro</Option>
-              <Option data-value="M2" selected={productData.IDUNIDADMEDIDA === 'M2'}>M2 - Metro Cuadrado</Option>
-              <Option data-value="CM" selected={productData.IDUNIDADMEDIDA === 'CM'}>CM - Centímetro</Option>
-              <Option data-value="CJ" selected={productData.IDUNIDADMEDIDA === 'CJ'}>CJ - Caja</Option>
-              <Option data-value="KIT" selected={productData.IDUNIDADMEDIDA === 'KIT'}>KIT - Kit</Option>
-              <Option data-value="JGO" selected={productData.IDUNIDADMEDIDA === 'JGO'}>JGO - Juego</Option>
-              <Option data-value="PAR" selected={productData.IDUNIDADMEDIDA === 'PAR'}>PAR - Par</Option>
-              <Option data-value="ROLLO" selected={productData.IDUNIDADMEDIDA === 'ROLLO'}>ROLLO - Rollo</Option>
-              <Option data-value="GAL" selected={productData.IDUNIDADMEDIDA === 'GAL'}>GAL - Galón</Option>
+              <Option selected={!productData.IDUNIDADMEDIDA} disabled value="">Seleccione una unidad</Option>
+              {unidadesDeMedida.map((unidad) => (
+                <Option 
+                  key={unidad.value} 
+                  data-value={unidad.value} 
+                  selected={productData.IDUNIDADMEDIDA === unidad.value}
+                >{unidad.text}</Option>
+              ))}
             </Select>
           </div>
 

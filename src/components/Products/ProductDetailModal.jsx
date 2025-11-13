@@ -10,12 +10,15 @@ import {
   MultiComboBox,
   MultiComboBoxItem,
   Input,
+  Select,
+  Option,
   MessageStrip,
   BusyIndicator
 } from '@ui5/webcomponents-react';
 import ProductStatus from './ProductStatus';
 import productPresentacionesService from '../../api/productPresentacionesService';
 import addProductApi from '../../api/addProductApi';
+import { unidadesDeMedida } from '../../utils/constants';
 import ProductDetailPresentations from './ProductDetailPresentations';
 import ProductSaveButton from './ProductSaveButton'; // Importamos el nuevo botón de guardar
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -112,8 +115,17 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
 
   const handleCategoryChange = (event) => {
     const selectedItems = event.detail.items;
-    const selectedCategoryIds = selectedItems.map(item => item.dataset.catid);
-    setEditedProduct(prev => ({ ...prev, CATEGORIAS: selectedCategoryIds }));
+    // El evento onSelectionChange en MultiComboBox devuelve los items seleccionados.
+    // Mapeamos estos items para obtener sus textos (nombres de categoría).
+    const selectedCategoryNames = selectedItems.map(item => item.text);
+    // También guardamos los IDs para la lógica interna y el guardado.
+    const selectedCategoryIds = selectedItems.map(item => allCategories.find(c => c.Nombre === item.text)?.CATID).filter(Boolean);
+    setEditedProduct(prev => ({ ...prev, CATEGORIAS: selectedCategoryIds, __CATEGORIAS_NOMBRES: selectedCategoryNames }));
+  };
+
+  const handleUnitChange = (e) => {
+    const selectedOption = e.detail.selectedOption;
+    setEditedProduct(prev => ({ ...prev, IDUNIDADMEDIDA: selectedOption.dataset.value }));
   };
 
 
@@ -151,6 +163,16 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
     return <Bar endContent={<Button design="Emphasized" onClick={onClose}>Cerrar</Button>} />;
   };
 
+  const getCategoryNameById = (catId) => {
+    const category = allCategories.find(cat => cat.CATID === catId);
+    return category ? category.Nombre : catId;
+  };
+
+  const getUnitTextByValue = (unitValue) => {
+    const unit = unidadesDeMedida.find(u => u.value === unitValue);
+    return unit ? unit.text : (unitValue || 'N/A');
+  };
+
   const currentProduct = isEditing ? editedProduct : localProduct;
   if (!currentProduct) return null;
 
@@ -162,9 +184,24 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
       footer={renderFooter()}
       style={{ width: '95vw', maxWidth: '1400px' }}
     >
-      <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', height: 'calc(80vh - 50px)', overflow: 'hidden' }}>
+      {/* Contenedor principal adaptable (responsive) */}
+      <FlexBox
+        style={{
+          height: 'calc(80vh - 50px)',
+          width: '100%',
+        }}
+        className="responsive-splitter-container"
+      >
         {/* Columna Izquierda: Info Producto */}
-        <div style={{ background: '#f7f8fa', padding: '1.5rem', borderRight: '1px solid #e5e5e5', overflowY: 'auto' }}>
+        <div
+          className="responsive-splitter-side"
+          style={{
+            background: '#f7f8fa',
+            padding: '1.5rem',
+            overflowY: 'auto',
+            flexShrink: 0, // Evita que se encoja
+          }}
+        >
           <FlexBox direction="Column" style={{ gap: '2rem' }}>
             {/* Encabezado y Estado del Producto */}
             <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
@@ -202,27 +239,42 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
                 </FlexBox>
                 <FlexBox direction="Column">
                   <Label>Unidad de Medida</Label>
-                  {isEditing ? <Input value={currentProduct.IDUNIDADMEDIDA} onInput={(e) => handleInputChange(e, 'IDUNIDADMEDIDA')} /> : <Text>{currentProduct.IDUNIDADMEDIDA || 'N/A'}</Text>}
+                  {isEditing ? (
+                    <Select
+                      style={{ width: '100%' }}
+                      onChange={handleUnitChange}
+                    >
+                      {unidadesDeMedida.map((unidad) => (
+                        <Option 
+                          key={unidad.value} 
+                          data-value={unidad.value} 
+                          selected={currentProduct.IDUNIDADMEDIDA === unidad.value}
+                        >{unidad.text}</Option>
+                      ))}
+                    </Select>
+                  ) : <Text>{getUnitTextByValue(currentProduct.IDUNIDADMEDIDA)}</Text>}
                 </FlexBox>
                 <FlexBox direction="Column">
                   <Label>Categorías</Label>
                   {isEditing ? 
                     <MultiComboBox
                       style={{ width: '100%'}}
+                      value={currentProduct.CATEGORIAS?.map(getCategoryNameById).join(', ')}
                       placeholder={loadingCategories ? "Cargando..." : "Seleccione categorías"}
                       disabled={loadingCategories}
                       onSelectionChange={handleCategoryChange}
                     >
                       {allCategories.map((cat) => (
                         <MultiComboBoxItem 
-                          key={cat.CATID} 
-                          text={cat.Nombre} 
-                          data-catid={cat.CATID} 
-                          selected={currentProduct.CATEGORIAS?.includes(cat.CATID)} />
+                          key={cat.CATID}
+                          text={cat.Nombre}
+                          // La propiedad 'selected' no se usa para preseleccionar en MultiComboBox,
+                          // se controla a través de la propiedad 'value' del MultiComboBox.
+                        />
                       ))}
                     </MultiComboBox>
                    : (
-                    <Text>{Array.isArray(currentProduct.CATEGORIAS) ? currentProduct.CATEGORIAS.join(', ') : (currentProduct.CATEGORIAS || 'N/A')}</Text>
+                    <Text>{Array.isArray(currentProduct.CATEGORIAS) ? currentProduct.CATEGORIAS.map(getCategoryNameById).join(', ') : (currentProduct.CATEGORIAS || 'N/A')}</Text>
                   )}
                 </FlexBox>
                 <FlexBox direction="Column">
@@ -258,20 +310,48 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
         </div>
 
         {/* Columna Derecha: Presentaciones o Mensaje de Edición */}
-        {isEditing ? (
-          <FlexBox justifyContent="Center" alignItems="Center" style={{ height: '100%', background: '#f5f5f5' }}>
-            <Text>La edición de presentaciones está deshabilitada mientras se edita el producto principal.</Text>
-          </FlexBox>
-        ) : (
-          <ProductDetailPresentations
-            product={currentProduct}
-            presentaciones={presentaciones}
-            onPresentacionesChange={setPresentaciones}
-            loading={loadingPresentaciones}
-            error={errorPresentaciones}
-          />
-        )}
-      </div>
+        <div className="responsive-splitter-main" style={{ flexGrow: 1, borderLeft: '1px solid #e5e5e5' }}>
+          {isEditing ? (
+            <FlexBox justifyContent="Center" alignItems="Center" style={{ height: '100%', background: '#f5f5f5' }}>
+              <Text>La edición de presentaciones está deshabilitada mientras se edita el producto principal.</Text>
+            </FlexBox>
+          ) : (
+            <ProductDetailPresentations
+              product={currentProduct}
+              presentaciones={presentaciones}
+              onPresentacionesChange={setPresentaciones}
+              loading={loadingPresentaciones}
+              error={errorPresentaciones}
+            />
+          )}
+        </div>
+      </FlexBox>
+
+      {/* Estilos para la responsividad */}
+      <style>{`
+        .responsive-splitter-container {
+          flex-direction: row;
+        }
+        .responsive-splitter-side {
+          width: 380px;
+        }
+        .responsive-splitter-main {
+          width: calc(100% - 380px);
+        }
+
+        @media (max-width: 900px) {
+          .responsive-splitter-container {
+            flex-direction: column;
+            height: auto;
+            overflow-y: auto;
+          }
+          .responsive-splitter-side, .responsive-splitter-main {
+            width: 100%;
+            border-left: none;
+            border-bottom: 1px solid #e5e5e5;
+          }
+        }
+      `}</style>
     </Dialog>
   );
 };
