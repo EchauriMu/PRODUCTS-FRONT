@@ -296,89 +296,94 @@ const PreciosListasTable = () => {
 
 
   return (
-    <Card
-      header={
-        <CardHeader
-          titleText="Listas de Precios"
-          subtitleText={`${filteredListas.length} listas encontradas`}
-          action={
-            <FlexBox alignItems="Center" justifyContent={FlexBoxJustifyContent.End} style={{ gap: '0.75rem' }}>
-              <Input
-                icon={<Icon name="search" />}
-                placeholder="Buscar por descripción o SKU..."
-                onInput={(e) => setSearchTerm(e.target.value)}
-                style={{ width: '300px' }}
-              />
-              <Button design="Emphasized" icon="add" onClick={handleAdd}>
-                Crear Lista
-              </Button>
+    <div style={{ margin: '1rem' }}>
+      {/* 1. BARRA SUPERIOR (Fuera de Card) */}
+      <FlexBox 
+        alignItems="Center" 
+        justifyContent="SpaceBetween" 
+        style={{ 
+          marginBottom: '1rem', 
+          padding: '0.5rem 0', 
+          borderBottom: '1px solid #ccc' 
+        }}
+      >
+        {/* Título y Subtítulo */}
+        <FlexBox direction="Column">
+          <Title level="H3">Listas de Precios</Title>
+          <Text style={{ color: '#666' }}>{filteredListas.length} listas encontradas</Text>
+        </FlexBox>
 
-              {/* Botón Editar */}
-              <Button 
-                icon="edit" 
-                design="Transparent" 
-                disabled={selectedListas.size !== 1 || loading}
-                onClick={handleEditSelected}
-              >
-                Editar
-              </Button>
+        {/* Acciones */}
+        <FlexBox alignItems="Center" justifyContent="End" style={{ gap: '1rem' }}>
+          {/* Búsqueda */}
+          <Input
+            icon={<Icon name="search" />}
+            placeholder="Buscar por descripción o SKU..."
+            onInput={(e) => setSearchTerm(e.target.value)}
+            style={{ width: '300px' }}
+          />
+          
+          {/* Botones de Acción */}
+          <Button design="Emphasized" icon="add" onClick={handleAdd}>
+            Crear Lista
+          </Button>
 
-              {/* Botón Activar/Desactivar unificado */}
-              <Button 
-                icon="accept" 
-                design="Positive" 
-                disabled={selectedListas.size === 0 || loading}
-                onClick={handleToggleStatus}
-              >
-                {selectedListas.size > 0 
-                  ? Array.from(selectedListas).some(id => {
-                      const lista = listas.find(l => l.IDLISTAOK === id);
-                      return lista && lista.ACTIVED === false || lista.DELETED === true;
-                    })
-                    ? 'Activar'
-                    : 'Desactivar'
-                  : 'Activar'}
-              </Button>
-
-              {/* Botón Eliminar */}
-              <Button 
-                icon="delete" 
-                design="Negative" 
-                disabled={selectedListas.size === 0 || loading}
-                onClick={handleDeleteSelected}
-              >
-                Eliminar
-              </Button>
-
-              {loading && <BusyIndicator active size="Small" />}
-              <Label
-                style={{
-                  marginLeft: '0.5rem',
-                  padding: '0.25rem 0.5rem',
-                  backgroundColor: '#0a6ed1',
-                  color: 'white',
-                  borderRadius: '0.25rem',
-                  fontSize: '0.75rem'
-                }}
-              >
-                Total: {listas.length}
-              </Label>
-            </FlexBox>
-          }
-        />
-      }
-      style={{ margin: '1rem', maxWidth: '100%' }}
-    >
-      <div style={{ padding: '1rem' }}>
-        {error && (
-          <MessageStrip
-            design="Negative"
-            style={{ marginBottom: '1rem' }}
-            onClose={() => setError('')}
+          {/* Botón Editar */}
+          <Button 
+            icon="edit" 
+            design="Transparent" 
+            disabled={selectedListas.size !== 1 || loading}
+            onClick={handleEditSelected}
           >
-            {error}
-          </MessageStrip>
-        )}
+            Editar
+          </Button>
+
+          {/* Botón Activar/Desactivar */}
+          <Button 
+            icon="accept" 
+            design="Positive" 
+            disabled={selectedListas.size === 0 || loading}
+            onClick={handleToggleStatus}
+          >
+            {selectedListas.size > 0 
+              ? Array.from(selectedListas).some(id => {
+                  const lista = listas.find(l => l.IDLISTAOK === id);
+                  return lista && (lista.ACTIVED === false || lista.DELETED === true);
+                })
+                ? 'Activar'
+                : 'Desactivar'
+              : 'Activar'}
+          </Button>
+
+          {/* Botón Eliminar */}
+          <Button 
+            icon="delete" 
+            design="Negative" 
+            disabled={selectedListas.size === 0 || loading}
+            onClick={handleDeleteSelected}
+          >
+            Eliminar
+          </Button>
+
+          {loading && <BusyIndicator active size="Small" />}
+        </FlexBox>
+      </FlexBox>
+
+      {/* 2. CARD para el contenido de la tabla */}
+      <Card
+        style={{ maxWidth: '100%' }}
+      >
+        <div style={{ padding: '1rem' }}>
+          {/* Mensajes de éxito/error */}
+          {error && (
+            <MessageStrip 
+              design="Negative" 
+              style={{ marginBottom: '1rem' }}
+              onClose={() => setError('')}
+            >
+              {error}
+            </MessageStrip>
+          )}
 
         {/* === Estado de carga === */}
         {loading && filteredListas.length === 0 ? (
@@ -589,7 +594,8 @@ const PreciosListasTable = () => {
             </FlexBox>
           </FlexBox>
         )}
-      </div>
+        </div>
+      </Card>
 
       {/* === Modal === */}
       <PreciosListasModal
@@ -598,7 +604,7 @@ const PreciosListasTable = () => {
         onSave={handleSave}
         lista={editingLista}
       />
-    </Card>
+    </div>
   );
 };
 

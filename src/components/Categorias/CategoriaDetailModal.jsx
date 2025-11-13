@@ -13,9 +13,23 @@ import {
   BusyIndicator,
   MultiComboBox,
   MultiComboBoxItem,
-  Tag
+  Tag,
+  MessageBox,
+  MessageBoxAction
 } from "@ui5/webcomponents-react";
 import categoriasService from "../../api/categoriasService";
+import * as yup from 'yup';
+
+// Esquema de validación con Yup
+const categoriasValidationSchema = yup.object().shape({
+  Nombre: yup.string()
+    .required('El nombre de la categoría es obligatorio.')
+    .min(3, 'El nombre debe tener al menos 3 caracteres.')
+    .max(100, 'El nombre no puede exceder 100 caracteres.'),
+  CATID: yup.string()
+    .required('El ID de categoría es obligatorio.')
+    .min(3, 'El ID debe tener al menos 3 caracteres.'),
+});
 
 const CategoriaDetailModal = ({ category, open, onClose }) => {
   const isEdit = !!category?.CATID;
@@ -23,6 +37,8 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [availableCategories, setAvailableCategories] = useState([]);
+  const [validationErrors, setValidationErrors] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const generateCATID = (nombre) =>
     !nombre ? "" : `CAT_${nombre.trim().toUpperCase().replace(/\s+/g, "_")}`;
@@ -90,15 +106,18 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
   };
 
   const handleSave = async () => {
-    setLoading(true);
+    setIsSaving(true);
+    setValidationErrors(null);
     setError("");
+
     try {
+      // Validar datos usando Yup
+      await categoriasValidationSchema.validate(formData, { abortEarly: false });
+
       if (isEdit) {
-        // 💡 FIX: Construir un payload solo con los campos que han cambiado.
+        // Construir un payload solo con los campos que han cambiado
         const cambios = {};
         Object.keys(formData).forEach(key => {
-          // Comparamos el valor actual con el original.
-          // Se normaliza `null` y `undefined` para la comparación.
           const originalValue = category[key] ?? null;
           const currentValue = formData[key] ?? null;
 
@@ -107,21 +126,35 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
           }
         });
 
-        // Si no hay cambios, no hacemos la llamada a la API.
+        // Si no hay cambios, no hacemos la llamada a la API
         if (Object.keys(cambios).length === 0) {
-          onClose(); // Cierra el modal si no hay nada que guardar.
+          onClose();
           return;
         }
-        // 💡 FIX: Usar el CATID original para buscar el documento a actualizar.
+        
         await categoriasService.UpdateOneZTCategoria(category.CATID, cambios);
       } else {
         await categoriasService.AddOneZTCategoria(formData);
       }
       onClose();
     } catch (err) {
-      setError(err.response?.data?.message || err.message);
+      // Si es un error de Yup, mostrar errores en MessageBox
+      if (err instanceof yup.ValidationError) {
+        const errorMessages = (
+          <ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
+            {err.inner.map((e, index) => (
+              <li key={index} style={{ marginBottom: '0.5rem', color: '#c00' }}>
+                {e.message}
+              </li>
+            ))}
+          </ul>
+        );
+        setValidationErrors(errorMessages);
+      } else {
+        setError(err.response?.data?.message || err.message);
+      }
     } finally {
-      setLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -185,16 +218,16 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
           design="Footer"
           endContent={
             <>
-              <Button design="Transparent" icon="decline" onClick={onClose}>
+              <Button design="Transparent" icon="decline" onClick={onClose} disabled={isSaving}>
                 Cancelar
               </Button>
               <Button
                 design="Emphasized"
                 icon="save"
                 onClick={handleSave}
-                disabled={loading}
+                disabled={isSaving || loading}
               >
-                {loading ? <BusyIndicator active size="Small" /> : "Guardar"}
+                {isSaving ? <BusyIndicator active size="Small" /> : "Guardar"}
               </Button>
             </>
           }
@@ -235,6 +268,19 @@ const CategoriaDetailModal = ({ category, open, onClose }) => {
           >
             {error}
           </MessageStrip>
+        )}
+
+        {/* MessageBox para errores de validación */}
+        {validationErrors && (
+          <MessageBox
+            open={!!validationErrors}
+            type="Error"
+            title="Errores de Validación"
+            onClose={() => setValidationErrors(null)}
+          >
+            {validationErrors}
+            <MessageBoxAction action="OK" text="Aceptar" />
+          </MessageBox>
         )}
 
         {/* Campos */}

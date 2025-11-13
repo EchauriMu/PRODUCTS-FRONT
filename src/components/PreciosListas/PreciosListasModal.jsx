@@ -5,21 +5,25 @@ import {
   Button,
   Input,
   DatePicker,
-  Switch,
   Label,
   Title,
   Text,
-  MultiComboBox,
-  MultiComboBoxItem,
   FlexBox,
-  Card, 
-  Tag,
-  ObjectStatus
+  Card,
+  CardHeader,
+  TabContainer,
+  Tab,
+  MessageBox,
+  MessageBoxAction,
+  Select,
+  Option,
+  BusyIndicator,
+  Icon
 } from '@ui5/webcomponents-react';
-import productService from '../../api/productService';
-import ValueState from '@ui5/webcomponents-base/dist/types/ValueState.js';
+import AdvancedFiltersPreciosListas from './AdvancedFiltersPreciosListas';
+import preciosListasService from '../../api/preciosListasService';
+import * as yup from 'yup';
 
-// 🔹 Formatea la fecha para DatePicker (YYYY-MM-DD)
 const formatDateForPicker = (date) => {
   if (!date) return '';
   const d = new Date(date);
@@ -29,106 +33,125 @@ const formatDateForPicker = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const preciosListasValidationSchema = yup.object().shape({
+  DESLISTA: yup.string()
+    .required('La descripción de la lista es obligatoria.')
+    .min(3, 'La descripción debe tener al menos 3 caracteres.'),
+  SKUSIDS: yup.array()
+    .min(1, 'Debe seleccionar al menos un producto.')
+    .required('Debe seleccionar al menos un producto.'),
+  IDINSTITUTOOK: yup.string()
+    .required('El instituto es obligatorio.'),
+  IDTIPOLISTAOK: yup.string()
+    .required('El tipo de lista es obligatorio.'),
+  IDTIPOFORMULAOK: yup.string()
+    .required('El tipo de fórmula es obligatorio.'),
+  FECHAEXPIRAINI: yup.string()
+    .required('La fecha de inicio es obligatoria.'),
+  FECHAEXPIRAFIN: yup.string()
+    .required('La fecha de fin es obligatoria.')
+    .test('is-greater', 'La fecha de fin debe ser mayor a la de inicio', function(value) {
+      const { FECHAEXPIRAINI } = this.parent;
+      return !FECHAEXPIRAINI || !value || new Date(value) > new Date(FECHAEXPIRAINI);
+    }),
+});
+
 const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
   const initialState = {
     IDLISTAOK: '',
-    SKUSIDS: [], // Inicializar como array vacío para evitar el error .map()
+    SKUSIDS: [],
     IDINSTITUTOOK: '',
-    IDLISTABK: '',
     DESLISTA: '',
     FECHAEXPIRAINI: formatDateForPicker(new Date()),
-    FECHAEXPIRAFIN: formatDateForPicker(
-      new Date(new Date().setFullYear(new Date().getFullYear() + 1))
-    ),
+    FECHAEXPIRAFIN: formatDateForPicker(new Date(new Date().setFullYear(new Date().getFullYear() + 1))),
     IDTIPOLISTAOK: '',
     IDTIPOGENERALISTAOK: 'ESPECIFICA',
     IDTIPOFORMULAOK: 'FIJO',
-    REGUSER: 'HANNIAALIDELUNA',
     ACTIVED: true,
-    DELETED: false,
   };
 
-  const [availableProducts, setAvailableProducts] = useState([]);
   const [formData, setFormData] = useState(initialState);
+  const [filteredSKUs, setFilteredSKUs] = useState(new Set());
+  const [validationErrors, setValidationErrors] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('filtros');
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (lista) {
-        // Modo edición
-        setFormData({
-          ...initialState,
-          ...lista,
-          FECHAEXPIRAINI: formatDateForPicker(lista.FECHAEXPIRAINI),
-          FECHAEXPIRAFIN: formatDateForPicker(lista.FECHAEXPIRAFIN),
-          // Asegurarse de que SKUSIDS sea un array, parseando si es un string JSON del backend
-          SKUSIDS: Array.isArray(lista.SKUSIDS) ? lista.SKUSIDS : (lista.SKUSIDS ? JSON.parse(lista.SKUSIDS) : []),
-        });
-      } else {
-        // Modo creación
-        setFormData(initialState);
-      }
-
-      // Cargar productos disponibles para el MultiComboBox
-      try {
-        const productsResponse = await productService.getAllProducts();
-        // Ajustado para coincidir con la estructura de respuesta real de la API de productos
-        const products = productsResponse?.value?.[0]?.data?.[0]?.dataRes || [];
-        setAvailableProducts(products);
-      } catch (error) {
-        console.error('❌ Error al obtener productos para el selector múltiple:', error);
-      }
-    };
-    if (open) {
-      fetchData();
+    if (open && lista) {
+      setFormData({
+        ...initialState,
+        ...lista,
+        FECHAEXPIRAINI: formatDateForPicker(lista.FECHAEXPIRAINI),
+        FECHAEXPIRAFIN: formatDateForPicker(lista.FECHAEXPIRAFIN),
+        SKUSIDS: Array.isArray(lista.SKUSIDS) ? lista.SKUSIDS : (lista.SKUSIDS ? JSON.parse(lista.SKUSIDS) : []),
+      });
+      setFilteredSKUs(new Set(Array.isArray(lista.SKUSIDS) ? lista.SKUSIDS : []));
+      setActiveTab('config');
+    } else if (open) {
+      setFormData(initialState);
+      setFilteredSKUs(new Set());
+      setActiveTab('filtros');
     }
-  }, [lista, open]);
+    setValidationErrors(null);
+  }, [open, lista]);
   const handleInputChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSwitchChange = (e) => {
-    const { checked } = e.target;
-    setFormData((prev) => ({ ...prev, ACTIVED: checked }));
-  };
-  const handleSKUSIDSChange = (e) => {
-    const selectedSkuIds = e.detail.items.map(item => item.dataset.skuid);
-    setFormData((prev) => ({ ...prev, SKUSIDS: selectedSkuIds }));
-  };
-
-  const handleSaveClick = () => {
-    // ✅ Estructura alineada con el modelo de backend (sin REGDATE)
-    const dataToSave = {
-      IDLISTAOK: formData.IDLISTAOK || `LIS-${Date.now()}`,
-      // SKUID se reemplaza por SKUSIDS, que es un array de strings
-      // Debe ser stringificado para el backend
-      SKUSIDS: JSON.stringify(formData.SKUSIDS),
-      IDINSTITUTOOK: formData.IDINSTITUTOOK,
-      IDLISTABK: formData.IDLISTABK,
-      DESLISTA: formData.DESLISTA,
-      FECHAEXPIRAINI: formData.FECHAEXPIRAINI || null,
-      FECHAEXPIRAFIN: formData.FECHAEXPIRAFIN || null,
-      IDTIPOLISTAOK: formData.IDTIPOLISTAOK,
-      IDTIPOGENERALISTAOK: formData.IDTIPOGENERALISTAOK,
-      IDTIPOFORMULAOK: formData.IDTIPOFORMULAOK,
-      REGUSER: formData.REGUSER,
-      ACTIVED: Boolean(formData.ACTIVED),
-      DELETED: Boolean(formData.DELETED),
-    };
-
-    onSave(dataToSave);
+  const handleFiltersChange = (filterData) => {
+    if (filterData?.selectedSKUs) {
+      setFilteredSKUs(new Set(filterData.selectedSKUs));
+      setFormData(prev => ({
+        ...prev,
+        SKUSIDS: Array.from(filterData.selectedSKUs)
+      }));
+    }
   };
 
-  const isEditMode = !!lista;
+  const handleSaveClick = async () => {
+    setIsSaving(true);
+    setValidationErrors(null);
+
+    try {
+      await preciosListasValidationSchema.validate(formData, { abortEarly: false });
+
+      const dataToSave = {
+        IDLISTAOK: formData.IDLISTAOK || `LIS-${Date.now()}`,
+        SKUSIDS: JSON.stringify(formData.SKUSIDS),
+        IDINSTITUTOOK: formData.IDINSTITUTOOK,
+        DESLISTA: formData.DESLISTA,
+        FECHAEXPIRAINI: formData.FECHAEXPIRAINI || null,
+        FECHAEXPIRAFIN: formData.FECHAEXPIRAFIN || null,
+        IDTIPOLISTAOK: formData.IDTIPOLISTAOK,
+        IDTIPOGENERALISTAOK: formData.IDTIPOGENERALISTAOK,
+        IDTIPOFORMULAOK: formData.IDTIPOFORMULAOK,
+        ACTIVED: Boolean(formData.ACTIVED),
+      };
+
+      onSave(dataToSave);
+    } catch (error) {
+      if (error instanceof yup.ValidationError) {
+        const errorMessages = (
+          <ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
+            {error.inner.map((err, index) => (
+              <li key={index} style={{ marginBottom: '0.5rem', color: '#c00' }}>
+                {err.message}
+              </li>
+            ))}
+          </ul>
+        );
+        setValidationErrors(errorMessages);
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const isEditMode = !!lista && !!lista.IDLISTAOK;
 
   const getStatus = () => {
-    if (formData.DELETED) return { state: ValueState.Error, text: 'Eliminado' };
-    if (formData.ACTIVED) return { state: ValueState.Success, text: 'Activo' };
-    return { state: ValueState.Warning, text: 'Inactivo' };
-  };
-
-  const getProductNameBySkuId = (skuId) => {
-    const product = availableProducts.find(p => p.SKUID === skuId);
-    return product ? product.PRODUCTNAME : skuId;
+    if (formData.ACTIVED) return { state: 'Success', text: 'Activo' };
+    return { state: 'Warning', text: 'Inactivo' };
   };
 
   const status = getStatus();
@@ -137,137 +160,183 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
     <Dialog
       open={open}
       onAfterClose={onClose}
-      header={<Bar><Title level="H4">{isEditMode ? 'Editar Lista de Precios' : 'Nueva Lista de Precios'}</Title></Bar>}
+      headerText={isEditMode ? 'Editar Lista de Precios' : 'Nueva Lista de Precios'}
       footer={
         <Bar
           endContent={
             <>
-              <Button design="Emphasized" onClick={handleSaveClick}>
-                Guardar
-              </Button>
-              <Button design="Transparent" onClick={onClose}>
+              <Button 
+                design="Transparent" 
+                icon="decline" 
+                onClick={onClose}
+                disabled={isSaving}
+              >
                 Cancelar
+              </Button>
+              <Button
+                design="Emphasized"
+                icon="save"
+                onClick={handleSaveClick}
+                disabled={isSaving}
+              >
+                {isSaving ? <BusyIndicator active size="Small" /> : 'Guardar'}
               </Button>
             </>
           }
         />
       }
-      style={{ width: '1300px', maxWidth: '98vw', borderRadius: '12px' }}
+      style={{ width: '1600px', maxWidth: '98vw', height: '90vh', borderRadius: '12px' }}
     >
-      <FlexBox direction="Column" style={{ padding: '1.5rem', gap: '1.25rem', background: '#f5f7fa' }}>
-        {/* === Información General === */}
-        <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '10px' }}>
-          <FlexBox direction="Column" style={{ padding: '1rem', gap: '0.75rem' }}>
-            <FlexBox alignItems="Center" justifyContent="SpaceBetween">
-              <Title level="H5">Información General</Title>
-              <ObjectStatus state={status.state}>{status.text}</ObjectStatus>
+      <MessageBox
+        open={!!validationErrors}
+        type="Error"
+        titleText="Errores de Validación"
+        actions={[MessageBoxAction.OK]}
+        onClose={() => setValidationErrors(null)}
+      >
+        {validationErrors}
+      </MessageBox>
+
+      <TabContainer 
+        collapsed={false} 
+        onTabSelect={(e) => setActiveTab(e.detail.tab.dataset.key)}
+        style={{ height: 'calc(90vh - 100px)', display: 'flex', flexDirection: 'column' }}
+      >
+        <Tab text="Filtros (Paso 1)" icon="filter" data-key="filtros">
+          <div style={{ height: 'calc(90vh - 150px)', display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '1.5rem', background: '#f5f7fa' }}>
+            <AdvancedFiltersPreciosListas 
+              onFiltersChange={handleFiltersChange}
+              initialFilters={{}}
+              preselectedProducts={filteredSKUs}
+            />
+            <div style={{ padding: '1rem', marginTop: 'auto', backgroundColor: '#fff', borderTop: '1px solid #e0e0e0', textAlign: 'right' }}>
+              <Text style={{ marginRight: '1rem', fontSize: '0.875rem', fontWeight: '500' }}>
+                {formData.SKUSIDS?.length || 0} producto(s) seleccionado(s)
+              </Text>
+            </div>
+          </div>
+        </Tab>
+
+        <Tab text="Configuración (Paso 2)" icon="settings" data-key="config">
+          <div style={{ padding: '1.5rem', maxHeight: 'calc(90vh - 200px)', overflowY: 'auto', background: '#f5f7fa' }}>
+            <FlexBox direction="Column" style={{ gap: '1.25rem' }}>
+              <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '10px' }}>
+                <CardHeader titleText="Información General" />
+                <div style={{ padding: '1rem' }}>
+                  <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
+                    
+                    <div>
+                      <Label required>Descripción de la Lista</Label>
+                      <Input
+                        value={formData.DESLISTA || ''}
+                        onInput={(e) => handleInputChange('DESLISTA', e.target.value)}
+                        placeholder="Ej: Lista de Precios Verano 2024"
+                        style={{ width: '100%', marginTop: '0.5rem' }}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Productos Seleccionados</Label>
+                      <div style={{ padding: '0.75rem', backgroundColor: '#f9f9f9', borderRadius: '6px', marginTop: '0.5rem', minHeight: '50px', display: 'flex', alignItems: 'center' }}>
+                        <Text style={{ fontSize: '0.875rem', fontWeight: '500' }}>
+                          {formData.SKUSIDS && formData.SKUSIDS.length > 0 
+                            ? `${formData.SKUSIDS.length} producto(s) seleccionado(s)` 
+                            : 'Sin productos seleccionados - ir a Filtros para agregar'}
+                        </Text>
+                      </div>
+                    </div>
+                  </FlexBox>
+                </div>
+              </Card>
+
+              <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '10px' }}>
+                <CardHeader titleText="Configuración de la Lista" />
+                <div style={{ padding: '1rem' }}>
+                  <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
+                    
+                    <div>
+                      <Label required>Instituto</Label>
+                      <Input
+                        value={formData.IDINSTITUTOOK || ''}
+                        onInput={(e) => handleInputChange('IDINSTITUTOOK', e.target.value)}
+                        placeholder="ID del Instituto"
+                        style={{ width: '100%', marginTop: '0.5rem' }}
+                      />
+                    </div>
+
+                    <FlexBox style={{ gap: '1rem' }}>
+                      <div style={{ flex: 1 }}>
+                        <Label required>Tipo de Lista</Label>
+                        <Select
+                          value={formData.IDTIPOLISTAOK || ''}
+                          onChange={(e) => handleInputChange('IDTIPOLISTAOK', e.target.value)}
+                          style={{ width: '100%', marginTop: '0.5rem' }}
+                        >
+                          <Option value="">Seleccionar tipo...</Option>
+                          <Option value="TIPO_A">Tipo A</Option>
+                          <Option value="TIPO_B">Tipo B</Option>
+                        </Select>
+                      </div>
+
+                      <div style={{ flex: 1 }}>
+                        <Label>Tipo General</Label>
+                        <Select
+                          value={formData.IDTIPOGENERALISTAOK || ''}
+                          onChange={(e) => handleInputChange('IDTIPOGENERALISTAOK', e.target.value)}
+                          style={{ width: '100%', marginTop: '0.5rem' }}
+                        >
+                          <Option value="ESPECIFICA">Específica</Option>
+                          <Option value="GENERAL">General</Option>
+                        </Select>
+                      </div>
+
+                      <div style={{ flex: 1 }}>
+                        <Label required>Tipo Fórmula</Label>
+                        <Select
+                          value={formData.IDTIPOFORMULAOK || ''}
+                          onChange={(e) => handleInputChange('IDTIPOFORMULAOK', e.target.value)}
+                          style={{ width: '100%', marginTop: '0.5rem' }}
+                        >
+                          <Option value="">Seleccionar fórmula...</Option>
+                          <Option value="FIJO">Fijo</Option>
+                          <Option value="PORCENTAJE">Porcentaje</Option>
+                          <Option value="ESCALA">Escala</Option>
+                        </Select>
+                      </div>
+                    </FlexBox>
+                  </FlexBox>
+                </div>
+              </Card>
+
+              <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '10px' }}>
+                <CardHeader titleText="Vigencia de la Lista" />
+                <div style={{ padding: '1rem' }}>
+                  <FlexBox style={{ gap: '1rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <Label required>Fecha de Inicio</Label>
+                      <DatePicker
+                        value={formData.FECHAEXPIRAINI || ''}
+                        onChange={(e) => handleInputChange('FECHAEXPIRAINI', e.target.value)}
+                        style={{ width: '100%', marginTop: '0.5rem' }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <Label required>Fecha de Fin</Label>
+                      <DatePicker
+                        value={formData.FECHAEXPIRAFIN || ''}
+                        onChange={(e) => handleInputChange('FECHAEXPIRAFIN', e.target.value)}
+                        style={{ width: '100%', marginTop: '0.5rem' }}
+                      />
+                    </div>
+                  </FlexBox>
+                </div>
+              </Card>
+
             </FlexBox>
+          </div>
+        </Tab>
 
-            <Label>Descripción de la lista</Label>
-            <Input
-              value={formData.DESLISTA || ''}
-              onInput={(e) => handleInputChange('DESLISTA', e.target.value)}
-              placeholder="Ej: Lista de precios Verano 2024"
-            />
-
-            <Label>SKU IDs Asociados</Label>
-            <MultiComboBox
-              placeholder="Selecciona uno o más SKUs"
-              onSelectionChange={handleSKUSIDSChange}
-              style={{ width: '100%' }}
-            >
-              {availableProducts.map((product) => (
-                <MultiComboBoxItem
-                  key={product.SKUID}
-                  text={product.PRODUCTNAME}
-                  data-skuid={product.SKUID} // Guardamos el SKUID aquí
-                />
-              ))}
-            </MultiComboBox>
-
-            {/* Mostrar SKUs seleccionados como Tags, igual que en ComponenteUno.jsx */}
-            <FlexBox wrap="Wrap" style={{ gap: '0.5rem', marginTop: '0.5rem' }}>
-              {formData.SKUSIDS?.length > 0 ? (
-                formData.SKUSIDS.map((skuId, index) => (
-                  <Tag
-                    key={index}
-                    colorScheme="1"
-                  >
-                    {getProductNameBySkuId(skuId)}
-                  </Tag>
-                ))
-              ) : (
-                <Text style={{ color: '#6a6d70', fontStyle: 'italic' }}>No hay SKUs agregados</Text>
-              )}
-            </FlexBox>
-
-            <Label>ID de Instituto</Label>
-            <Input
-              value={formData.IDINSTITUTOOK || ''}
-              onInput={(e) => handleInputChange('IDINSTITUTOOK', e.target.value)}
-              placeholder="Ej: INSTITUTO-XYZ"
-            />
-          </FlexBox>
-        </Card>
-
-        {/* === Parámetros de Configuración === */}
-        <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '10px' }}>
-          <FlexBox direction="Column" style={{ padding: '1rem', gap: '0.75rem' }}>
-            <Title level="H6">Configuración de Lista</Title>
-
-            <Label>Tipo de lista</Label>
-            <Input
-              value={formData.IDTIPOLISTAOK || ''}
-              onInput={(e) => handleInputChange('IDTIPOLISTAOK', e.target.value)}
-              placeholder="Ej: TIPO-01"
-            />
-
-            <Label>Tipo de fórmula aplicada</Label>
-            <Input
-              value={formData.IDTIPOFORMULAOK || ''}
-              onInput={(e) => handleInputChange('IDTIPOFORMULAOK', e.target.value)}
-              placeholder="Ej: FORMULA-01"
-            />
-
-            <Label>Inicio de vigencia</Label>
-            <DatePicker
-              value={formData.FECHAEXPIRAINI || ''}
-              formatPattern="yyyy-MM-dd"
-              onChange={(e) => handleInputChange('FECHAEXPIRAINI', e.target.value)}
-            />
-
-            <Label>Fin de vigencia</Label>
-            <DatePicker
-              value={formData.FECHAEXPIRAFIN || ''}
-              formatPattern="yyyy-MM-dd"
-              onChange={(e) => handleInputChange('FECHAEXPIRAFIN', e.target.value)}
-            />
-
-            <Label>Activo</Label>
-            <Switch
-              checked={formData.ACTIVED || false}
-              onChange={handleSwitchChange}
-            />
-          </FlexBox>
-        </Card>
-
-        {/* === Auditoría === */}
-        <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '10px' }}>
-          <FlexBox direction="Column" style={{ padding: '1rem', gap: '0.5rem' }}>
-            <Title level="H6">Auditoría</Title>
-            <FlexBox style={{ gap: '2rem', flexWrap: 'wrap' }}>
-              <FlexBox direction="Column">
-                <Label>Creado por</Label>
-                <Text>{formData.REGUSER || 'N/A'}</Text>
-              </FlexBox>
-              <FlexBox direction="Column">
-                <Label>Modificado por</Label>
-                <Text>{lista?.MODUSER || 'N/A'}</Text>
-              </FlexBox>
-            </FlexBox>
-          </FlexBox>
-        </Card>
-      </FlexBox>
+      </TabContainer>
     </Dialog>
   );
 };

@@ -15,7 +15,8 @@ import {
   Button,
   Input,
   CheckBox,
-  Tag
+  Tag,
+  Icon
 } from '@ui5/webcomponents-react';
 import categoriasService from '../../api/categoriasService';
 import CategoriaDetailModal from './CategoriaDetailModal';
@@ -177,265 +178,262 @@ setCategories(list);
     loadCategories();
   }, []);
 
+  // Calcular categorías filtradas
+  const filteredCategories = categories.filter(cat => {
+    if (!debouncedTerm) return true;
+    const term = debouncedTerm;
+    return (
+      (cat.Nombre || '').toLowerCase().includes(term) ||
+      (cat.CATID || '').toLowerCase().includes(term)
+    );
+  });
+
   return (
-    <Card
-      header={
-        <CardHeader
-          titleText="Lista de Categorías"
-          subtitleText={`${categories.length} categorías encontradas`}
-          action={
-            <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
-              <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
-                {/* Search input (client-side filter, debounced) */}
-                <Input
-                  placeholder="Buscar categoría por nombre o CATID..."
-                  value={searchTerm}
-                  onInput={(e) => setSearchTerm(e.target.value)}
-                  style={{ width: '260px' }}
-                />
-                {/* small spacer */}
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  onClick={() => setModalCategory({})}
-                >
-                  Añadir Categoría
-                </Button>
-                
-                {/* Botón de Editar */}
-                <Button
-                  icon="edit"
-                  design="Transparent"
-                  disabled={selectedCategories.size !== 1}
-                  onClick={() => {
-                    const catId = Array.from(selectedCategories)[0];
-                    const category = categories.find(c => c.CATID === catId);
-                    if (category) setModalCategory(category);
-                  }}
-                >
-                  Editar
-                </Button>
+    <div style={{ margin: '1rem' }}>
+      {/* 1. BARRA SUPERIOR (Fuera de Card) */}
+      <FlexBox 
+        alignItems="Center" 
+        justifyContent="SpaceBetween" 
+        style={{ 
+          marginBottom: '1rem', 
+          padding: '0.5rem 0', 
+          borderBottom: '1px solid #ccc' 
+        }}
+      >
+        {/* Título y Subtítulo */}
+        <FlexBox direction="Column">
+          <Title level="H3">Categorías</Title>
+          <Text style={{ color: '#666' }}>{filteredCategories.length} categorías encontradas</Text>
+        </FlexBox>
 
-                {/* Botón Activar/Desactivar unificado */}
-                <Button
-                  icon="accept"
-                  design="Positive"
-                  disabled={selectedCategories.size === 0 || loading}
-                  onClick={handleToggleStatus}
-                >
-                  {selectedCategories.size > 0 
-                    ? Array.from(selectedCategories).some(id => {
-                        const categoria = categories.find(c => c.CATID === id);
-                        return categoria && (categoria.ACTIVED === false || categoria.DELETED === true);
-                      })
-                      ? 'Activar'
-                      : 'Desactivar'
-                    : 'Activar'}
-                </Button>
+        {/* Acciones */}
+        <FlexBox alignItems="Center" justifyContent="End" style={{ gap: '1rem' }}>
+          {/* Búsqueda */}
+          <Input
+            icon={<Icon name="search" />}
+            placeholder="Buscar por nombre o ID..."
+            value={searchTerm}
+            onInput={(e) => setSearchTerm(e.target.value)}
+            style={{ width: '260px' }}
+          />
+          
+          {/* Botones de Acción */}
+          <Button icon="add" design="Emphasized" onClick={() => setModalCategory({})}>
+            Crear Categoría
+          </Button>
+          
+          <Button 
+            icon="edit" 
+            design="Transparent" 
+            disabled={selectedCategories.size !== 1 || loading}
+            onClick={() => {
+              const catId = Array.from(selectedCategories)[0];
+              const cat = categories.find(c => c.CATID === catId);
+              setModalCategory(cat);
+            }}
+          >
+            Editar
+          </Button>
+          
+          <Button 
+            icon="accept" 
+            design="Positive" 
+            disabled={selectedCategories.size === 0 || loading}
+            onClick={handleToggleStatus}
+          >
+            {selectedCategories.size > 0 
+              ? Array.from(selectedCategories).some(id => {
+                  const cat = categories.find(c => c.CATID === id);
+                  return cat && (cat.ACTIVED === false || cat.DELETED === true);
+                })
+                ? 'Activar'
+                : 'Desactivar'
+              : 'Activar'}
+          </Button>
+          
+          <Button 
+            icon="delete" 
+            design="Negative" 
+            disabled={selectedCategories.size === 0 || loading}
+            onClick={async () => {
+              if (!confirm(`¿Eliminar permanentemente ${selectedCategories.size} categorías?`)) return;
+              setLoading(true);
+              try {
+                for (const catId of selectedCategories) {
+                  await categoriasService.DeleteHardZTCategoria(catId);
+                }
+                await loadCategories();
+                setSelectedCategories(new Set());
+              } catch (err) {
+                setError(err.response?.data?.message || err.message);
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            Eliminar
+          </Button>
 
-                {/* Botón de Eliminar */}
-                <Button
-                  icon="delete"
-                  design="Negative"
-                  disabled={selectedCategories.size === 0 || loading}
-                  onClick={async () => {
-                    if (!confirm(`¿Eliminar permanentemente ${selectedCategories.size} categorías?`)) return;
-                    setLoading(true);
-                    try {
-                      for (const catId of selectedCategories) {
-                        await categoriasService.DeleteHardZTCategoria(catId);
-                      }
-                      await loadCategories();
-                      setSelectedCategories(new Set());
-                    } catch (err) {
-                      setError(err.response?.data?.message || err.message);
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                >
-                  Eliminar
-                </Button>
-              </FlexBox>
-              {loading && <BusyIndicator active size="Small" />}
-              <Label
-                style={{
-                  marginLeft: '0.5rem',
-                  padding: '0.25rem 0.5rem',
-                  backgroundColor: categories.length > 0 ? '#0a6ed1' : '#666',
-                  color: 'white',
-                  borderRadius: '0.25rem',
-                  fontSize: '0.75rem'
-                }}
-              >
-                Total: {categories.length}
-              </Label>
+          {loading && <BusyIndicator active size="Small" />}
+        </FlexBox>
+      </FlexBox>
+
+      {/* 2. CARD para el contenido de la tabla */}
+      <Card style={{ maxWidth: '100%' }}>
+        <CardHeader titleText={`Total: ${filteredCategories.length}`} />
+        <div style={{ padding: '1rem' }}>
+          {/* Mensajes de error */}
+          {error && (
+            <MessageStrip
+              type="Negative"
+              style={{ marginBottom: '1rem' }}
+              onClose={() => setError('')}
+            >
+              {error}
+            </MessageStrip>
+          )}
+
+          {loading && categories.length === 0 ? (
+            <FlexBox justifyContent="Center" alignItems="Center" style={{ height: '200px', flexDirection: 'column' }}>
+              <BusyIndicator active />
+              <Text style={{ marginTop: '1rem' }}>Cargando categorías...</Text>
             </FlexBox>
-          }
-        />
-      }
-      style={{ margin: '1rem', maxWidth: '100%' }}
-    >
-      <div style={{ padding: '1rem' }}>
-        {error && (
-          <MessageStrip
-            type="Negative"
-            style={{ marginBottom: '1rem' }}
-            onClose={() => setError('')}
-          >
-            {error}
-          </MessageStrip>
-        )}
-
-        {loading && categories.length === 0 ? (
-          <FlexBox justifyContent="Center" alignItems="Center" style={{ height: '200px', flexDirection: 'column' }}>
-            <BusyIndicator active />
-            <Text style={{ marginTop: '1rem' }}>Cargando categorías...</Text>
-          </FlexBox>
-        ) : categories.length === 0 && !loading ? (
-          <FlexBox justifyContent="Center" alignItems="Center" style={{ height: '200px', flexDirection: 'column' }}>
-            <Title level="H4" style={{ color: '#666', marginBottom: '0.5rem' }}>
-              No hay categorías disponibles
-            </Title>
-            <Text>No se encontraron categorías en el sistema</Text>
-          </FlexBox>
-        ) : (
-          <Table
-            noDataText="No hay categorías para mostrar"
-            style={{ width: '100%' }}
-            headerRow={
-              <TableRow>
-                <TableCell style={{ fontWeight: 'bold' }}>
-                  <CheckBox
-                    checked={selectedCategories.size === categories.length}
-                    onChange={handleSelectAll}
-                    style={{ margin: 0 }}
-                  />
-                </TableCell>
-                <TableCell style={{ fontWeight: 'bold' }}><Text>CATID</Text></TableCell>
-                <TableCell style={{ fontWeight: 'bold' }}><Text>Nombre</Text></TableCell>
-                <TableCell style={{ fontWeight: 'bold' }}><Text>Padre</Text></TableCell>
-                <TableCell style={{ fontWeight: 'bold' }}><Text>Fecha</Text></TableCell>
-                <TableCell style={{ fontWeight: 'bold' }}><Text>Modificación</Text></TableCell>
-                <TableCell style={{ fontWeight: 'bold' }}><Text>Estado</Text></TableCell>
-              </TableRow>
-            }
-          >
-            {categories
-              .filter(cat => {
-                if (!debouncedTerm) return true;
-                const term = debouncedTerm;
-                return (
-                  (cat.Nombre || '').toLowerCase().includes(term) ||
-                  (cat.CATID || '').toLowerCase().includes(term)
-                );
-              })
-              .map((cat, index) => {
-              const status = getStatus(cat);
-              const lastAction = getLastAction(cat);
-              return (
-                <TableRow
-                  key={cat.CATID || index}
-                  onDoubleClick={() => handleRowDoubleClick(cat)}
-                  style={{ 
-                    cursor: 'pointer',
-                    backgroundColor: selectedCategories.has(cat.CATID) ? '#f0f7ff' : 'transparent'
-                  }}
-                  className="ui5-table-row-hover"
-                >
-                  <TableCell>
+          ) : categories.length === 0 && !loading ? (
+            <FlexBox justifyContent="Center" alignItems="Center" style={{ height: '200px', flexDirection: 'column' }}>
+              <Title level="H4" style={{ color: '#666', marginBottom: '0.5rem' }}>
+                No hay categorías disponibles
+              </Title>
+              <Text>No se encontraron categorías en el sistema</Text>
+            </FlexBox>
+          ) : (
+            <Table
+              noDataText="No hay categorías para mostrar"
+              style={{ width: '100%' }}
+              headerRow={
+                <TableRow>
+                  <TableCell style={{ fontWeight: 'bold' }}>
                     <CheckBox
-                      checked={selectedCategories.has(cat.CATID)}
-                      onChange={() => handleSelectCategory(cat.CATID)}
+                      checked={selectedCategories.size === filteredCategories.length && filteredCategories.length > 0}
+                      onChange={handleSelectAll}
                       style={{ margin: 0 }}
                     />
                   </TableCell>
-                  <TableCell>
-                    <Label 
-                      style={{
-                        padding: '0.35rem 0.75rem',
-                        backgroundColor: '#e3f2fd',
-                        color: '#1976d2',
-                        borderRadius: '0.25rem',
-                        fontSize: '0.65rem',
-                        fontWeight: '600',
-                        display: 'inline-block',
-                        border: '1px solid #90caf9',
-                        wordBreak: 'break-word',
-                        whiteSpace: 'normal',
-                        maxWidth: '150px'
-                      }}
-                    >
-                      {cat.CATID || `CAT-${index + 1}`}
-                    </Label>
-                  </TableCell>
-                  <TableCell>
-                    <Text style={{ fontWeight: '500', fontSize: '0.65rem', color: '#32363a', wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                      {cat.Nombre || 'Sin nombre'}
-                    </Text>
-                  </TableCell>
-                  <TableCell>
-                    <Label 
-                      style={{
-                        padding: '0.35rem 0.75rem',
-                        backgroundColor: '#e8f5e9',
-                        color: '#2e7d32',
-                        borderRadius: '0.25rem',
-                        fontSize: '0.65rem',
-                        fontWeight: '600',
-                        display: 'inline-block',
-                        border: '1px solid #81c784',
-                        wordBreak: 'break-word',
-                        whiteSpace: 'normal',
-                        maxWidth: '150px'
-                      }}
-                    >
-                      {cat.PadreCATID || 'N/A'}
-                    </Label>
-                  </TableCell>
-                  <TableCell>
-                    <Text style={{ fontSize: '0.875rem' }}>
-                      {formatDate(cat.REGDATE)}
-                    </Text>
-                  </TableCell>
-                  <TableCell>
-                    <FlexBox direction="Column">
-                      <Label
+                  <TableCell style={{ fontWeight: 'bold' }}><Text>CATID</Text></TableCell>
+                  <TableCell style={{ fontWeight: 'bold' }}><Text>Nombre</Text></TableCell>
+                  <TableCell style={{ fontWeight: 'bold' }}><Text>Padre</Text></TableCell>
+                  <TableCell style={{ fontWeight: 'bold' }}><Text>Fecha</Text></TableCell>
+                  <TableCell style={{ fontWeight: 'bold' }}><Text>Modificación</Text></TableCell>
+                  <TableCell style={{ fontWeight: 'bold' }}><Text>Estado</Text></TableCell>
+                </TableRow>
+              }
+            >
+              {filteredCategories.map((cat, index) => {
+                const status = getStatus(cat);
+                const lastAction = getLastAction(cat);
+                return (
+                  <TableRow
+                    key={cat.CATID || index}
+                    onDoubleClick={() => handleRowDoubleClick(cat)}
+                    style={{ 
+                      cursor: 'pointer',
+                      backgroundColor: selectedCategories.has(cat.CATID) ? '#f0f7ff' : 'transparent'
+                    }}
+                    className="ui5-table-row-hover"
+                  >
+                    <TableCell>
+                      <CheckBox
+                        checked={selectedCategories.has(cat.CATID)}
+                        onChange={() => handleSelectCategory(cat.CATID)}
+                        style={{ margin: 0 }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Label 
                         style={{
-                          padding: '0.25rem 0.5rem',
-                          backgroundColor: lastAction.action === 'CREATE' ? '#e8f5e8' : '#fff3e0',
-                          color: lastAction.action === 'CREATE' ? '#2e7d32' : '#f57c00',
+                          padding: '0.35rem 0.75rem',
+                          backgroundColor: '#e3f2fd',
+                          color: '#1976d2',
                           borderRadius: '0.25rem',
-                          fontSize: '0.75rem',
+                          fontSize: '0.65rem',
                           fontWeight: '600',
                           display: 'inline-block',
-                          marginBottom: '0.5rem'
+                          border: '1px solid #90caf9',
+                          wordBreak: 'break-word',
+                          whiteSpace: 'normal',
+                          maxWidth: '150px'
                         }}
                       >
-                        {lastAction.action}
+                        {cat.CATID || `CAT-${index + 1}`}
                       </Label>
-                      <Text 
-                        style={{ 
-                          fontSize: '0.75rem', 
-                          color: '#666',
-                          display: 'block'
+                    </TableCell>
+                    <TableCell>
+                      <Text style={{ fontWeight: '500', fontSize: '0.65rem', color: '#32363a', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                        {cat.Nombre || 'Sin nombre'}
+                      </Text>
+                    </TableCell>
+                    <TableCell>
+                      <Label 
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          backgroundColor: '#e8f5e9',
+                          color: '#2e7d32',
+                          borderRadius: '0.25rem',
+                          fontSize: '0.65rem',
+                          fontWeight: '600',
+                          display: 'inline-block',
+                          border: '1px solid #81c784',
+                          wordBreak: 'break-word',
+                          whiteSpace: 'normal',
+                          maxWidth: '150px'
                         }}
                       >
-                        {lastAction.user} - {formatDate(lastAction.date)}
+                        {cat.PadreCATID || 'N/A'}
+                      </Label>
+                    </TableCell>
+                    <TableCell>
+                      <Text style={{ fontSize: '0.875rem' }}>
+                        {formatDate(cat.REGDATE)}
                       </Text>
-                    </FlexBox>
-                  </TableCell>
-                  <TableCell>
-                    <Tag design={status.design}>
-                      {status.text}
-                    </Tag>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </Table>
-        )}
-      </div>
+                    </TableCell>
+                    <TableCell>
+                      <FlexBox direction="Column">
+                        <Label
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: lastAction.action === 'CREATE' ? '#e8f5e8' : '#fff3e0',
+                            color: lastAction.action === 'CREATE' ? '#2e7d32' : '#f57c00',
+                            borderRadius: '0.25rem',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            display: 'inline-block',
+                            marginBottom: '0.5rem'
+                          }}
+                        >
+                          {lastAction.action}
+                        </Label>
+                        <Text 
+                          style={{ 
+                            fontSize: '0.75rem', 
+                            color: '#666',
+                            display: 'block'
+                          }}
+                        >
+                          {lastAction.user} - {formatDate(lastAction.date)}
+                        </Text>
+                      </FlexBox>
+                    </TableCell>
+                    <TableCell>
+                      <Tag design={status.design}>
+                        {status.text}
+                      </Tag>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </Table>
+          )}
+        </div>
+      </Card>
 
       {/* Modal Detalle Categoría */}
       <CategoriaDetailModal
@@ -443,7 +441,7 @@ setCategories(list);
         open={!!modalCategory}
         onClose={handleCloseModal}
       />
-    </Card>
+    </div>
   );
 };
 
