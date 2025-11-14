@@ -751,20 +751,96 @@ const AdvancedFilters = ({
 
   // Función auxiliar para cargar y seleccionar presentaciones automáticamente
   const loadAndSelectPresentaciones = async (skuid) => {
-    // Si no están cargadas, cargarlas
+    // Si no están cargadas, cargarlas primero
     if (!productPresentaciones[skuid]) {
-      await loadPresentaciones(skuid);
+      setLoadingPresentaciones(prev => ({ ...prev, [skuid]: true }));
+      
+      try {
+        const presentaciones = await productPresentacionesService.getPresentacionesBySKUID(skuid);
+        
+        // Usar Map para evitar duplicados y mantener las bloqueadas
+        const presentacionesMap = new Map();
+        
+        // Primero agregar las presentaciones que ya teníamos (incluidas las bloqueadas)
+        if (productPresentaciones[skuid]) {
+          productPresentaciones[skuid].forEach(p => {
+            presentacionesMap.set(p.IdPresentaOK, p);
+          });
+        }
+        
+        // Luego agregar/actualizar con las del servidor
+        if (presentaciones && presentaciones.length > 0) {
+          presentaciones.forEach(p => {
+            if (presentacionesMap.has(p.IdPresentaOK)) {
+              const existing = presentacionesMap.get(p.IdPresentaOK);
+              presentacionesMap.set(p.IdPresentaOK, {
+                ...p,
+                ...existing,
+              });
+            } else {
+              presentacionesMap.set(p.IdPresentaOK, p);
+            }
+          });
+        }
+        
+        const presentacionesCombinadas = Array.from(presentacionesMap.values());
+        
+        // Actualizar el estado de presentaciones
+        setProductPresentaciones(prev => ({
+          ...prev,
+          [skuid]: presentacionesCombinadas
+        }));
+        
+        // Seleccionar automáticamente todas las presentaciones activas
+        const activePresentaciones = presentacionesCombinadas.filter(p => p.ACTIVED);
+        setSelectedPresentaciones(prev => {
+          const newSelection = new Set(prev);
+          activePresentaciones.forEach(p => newSelection.add(p.IdPresentaOK));
+          return newSelection;
+        });
+        
+        // Cargar precios para cada presentación en segundo plano (no bloqueante)
+        if (presentacionesCombinadas && presentacionesCombinadas.length > 0) {
+          const preciosPromises = presentacionesCombinadas.map(async (presentacion) => {
+            try {
+              const precios = await preciosItemsService.getPricesByIdPresentaOK(presentacion.IdPresentaOK);
+              return { idPresentaOK: presentacion.IdPresentaOK, precios };
+            } catch (error) {
+              console.error(`Error loading prices for ${presentacion.IdPresentaOK}:`, error);
+              return { idPresentaOK: presentacion.IdPresentaOK, precios: [] };
+            }
+          });
+          
+          Promise.all(preciosPromises).then(preciosResults => {
+            setPresentacionesPrecios(prev => {
+              const newPrecios = { ...prev };
+              preciosResults.forEach(({ idPresentaOK, precios }) => {
+                newPrecios[idPresentaOK] = precios;
+              });
+              return newPrecios;
+            });
+          });
+        }
+      } catch (error) {
+        console.error(`Error loading presentaciones for ${skuid}:`, error);
+        setProductPresentaciones(prev => ({
+          ...prev,
+          [skuid]: []
+        }));
+      } finally {
+        setLoadingPresentaciones(prev => ({ ...prev, [skuid]: false }));
+      }
+    } else {
+      // Si ya están cargadas, solo seleccionar las activas
+      const presentaciones = productPresentaciones[skuid] || [];
+      const activePresentaciones = presentaciones.filter(p => p.ACTIVED);
+      
+      setSelectedPresentaciones(prev => {
+        const newSelection = new Set(prev);
+        activePresentaciones.forEach(p => newSelection.add(p.IdPresentaOK));
+        return newSelection;
+      });
     }
-    
-    // Seleccionar todas las presentaciones activas
-    const presentaciones = productPresentaciones[skuid] || [];
-    const activePresentaciones = presentaciones.filter(p => p.ACTIVED);
-    
-    setSelectedPresentaciones(prev => {
-      const newSelection = new Set(prev);
-      activePresentaciones.forEach(p => newSelection.add(p.IdPresentaOK));
-      return newSelection;
-    });
   };
 
   const selectAllProducts = async () => {

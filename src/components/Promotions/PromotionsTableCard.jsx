@@ -16,7 +16,9 @@ import {
   Button,
   CheckBox,
   Icon,
-  Tag
+  Tag,
+  Select,
+  Option
 } from '@ui5/webcomponents-react'; 
 import promoService from '../../api/promoService';
 
@@ -28,6 +30,7 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [search, setSearch] = useState('');
   const [info, setInfo] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'scheduled', 'finished'
 
   // Cargar promociones al montar el componente
   useEffect(() => {
@@ -65,17 +68,46 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
     }
   };
 
-  // Filtro por búsqueda
+  // Función para obtener el estado de la promoción
+  const getPromotionStatusType = (promotion) => {
+    if (!promotion) return 'finished';
+    
+    // Si está eliminada o no activa
+    if (promotion.DELETED === true || promotion.ACTIVED === false) {
+      return 'finished';
+    }
+    
+    const today = new Date();
+    const inicio = new Date(promotion.FechaIni);
+    const fin = new Date(promotion.FechaFin);
+    
+    if (today < inicio) return 'scheduled';
+    if (today >= inicio && today <= fin) return 'active';
+    return 'finished';
+  };
+
+  // Filtro por búsqueda y estado
   const filteredPromotions = useMemo(() => {
-    if (!search.trim()) return promotions;
-    const term = search.toLowerCase();
-    return promotions.filter(p =>
-      (p.IdPromoOK || '').toLowerCase().includes(term) ||
-      (p.Titulo || '').toLowerCase().includes(term) ||
-      (p.Descripcion || '').toLowerCase().includes(term) ||
-      (p.SKUID || '').toLowerCase().includes(term)
-    );
-  }, [promotions, search]);
+    let filtered = promotions;
+    
+    // Filtro por estado
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(p => getPromotionStatusType(p) === statusFilter);
+    }
+    
+    // Filtro por búsqueda
+    if (search.trim()) {
+      const term = search.toLowerCase();
+      filtered = filtered.filter(p =>
+        (p.IdPromoOK || '').toLowerCase().includes(term) ||
+        (p.Titulo || '').toLowerCase().includes(term) ||
+        (p.Descripcion || '').toLowerCase().includes(term) ||
+        (p.SKUID || '').toLowerCase().includes(term)
+      );
+    }
+    
+    return filtered;
+  }, [promotions, search, statusFilter]);
 
   const toggleSelect = (id) => {
     setSelectedIds(prev => {
@@ -273,6 +305,16 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
           subtitleText={`${filteredPromotions.length} promociones encontradas`}
           action={
             <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={{ minWidth: '150px' }}
+              >
+                <Option value="all">Todas</Option>
+                <Option value="active">Activas</Option>
+                <Option value="scheduled">Programadas</Option>
+                <Option value="finished">Finalizadas</Option>
+              </Select>
               <Input
                 placeholder="Buscar por producto, SKU, marca..."
                 value={search}

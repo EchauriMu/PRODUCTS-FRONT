@@ -33,6 +33,9 @@ import productPresentacionesService from '../../api/productPresentacionesService
 import AdvancedFilters from './AdvancedFilters';
 
 const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
   const [editData, setEditData] = useState({
     titulo: '',
     descripcion: '',
@@ -60,6 +63,12 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   
   // Estados para presentaciones expandidas en la lista de productos de la promoción
   const [expandedProductsInList, setExpandedProductsInList] = useState(new Set());
+  
+  // Resetear página al cambiar búsqueda
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+  
   const [productPresentacionesInList, setProductPresentacionesInList] = useState({});
   const [loadingPresentacionesInList, setLoadingPresentacionesInList] = useState({});
   
@@ -858,7 +867,9 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                         </FlexBox>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                          {getProductsWithPresentaciones().map((product) => {
+                          {getProductsWithPresentaciones()
+                            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                            .map((product) => {
                             const isExpanded = expandedProductsInList.has(product.SKUID);
                             const presentacionesSeleccionadas = product.presentaciones;
                             const isProductSelected = selectedProductsForDelete.has(product.SKUID);
@@ -956,9 +967,18 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                                               </Text>
                                             </FlexBox>
                                           </FlexBox>
-                                          <ObjectStatus state="Information">
-                                            ${presentacion.Precio?.toLocaleString() || 'N/A'}
-                                          </ObjectStatus>
+                                          <FlexBox direction="Column" alignItems="End" style={{ gap: '0.2rem' }}>
+                                            <Text style={{ fontSize: '0.7rem', color: '#999', textDecoration: 'line-through' }}>
+                                              ${presentacion.Precio?.toLocaleString() || 'N/A'}
+                                            </Text>
+                                            <ObjectStatus state="Positive">
+                                              ${
+                                                editData.tipoDescuento === 'PORCENTAJE'
+                                                  ? ((presentacion.Precio ?? 0) * (1 - editData.descuentoPorcentaje / 100)).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                                  : ((presentacion.Precio ?? 0) - editData.descuentoMonto).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                              }
+                                            </ObjectStatus>
+                                          </FlexBox>
                                         </FlexBox>
                                       )})
                                     )}
@@ -968,6 +988,46 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                             );
                           })}
                         </div>
+                      )}
+                      
+                      {/* Paginación */}
+                      {getProductsWithPresentaciones().length > itemsPerPage && (
+                        <FlexBox 
+                          justifyContent="SpaceBetween" 
+                          alignItems="Center" 
+                          style={{ 
+                            padding: '0.75rem', 
+                            borderTop: '1px solid #e8e8e8',
+                            backgroundColor: '#f8f9fa',
+                            marginTop: '0.5rem'
+                          }}
+                        >
+                          <Text style={{ fontSize: '0.875rem', color: '#666' }}>
+                            Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, getProductsWithPresentaciones().length)} de {getProductsWithPresentaciones().length} productos
+                          </Text>
+                          <FlexBox style={{ gap: '0.5rem' }}>
+                            <Button
+                              icon="navigation-left-arrow"
+                              design="Transparent"
+                              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                              disabled={currentPage === 1}
+                            >
+                              Anterior
+                            </Button>
+                            <Text style={{ padding: '0 0.5rem', alignSelf: 'center', fontSize: '0.875rem' }}>
+                              Página {currentPage} de {Math.ceil(getProductsWithPresentaciones().length / itemsPerPage)}
+                            </Text>
+                            <Button
+                              icon="navigation-right-arrow"
+                              design="Transparent"
+                              iconEnd
+                              onClick={() => setCurrentPage(prev => Math.min(Math.ceil(getProductsWithPresentaciones().length / itemsPerPage), prev + 1))}
+                              disabled={currentPage >= Math.ceil(getProductsWithPresentaciones().length / itemsPerPage)}
+                            >
+                              Siguiente
+                            </Button>
+                          </FlexBox>
+                        </FlexBox>
                       )}
                     </div>
                   )}
