@@ -92,9 +92,44 @@ const CrearPromocion = () => {
   };
 
 
+  // Validar fechas de vigencia
+  const validateDates = () => {
+    if (!form.fechaInicio || !form.fechaFin) return { valid: true, message: '' };
+    
+    const inicio = new Date(form.fechaInicio);
+    const fin = new Date(form.fechaFin);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    // Validar que la fecha de inicio no sea anterior a hoy
+    if (inicio < hoy) {
+      return { valid: false, message: '⚠️ La fecha de inicio no puede ser anterior a hoy' };
+    }
+    
+    // Validar que la fecha de fin sea posterior a la de inicio
+    if (fin <= inicio) {
+      return { valid: false, message: '⚠️ La fecha de fin debe ser posterior a la fecha de inicio' };
+    }
+    
+    // Advertir si la duración es muy corta (menos de 1 día)
+    const diferenciaDias = (fin - inicio) / (1000 * 60 * 60 * 24);
+    if (diferenciaDias < 1) {
+      return { valid: true, warning: '⚠️ La promoción tiene una duración muy corta (menos de 1 día)' };
+    }
+    
+    // Advertir si la duración es muy larga (más de 90 días)
+    if (diferenciaDias > 90) {
+      return { valid: true, warning: '⚠️ La promoción tiene una duración muy larga (más de 90 días)' };
+    }
+    
+    return { valid: true, message: '' };
+  };
+
   // Validation per step
   const canNext = () => {
     if (step === 1) {
+      const datesValidation = validateDates();
+      if (!datesValidation.valid) return false;
       return form.titulo.trim() !== '' && form.fechaInicio && form.fechaFin;
     }
     if (step === 2) {
@@ -156,6 +191,16 @@ const CrearPromocion = () => {
 
       {error && <MessageStrip type="Negative" style={{ marginBottom: '1rem' }}>{error}</MessageStrip>}
       {draftSaved && <MessageStrip type="Positive" style={{ marginBottom: '0.5rem' }}>Borrador guardado localmente</MessageStrip>}
+      {step === 1 && validateDates().warning && (
+        <MessageStrip type="Warning" style={{ marginBottom: '0.5rem' }}>
+          {validateDates().warning}
+        </MessageStrip>
+      )}
+      {step === 1 && !validateDates().valid && (
+        <MessageStrip type="Error" style={{ marginBottom: '0.5rem' }}>
+          {validateDates().message}
+        </MessageStrip>
+      )}
 
       {/* Paso 1: Detalles */}
       {step === 1 && (
@@ -183,21 +228,44 @@ const CrearPromocion = () => {
             <CardHeader titleText="Detalles de la Promoción" />
             <div style={{ padding: '1rem', display: 'grid', gap: '1rem' }}>
               <div>
-                <Label required>Título</Label>
-                <Input value={form.titulo} onChange={(e)=>setForm(prev=>({...prev,titulo:e.target.value}))} placeholder="Ej: Black Friday" style={{ width:'100%', marginTop: '0.25rem' }} />
+                <Label required tooltip="Nombre corto y descriptivo de la promoción">Título</Label>
+                <Input 
+                  value={form.titulo} 
+                  onChange={(e)=>setForm(prev=>({...prev,titulo:e.target.value}))} 
+                  placeholder="Ej: Black Friday" 
+                  style={{ width:'100%', marginTop: '0.25rem' }}
+                  maxlength="100"
+                />
               </div>
               <div>
-                <Label>Descripción</Label>
-                <TextArea value={form.descripcion} onChange={(e)=>setForm(prev=>({...prev,descripcion:e.target.value}))} rows={3} placeholder="Detalle opcional" style={{ width:'100%', marginTop: '0.25rem' }} />
+                <Label tooltip="Descripción detallada de la promoción (opcional)">Descripción</Label>
+                <TextArea 
+                  value={form.descripcion} 
+                  onChange={(e)=>setForm(prev=>({...prev,descripcion:e.target.value}))} 
+                  rows={3} 
+                  placeholder="Detalle opcional" 
+                  style={{ width:'100%', marginTop: '0.25rem' }}
+                  maxlength="500"
+                />
               </div>
               <FlexBox style={{ gap: '1rem' }}>
                 <div style={{ flex:1 }}>
-                  <Label required>Fecha de Inicio</Label>
-                  <DatePicker value={form.fechaInicio} onChange={(e)=>setForm(prev=>({...prev,fechaInicio:e.target.value}))} style={{ width:'100%', marginTop: '0.25rem' }} />
+                  <Label required tooltip="Fecha en que la promoción comenzará a estar activa">Fecha de Inicio</Label>
+                  <DatePicker 
+                    value={form.fechaInicio} 
+                    onChange={(e)=>setForm(prev=>({...prev,fechaInicio:e.target.value}))} 
+                    style={{ width:'100%', marginTop: '0.25rem' }}
+                    minDate={getTodayDate()}
+                  />
                 </div>
                 <div style={{ flex:1 }}>
-                  <Label required>Fecha de Fin</Label>
-                  <DatePicker value={form.fechaFin} onChange={(e)=>setForm(prev=>({...prev,fechaFin:e.target.value}))} style={{ width:'100%', marginTop: '0.25rem' }} />
+                  <Label required tooltip="Fecha en que la promoción dejará de estar activa">Fecha de Fin</Label>
+                  <DatePicker 
+                    value={form.fechaFin} 
+                    onChange={(e)=>setForm(prev=>({...prev,fechaFin:e.target.value}))} 
+                    style={{ width:'100%', marginTop: '0.25rem' }}
+                    minDate={form.fechaInicio || getTodayDate()}
+                  />
                 </div>
               </FlexBox>
             </div>
@@ -222,7 +290,7 @@ const CrearPromocion = () => {
           <div style={{ padding: '1rem' }}>
             <FlexBox direction="Column" style={{ gap: '1rem' }}>
               <div>
-                <Label>Tipo de Descuento</Label>
+                <Label tooltip="Selecciona si el descuento será por porcentaje o monto fijo">Tipo de Descuento</Label>
                 <Select value={form.tipoDescuento} onChange={(e)=>setForm(prev=>({...prev,tipoDescuento:e.target.value}))} style={{ width: '240px', marginTop: '0.25rem' }}>
                   <Option value="PORCENTAJE">Porcentaje (%)</Option>
                   <Option value="MONTO_FIJO">Monto Fijo ($)</Option>
@@ -231,12 +299,28 @@ const CrearPromocion = () => {
 
               {form.tipoDescuento === 'PORCENTAJE' ? (
                 <div>
-                  <Label>Porcentaje (%)</Label>
-                  <Input type="Number" value={form.descuentoPorcentaje} onChange={(e)=>setForm(prev=>({...prev,descuentoPorcentaje:parseFloat(e.target.value)||0}))} min="1" max="100" style={{ width: '120px', marginTop: '0.25rem' }} />
+                  <Label tooltip="Porcentaje de descuento a aplicar (1-100%)">Porcentaje (%)</Label>
+                  <Input 
+                    type="Number" 
+                    value={form.descuentoPorcentaje} 
+                    onChange={(e)=>{
+                      const val = parseFloat(e.target.value)||0;
+                      if (val > 100) return;
+                      setForm(prev=>({...prev,descuentoPorcentaje:val}));
+                    }} 
+                    min="1" 
+                    max="100" 
+                    style={{ width: '120px', marginTop: '0.25rem' }} 
+                  />
+                  {form.descuentoPorcentaje > 50 && (
+                    <MessageStrip type="Warning" style={{ marginTop: '0.5rem' }}>
+                      ⚠️ El descuento es mayor al 50%. Verifica que sea correcto.
+                    </MessageStrip>
+                  )}
                 </div>
               ) : (
                 <div>
-                  <Label>Monto ($)</Label>
+                  <Label tooltip="Monto fijo de descuento en pesos">Monto ($)</Label>
                   <Input type="Number" value={form.descuentoMonto} onChange={(e)=>setForm(prev=>({...prev,descuentoMonto:parseFloat(e.target.value)||0}))} min="0.01" step="0.01" style={{ width: '160px', marginTop: '0.25rem' }} />
                 </div>
               )}
@@ -305,8 +389,24 @@ const CrearPromocion = () => {
                               </div>
                             </div>
                             <div>{presentacion.producto?.MARCA || '—'}</div>
-                            <div style={{ textAlign: 'right', fontWeight: '600' }}>
-                              ${(presentacion.Precio ?? 0).toLocaleString()}
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: '0.75rem', color: '#999', textDecoration: 'line-through' }}>
+                                ${(presentacion.Precio ?? 0).toLocaleString()}
+                              </div>
+                              <div style={{ fontWeight: '600', color: '#2e7d32', fontSize: '0.95rem' }}>
+                                ${(
+                                  form.tipoDescuento === 'PORCENTAJE'
+                                    ? (presentacion.Precio ?? 0) * (1 - form.descuentoPorcentaje / 100)
+                                    : (presentacion.Precio ?? 0) - form.descuentoMonto
+                                ).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: '#2e7d32' }}>
+                                Ahorro: ${(
+                                  form.tipoDescuento === 'PORCENTAJE'
+                                    ? (presentacion.Precio ?? 0) * (form.descuentoPorcentaje / 100)
+                                    : form.descuentoMonto
+                                ).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
                             </div>
                           </div>
                         ))}

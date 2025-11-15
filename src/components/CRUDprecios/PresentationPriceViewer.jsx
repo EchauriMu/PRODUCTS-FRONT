@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Button,
   Card,
@@ -11,10 +11,14 @@ import {
   BusyIndicator,
   Title,
   IllustratedMessage,
-  MessageStrip
+  MessageStrip,
+  Dialog,
+  Bar,
+  Input
 } from '@ui5/webcomponents-react';
 import preciosListasService from '../../api/preciosListasService';
 import preciosItemsService from '../../api/preciosItemsService';
+import AddPresentationPriceModal from './AddPresentationPriceModal';
 
 const PresentationPriceViewer = ({ skuid, idPresentaOK }) => {
   const [priceLists, setPriceLists] = useState([]);
@@ -23,6 +27,15 @@ const PresentationPriceViewer = ({ skuid, idPresentaOK }) => {
   const [currentPrice, setCurrentPrice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Estados para el modal de edición
+  const [isEditingPrice, setIsEditingPrice] = useState(false);
+  const [editingPrice, setEditingPrice] = useState(null);
+  const [savingPrice, setSavingPrice] = useState(false);
+  const [priceError, setPriceError] = useState('');
+
+  // Estados para el modal de agregar precio
+  const [isAddingPrice, setIsAddingPrice] = useState(false);
 
   // 1. Cargar las listas de precios y los precios de la presentación
   useEffect(() => {
@@ -71,7 +84,7 @@ const PresentationPriceViewer = ({ skuid, idPresentaOK }) => {
 
   const formatCurrency = (value) => {
     if (typeof value !== 'number') return 'N/D';
-    return `$${value.toFixed(2)}`;
+    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatDate = (dateString) => {
@@ -83,6 +96,122 @@ const PresentationPriceViewer = ({ skuid, idPresentaOK }) => {
     } catch {
       return 'Fecha inválida';
     }
+  };
+
+  const handleEditClick = () => {
+    if (currentPrice) {
+      setEditingPrice({ ...currentPrice });
+      setIsEditingPrice(true);
+      setPriceError('');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingPrice(false);
+    setEditingPrice(null);
+    setPriceError('');
+  };
+
+  const handleCostoIniChange = (newValue) => {
+    const costoIni = parseFloat(newValue) || 0;
+    const updatedPrice = {
+      ...editingPrice,
+      CostoIni: costoIni
+    };
+    // Recalcular el precio final y costo final si hay fórmula
+    if (updatedPrice.Formula) {
+      updatedPrice.Precio = calculatePrice(costoIni, updatedPrice.Formula);
+      updatedPrice.CostoFin = calculatePrice(costoIni, updatedPrice.Formula);
+    }
+    setEditingPrice(updatedPrice);
+  };
+
+  const handleFormulaChange = (newValue) => {
+    const updatedPrice = {
+      ...editingPrice,
+      Formula: newValue
+    };
+    // Recalcular el precio y costo final si hay costo inicial
+    if (editingPrice.CostoIni) {
+      updatedPrice.Precio = calculatePrice(editingPrice.CostoIni, newValue);
+      updatedPrice.CostoFin = calculatePrice(editingPrice.CostoIni, newValue);
+    }
+    setEditingPrice(updatedPrice);
+  };
+
+  // Función para calcular el precio basado en la fórmula
+  const calculatePrice = (costoIni, formula) => {
+    if (!formula || !costoIni) return 0;
+    
+    try {
+      // Reemplazar "COSTO" en la fórmula con el valor del costo inicial
+      const formulaProcessed = formula.replace(/COSTO/gi, costoIni);
+      // Evaluar la fórmula (ej: "COSTO * 1.35" se convierte en "8000 * 1.35")
+      const result = Function('"use strict"; return (' + formulaProcessed + ')')();
+      return isFinite(result) ? parseFloat(result.toFixed(2)) : 0;
+    } catch (err) {
+      console.warn('Error al calcular fórmula:', err);
+      return 0;
+    }
+  };
+
+  const handleSavePrice = async () => {
+    if (!editingPrice || !editingPrice.IdPrecioOK) {
+      setPriceError('Error: No se puede guardar el precio.');
+      return;
+    }
+
+    // Validar que el precio sea válido
+    if (editingPrice.Precio <= 0) {
+      setPriceError('El precio de venta debe ser mayor a 0.');
+      return;
+    }
+
+    setSavingPrice(true);
+    setPriceError('');
+
+    try {
+      // Preparar los datos a guardar
+      const dataToSave = {
+        Precio: editingPrice.Precio,
+        CostoIni: editingPrice.CostoIni,
+        CostoFin: editingPrice.CostoFin,
+        Formula: editingPrice.Formula
+      };
+
+      const updatedPrice = await preciosItemsService.updatePrice(
+        editingPrice.IdPrecioOK,
+        dataToSave
+      );
+
+      // Actualizar la lista de precios con el nuevo valor
+      setPresentationPrices(prev =>
+        prev.map(p => p.IdPrecioOK === editingPrice.IdPrecioOK ? updatedPrice : p)
+      );
+
+      // Actualizar el precio actual si es el mismo
+      if (currentPrice.IdPrecioOK === editingPrice.IdPrecioOK) {
+        setCurrentPrice(updatedPrice);
+      }
+
+      setIsEditingPrice(false);
+      setEditingPrice(null);
+    } catch (err) {
+      setPriceError('Error al guardar el precio. Intente nuevamente.');
+      console.error(err);
+    } finally {
+      setSavingPrice(false);
+    }
+  };
+
+  const handlePriceAdded = (newPrice) => {
+    // Agregar el nuevo precio a la lista
+    setPresentationPrices(prev => [...prev, newPrice]);
+    // Si el nuevo precio está en la lista seleccionada, actualizar la vista
+    if (newPrice.IdListaOK === selectedListId) {
+      setCurrentPrice(newPrice);
+    }
+    setIsAddingPrice(false);
   };
 
   const renderPriceDetails = () => {
@@ -97,7 +226,7 @@ const PresentationPriceViewer = ({ skuid, idPresentaOK }) => {
                 {formatCurrency(currentPrice.Precio)}
               </Title>
             </FlexBox>
-            <Button icon="edit" design="Transparent" tooltip="Editar precio" />
+            <Button icon="edit" design="Transparent" tooltip="Editar precio" onClick={handleEditClick} />
           </FlexBox>
 
           {/* Resto de detalles en dos columnas */}
@@ -116,7 +245,7 @@ const PresentationPriceViewer = ({ skuid, idPresentaOK }) => {
     return (
       <FlexBox justifyContent="SpaceBetween" alignItems="Center">
         <Text style={{ color: '#666' }}>Sin precio asignado en esta lista.</Text>
-        <Button icon="add" design="Emphasized" tooltip="Asignar precio a esta lista" disabled={!selectedListId} />
+        <Button icon="add" design="Emphasized" tooltip="Asignar precio a esta lista" disabled={!selectedListId} onClick={() => setIsAddingPrice(true)} />
       </FlexBox>
     );
   };
@@ -162,6 +291,113 @@ const PresentationPriceViewer = ({ skuid, idPresentaOK }) => {
           )
         )}
       </div>
+
+      {/* Modal de Edición de Precio */}
+      <Dialog
+        open={isEditingPrice}
+        onClose={handleCancelEdit}
+        header={<Bar startContent={<Title>Editar Precio de Venta</Title>} />}
+        footer={
+          <Bar endContent={
+            <>
+              <Button design="Transparent" onClick={handleCancelEdit}>Cancelar</Button>
+              <Button design="Emphasized" onClick={handleSavePrice} disabled={savingPrice}>
+                {savingPrice ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </>
+          } />
+        }
+      >
+        <div style={{ padding: '1.5rem', minWidth: '400px' }}>
+          {priceError && (
+            <MessageStrip design="Negative" style={{ marginBottom: '1rem' }}>
+              {priceError}
+            </MessageStrip>
+          )}
+          
+          {editingPrice && (
+            <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
+              
+              {/* Sección: Costo Inicial */}
+              <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
+                <Label style={{ fontWeight: 'bold' }}>Costo Inicial</Label>
+                <Input
+                  type="number"
+                  value={editingPrice.CostoIni || ''}
+                  onChange={(e) => handleCostoIniChange(e.target.value)}
+                  placeholder="Ingrese costo inicial"
+                  disabled={savingPrice}
+                  step="0.01"
+                />
+              </FlexBox>
+
+              {/* Sección: Fórmula */}
+              <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
+                <Label style={{ fontWeight: 'bold' }}>Fórmula de Cálculo</Label>
+                <Input
+                  value={editingPrice.Formula || ''}
+                  onChange={(e) => handleFormulaChange(e.target.value)}
+                  placeholder="Ej: COSTO * 1.35"
+                  disabled={savingPrice}
+                />
+                <Text style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
+                  Use &quot;COSTO&quot; como variable. Ej: COSTO * 1.35, (COSTO + 500) * 1.2
+                </Text>
+              </FlexBox>
+
+              {/* Separador */}
+              <div style={{ borderTop: '1px solid #e0e0e0', padding: '0.5rem 0' }} />
+
+              {/* Sección: Precio de Venta (Resultado) */}
+              <FlexBox direction="Column" style={{ gap: '0.5rem', background: '#e8f5e9', padding: '1rem', borderRadius: '8px' }}>
+                <Label style={{ fontWeight: 'bold', color: '#2e7d32' }}>Precio de Venta (Resultado)</Label>
+                <Title level="H3" style={{ color: '#1b5e20', marginTop: '0.25rem' }}>
+                  {formatCurrency(editingPrice.Precio)}
+                </Title>
+                <Text style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem' }}>
+                  {editingPrice.Formula ? '✓ Calculado automáticamente' : 'Ingrese una fórmula para calcular'}
+                </Text>
+              </FlexBox>
+
+              {/* Sección: Costo Final (Resultado) */}
+              <FlexBox direction="Column" style={{ gap: '0.5rem', background: '#f3e5f5', padding: '1rem', borderRadius: '8px' }}>
+                <Label style={{ fontWeight: 'bold', color: '#6a1b9a' }}>Costo Final (Resultado)</Label>
+                <Title level="H3" style={{ color: '#4a148c', marginTop: '0.25rem' }}>
+                  {formatCurrency(editingPrice.CostoFin)}
+                </Title>
+                <Text style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem' }}>
+                  {editingPrice.Formula ? '✓ Calculado automáticamente' : 'Ingrese una fórmula para calcular'}
+                </Text>
+              </FlexBox>
+
+              {/* Información de referencia */}
+              <div style={{ background: '#f7f8fa', padding: '1rem', borderRadius: '8px' }}>
+                <Title level="H5" style={{ marginTop: 0, marginBottom: '0.75rem' }}>Información de Referencia</Title>
+                <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
+                  <FlexBox direction="Column">
+                    <Label style={{ fontSize: '0.85rem', color: '#666' }}>Lista de Precios</Label>
+                    <Text>{priceLists.find(l => l.IDLISTAOK === selectedListId)?.DESLISTA || 'N/A'}</Text>
+                  </FlexBox>
+                  <FlexBox direction="Column">
+                    <Label style={{ fontSize: '0.85rem', color: '#666' }}>ID del Precio</Label>
+                    <Text style={{ fontSize: '0.9rem', fontFamily: 'monospace' }}>{editingPrice.IdPrecioOK}</Text>
+                  </FlexBox>
+                </FlexBox>
+              </div>
+            </FlexBox>
+          )}
+        </div>
+      </Dialog>
+
+      {/* Modal de Agregar Precio */}
+      <AddPresentationPriceModal
+        open={isAddingPrice}
+        onClose={() => setIsAddingPrice(false)}
+        skuid={skuid}
+        idPresentaOK={idPresentaOK}
+        priceLists={priceLists}
+        onPriceAdded={handlePriceAdded}
+      />
     </Card>
   );
 };

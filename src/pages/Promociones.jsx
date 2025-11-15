@@ -20,19 +20,28 @@ const Promociones = () => {
   };
 
   const handlePromotionClick = (promotion) => {
+    console.log('Abriendo edición de promoción:', promotion);
     setSelectedPromotion(promotion);
     setShowEditModal(true);
-    console.log('Abriendo edición de promoción:', promotion);
+  };
+
+  const handleCloseModal = () => {
+    setShowEditModal(false);
+    setSelectedPromotion(null);
   };
 
   const handlePromotionSave = (updatedPromotion) => {
     console.log('Promoción actualizada:', updatedPromotion);
+    setShowEditModal(false);
+    setSelectedPromotion(null);
     // Forzar actualización de la tabla
     setRefreshTable(prev => prev + 1);
   };
 
   const handlePromotionDelete = (deletedPromotion) => {
     console.log('Promoción eliminada:', deletedPromotion);
+    setShowEditModal(false);
+    setSelectedPromotion(null);
     // Forzar actualización de la tabla
     setRefreshTable(prev => prev + 1);
   };
@@ -97,12 +106,10 @@ const Promociones = () => {
 
       {/* Modal de Edición de Promociones */}
       <PromotionEditModal
+        key={selectedPromotion?.IdPromoOK || 'new'}
         open={showEditModal}
         promotion={selectedPromotion}
-        onClose={() => {
-          setShowEditModal(false);
-          setSelectedPromotion(null);
-        }}
+        onClose={handleCloseModal}
         onSave={handlePromotionSave}
         onDelete={handlePromotionDelete}
       />
