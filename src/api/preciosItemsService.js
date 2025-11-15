@@ -36,6 +36,68 @@ const preciosItemsService = {
       console.error(`❌ Error al obtener precios para la presentación ${idPresentaOK}:`, error);
       throw error;
     }
+  },
+
+  /**
+   * Actualizar el precio de una presentación.
+   * @param {string} idPrecioOK - El ID del precio a actualizar.
+   * @param {object} cambios - Los cambios a aplicar (ej: { Precio: 1500 }).
+   * @returns {Promise<Object>} - El precio actualizado.
+   */
+  async updatePrice(idPrecioOK, cambios) {
+    if (!idPrecioOK) {
+      throw new Error('idPrecioOK es requerido');
+    }
+    try {
+      console.log(`📝 Actualizando precio ${idPrecioOK}:`, cambios);
+
+      const params = new URLSearchParams({
+        ProcessType: 'UpdateOne',
+        IdPrecioOK: idPrecioOK
+      }).toString();
+
+      const res = await axiosInstance.post(
+        `/ztprecios-items/preciosItemsCRUD?${params}`,
+        cambios
+      );
+
+      const dataRes = unwrapCAP(res);
+      console.log('✅ Precio actualizado:', dataRes);
+      return dataRes;
+    } catch (error) {
+      console.error(`❌ Error al actualizar precio ${idPrecioOK}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Crear un nuevo precio para una presentación.
+   * @param {object} priceData - Los datos del nuevo precio.
+   * @returns {Promise<Object>} - El precio creado.
+   */
+  async createPrice(priceData) {
+    if (!priceData.IdListaOK || !priceData.IdPresentaOK) {
+      throw new Error('IdListaOK e IdPresentaOK son requeridos');
+    }
+    try {
+      console.log('➕ Creando nuevo precio:', priceData);
+
+      const params = new URLSearchParams({
+        ProcessType: 'Create'
+      }).toString();
+
+      const res = await axiosInstance.post(
+        `/ztprecios-items/preciosItemsCRUD?${params}`,
+        priceData
+      );
+
+      const dataRes = unwrapCAP(res);
+      console.log('✅ Precio creado:', dataRes);
+      return dataRes;
+    } catch (error) {
+      console.error('❌ Error al crear precio:', error);
+      throw error;
+    }
   }
 };
 
