@@ -21,6 +21,9 @@ import {
 } from '@ui5/webcomponents-react';
 import preciosListasService from '../../api/preciosListasService';
 import PreciosListasModal from './PreciosListasModal';
+import PrecioSkuModal from './PrecioListaSkuModal';
+import SKUButton from './PreciosListasSKUButton';
+import { createActionHandlers } from './PreciosListasActions';
 
 const PreciosListasTable = () => {
   const [listas, setListas] = useState([]);
@@ -30,8 +33,8 @@ const PreciosListasTable = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLista, setEditingLista] = useState(null);
   const [messageStrip, setMessageStrip] = useState(null);
-  const [expandedSKURows, setExpandedSKURows] = useState({});
-  const [selectedListas, setSelectedListas] = useState(new Set()); // Para rastrear listas seleccionadas // Para rastrear filas expandidas
+  const [selectedListas, setSelectedListas] = useState(new Set()); // Para rastrear listas seleccionadas
+  const [selectedSKU, setSelectedSKU] = useState(null); // Para el modal de precios del SKU: { skuId, skusList }
 
   // === Cargar listas al montar ===
   useEffect(() => {
@@ -52,97 +55,26 @@ const PreciosListasTable = () => {
     }
   };
 
+  // === Inicializar handlers de acciones ===
+  const {
+    handleAdd,
+    handleSave,
+    handleToggleStatus,
+    handleDeleteSelected
+  } = createActionHandlers(
+    setEditingLista,
+    setIsModalOpen,
+    setError,
+    setLoading,
+    setSelectedListas,
+    setMessageStrip,
+    fetchListas,
+    listas,
+    selectedListas
+  );
+
   // === Handlers CRUD ===
-  const handleAdd = useCallback(() => {
-    setEditingLista(null);
-    setIsModalOpen(true);
-  }, []);
-
-  const handleEdit = useCallback((record) => {
-    setEditingLista(record);
-    setIsModalOpen(true);
-  }, []);
-
-  const handleDelete = useCallback(async (lista) => {
-    if (!lista.IDLISTAOK) {
-      setError('ID de lista no válido');
-      return;
-    }
-
-    if (window.confirm(`¿Está seguro que desea eliminar permanentemente la lista "${lista.DESLISTA}"? Esta acción no se puede deshacer.`)) {
-      setLoading(true);
-      try {
-        console.log('Iniciando eliminación de lista:', lista.IDLISTAOK);
-        
-        // Intentar eliminar la lista
-        await preciosListasService.delete(lista.IDLISTAOK);
-        
-        // Si llegamos aquí, la eliminación fue exitosa
-        console.log('Lista eliminada exitosamente');
-        
-        // Actualizar la interfaz
-        await fetchListas();
-        setError('');
-        
-        // Mostrar mensaje de éxito temporal
-        setMessageStrip({
-          message: `Lista "${lista.DESLISTA}" eliminada exitosamente`,
-          type: 'Success'
-        });
-        setTimeout(() => setMessageStrip(null), 3000);
-        
-      } catch (err) {
-        console.error('Error al eliminar:', err);
-        
-        // Extraer el mensaje de error más relevante
-        let errorMessage;
-        if (err.response?.data?.messageUSR) {
-          errorMessage = err.response.data.messageUSR;
-        } else if (err.response?.status === 400) {
-          errorMessage = 'Error en la solicitud. Verifique los datos.';
-        } else if (err.response?.status === 404) {
-          errorMessage = 'La lista no existe o ya fue eliminada.';
-        } else {
-          errorMessage = err.message || 'Error desconocido al eliminar la lista de precios';
-        }
-        
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    }
-  }, []);
-
-  const handleSave = async (listaData) => {
-    setLoading(true);
-    try {
-      if (editingLista) {
-        // Si cambia el estado ACTIVED, llama a ActivateOne o DeleteLogic
-        if (typeof listaData.ACTIVED !== 'undefined' && editingLista.ACTIVED !== listaData.ACTIVED) {
-          if (listaData.ACTIVED) {
-            // Activar
-            await preciosListasService.activate(editingLista.IDLISTAOK);
-          } else {
-            // Desactivar (lógica)
-            await preciosListasService.deleteLogic(editingLista.IDLISTAOK);
-          }
-        } else {
-          // Actualización normal
-          await preciosListasService.update(editingLista.IDLISTAOK, listaData);
-        }
-      } else {
-        // Crear nueva lista
-        await preciosListasService.create(listaData);
-      }
-      await fetchListas(); // Recargar datos
-      setIsModalOpen(false);
-      setError('');
-    } catch (err) {
-      setError('Error al guardar la lista de precios: ' + (err.response?.data?.message || err.message));
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Removido: handlers ahora vienen de createActionHandlers
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -150,11 +82,17 @@ const PreciosListasTable = () => {
   };
 
   // === Handler para expandir/contraer SKUs ===
-  const handleToggleSKUExpand = (listaId) => {
-    setExpandedSKURows(prev => ({
-      ...prev,
-      [listaId]: !prev[listaId]
-    }));
+  // === Handler para abrir modal de SKU ===
+  const handleSKUClick = (skuId, skusList, idListaOK) => {
+    setSelectedSKU({ skuId, skusList, idListaOK });
+  };
+
+  const handleCloseSKUModal = () => {
+    setSelectedSKU(null);
+  };
+
+  const handleSKUModalUpdate = () => {
+    fetchListas();
   };
 
   // === Handlers para selección ===
@@ -179,57 +117,7 @@ const PreciosListasTable = () => {
   };
 
   // === Handlers para acciones en lote ===
-  const handleToggleStatus = async () => {
-    if (selectedListas.size === 0) return;
-    
-    // Determinar si la mayoría están activas o inactivas
-    const listasArray = Array.from(selectedListas).map(id => listas.find(l => l.IDLISTAOK === id));
-    const activasCount = listasArray.filter(l => l && l.ACTIVED === true).length;
-    const inactivasCount = listasArray.filter(l => l && (l.ACTIVED === false || l.DELETED === true)).length;
-    
-    // Si la mayoría están activas, desactivas. Si la mayoría están inactivas, activas.
-    const shouldActivate = inactivasCount > activasCount;
-    const action = shouldActivate ? 'activar' : 'desactivar';
-    
-    if (!window.confirm(`¿Está seguro que desea ${action} ${selectedListas.size} lista(s)?`)) return;
-
-    setLoading(true);
-    try {
-      for (const listaId of selectedListas) {
-        if (shouldActivate) {
-          await preciosListasService.activate(listaId);
-        } else {
-          await preciosListasService.deleteLogic(listaId);
-        }
-      }
-      await fetchListas();
-      setSelectedListas(new Set());
-      setError('');
-    } catch (err) {
-      setError(`Error al ${action} listas: ` + (err.response?.data?.messageUSR || err.message));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteSelected = async () => {
-    if (selectedListas.size === 0) return;
-    if (!window.confirm(`¿Está seguro que desea eliminar permanentemente ${selectedListas.size} lista(s)? Esta acción no se puede deshacer.`)) return;
-
-    setLoading(true);
-    try {
-      for (const listaId of selectedListas) {
-        await preciosListasService.delete(listaId);
-      }
-      await fetchListas();
-      setSelectedListas(new Set());
-      setError('');
-    } catch (err) {
-      setError('Error al eliminar listas: ' + (err.response?.data?.messageUSR || err.message));
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Removido: handleToggleStatus y handleDeleteSelected ahora vienen de createActionHandlers
 
   const handleEditSelected = () => {
     if (selectedListas.size !== 1) return;
@@ -433,16 +321,27 @@ const PreciosListasTable = () => {
                 <TableRow 
                   key={lista.IDLISTAOK || index} 
                   className="ui5-table-row-hover"
+                  onClick={(e) => {
+                    // No abrir modal si el click fue en el checkbox
+                    if (e.target.tagName === 'INPUT' || e.target.closest('[role="checkbox"]')) {
+                      return;
+                    }
+                    if (lista.SKUSIDS && lista.SKUSIDS.length > 0) {
+                      handleSKUClick(lista.SKUSIDS[0], lista.SKUSIDS, lista.IDLISTAOK);
+                    }
+                  }}
                   style={{
                     backgroundColor: selectedListas.has(lista.IDLISTAOK) ? '#f0f7ff' : 'transparent',
                     cursor: 'pointer'
                   }}
                 >
                   <TableCell>
-                    <CheckBox
-                      checked={selectedListas.has(lista.IDLISTAOK)}
-                      onChange={() => handleSelectLista(lista.IDLISTAOK)}
-                    />
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <CheckBox
+                        checked={selectedListas.has(lista.IDLISTAOK)}
+                        onChange={() => handleSelectLista(lista.IDLISTAOK)}
+                      />
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Text style={{ fontFamily: 'monospace', fontWeight: '600' }}>
@@ -451,47 +350,12 @@ const PreciosListasTable = () => {
                   </TableCell>
                   <TableCell>
                     {Array.isArray(lista.SKUSIDS) && lista.SKUSIDS.length > 0 ? (
-                      <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
-                        <Label 
-                          onClick={() => handleToggleSKUExpand(lista.IDLISTAOK)}
-                          style={{
-                            padding: '0.25rem 0.5rem',
-                            backgroundColor: '#e3f2fd',
-                            color: '#1976d2',
-                            borderRadius: '0.25rem',
-                            fontSize: '0.55rem',
-                            fontWeight: '600',
-                            display: 'inline-block',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            border: expandedSKURows[lista.IDLISTAOK] ? '1px solid #1976d2' : '1px solid transparent',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          {lista.SKUSIDS[0]} {lista.SKUSIDS.length > 1 && `+${lista.SKUSIDS.length - 1}`}
-                        </Label>
-                        
-                        {expandedSKURows[lista.IDLISTAOK] && (
-                          <FlexBox direction="Column" style={{ gap: '0.5rem', marginTop: '0.5rem' }}>
-                            {lista.SKUSIDS.map((sku, idx) => (
-                              <Label
-                                key={idx}
-                                style={{
-                                  padding: '0.25rem 0.5rem',
-                                  backgroundColor: '#f5f5f5ff',
-                                  color: '#333',
-                                  borderRadius: '0.25rem',
-                                  fontSize: '0.5rem',
-                                  border: '1px solid #ddd',
-                                  display: 'inline-block'
-                                }}
-                              >
-                                {sku}
-                              </Label>
-                            ))}
-                          </FlexBox>
-                        )}
-                      </FlexBox>
+                      <SKUButton 
+                        skuId={lista.SKUSIDS[0]}
+                        skusCount={lista.SKUSIDS.length}
+                        skusList={lista.SKUSIDS}
+                        onSkuClick={() => handleSKUClick(lista.SKUSIDS[0], lista.SKUSIDS, lista.IDLISTAOK)}
+                      />
                     ) : (
                       <Text>-</Text>
                     )}
@@ -603,6 +467,15 @@ const PreciosListasTable = () => {
         onClose={handleCloseModal}
         onSave={handleSave}
         lista={editingLista}
+      />
+
+      {/* === Modal de Precios del SKU === */}
+      <PrecioSkuModal
+        skuId={selectedSKU?.skuId}
+        skusList={selectedSKU?.skusList}
+        idListaOK={selectedSKU?.idListaOK}
+        open={!!selectedSKU}
+        onClose={handleCloseSKUModal}
       />
     </div>
   );

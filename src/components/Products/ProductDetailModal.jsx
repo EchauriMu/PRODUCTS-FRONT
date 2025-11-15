@@ -18,6 +18,7 @@ import {
 import ProductStatus from './ProductStatus';
 import productPresentacionesService from '../../api/productPresentacionesService';
 import addProductApi from '../../api/addProductApi';
+import preciosListasService from '../../api/preciosListasService';
 import { unidadesDeMedida } from '../../utils/constants';
 import ProductDetailPresentations from './ProductDetailPresentations';
 import ProductSaveButton from './ProductSaveButton'; // Importamos el nuevo botón de guardar
@@ -32,6 +33,11 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
   // Estado para las categorías
   const [allCategories, setAllCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+
+  // Estados para las listas a las que pertenece el producto
+  const [listasProducto, setListasProducto] = useState([]);
+  const [loadingListasProducto, setLoadingListasProducto] = useState(false);
+  const [errorListasProducto, setErrorListasProducto] = useState(null);
 
   // Estados para el modo de edición
   const [isEditing, setIsEditing] = useState(false);
@@ -56,6 +62,16 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
         .catch(() => setErrorPresentaciones('Error al cargar presentaciones'))
         .finally(() => setLoadingPresentaciones(false));
 
+      // Cargar listas a las que pertenece el producto
+      setLoadingListasProducto(true);
+      setErrorListasProducto(null);
+      preciosListasService.getListasBySKUID(product.SKUID)
+        .then((dataRes) => {
+          setListasProducto(dataRes || []);
+        })
+        .catch(() => setErrorListasProducto('Error al cargar las listas'))
+        .finally(() => setLoadingListasProducto(false));
+
       // Cargar categorías para el MultiComboBox
       setLoadingCategories(true);
       addProductApi.getAllCategories()
@@ -65,12 +81,15 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
 
     } else {
       setPresentaciones([]);
+      setListasProducto([]);
       // Resetear estados al cerrar
       setIsEditing(false);
       setEditedProduct(null);
       setSaveError('');
       setAllCategories([]);
       setLoadingCategories(true);
+      setLoadingListasProducto(false);
+      setErrorListasProducto(null);
     }
   }, [open, product]);
 
@@ -286,6 +305,53 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
                   )}
                 </FlexBox>
               </FlexBox>
+            </FlexBox>
+
+            {/* Listas a las que pertenece el producto */}
+            <FlexBox direction="Column" style={{ gap: '1rem' }}>
+              <Title level="H5" style={{ borderBottom: '1px solid #e5e5e5', paddingBottom: '0.5rem' }}>
+                Listas de Precios
+              </Title>
+              {loadingListasProducto ? (
+                <FlexBox justifyContent="Center" alignItems="Center" style={{ padding: '1rem' }}>
+                  <BusyIndicator active size="Small" />
+                </FlexBox>
+              ) : errorListasProducto ? (
+                <Text style={{ color: '#c00', fontSize: '0.9rem' }}>{errorListasProducto}</Text>
+              ) : listasProducto.length > 0 ? (
+                <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
+                  {listasProducto.map((lista, idx) => (
+                    <FlexBox
+                      key={idx}
+                      direction="Column"
+                      style={{
+                        padding: '0.75rem',
+                        backgroundColor: '#f5f5f5',
+                        borderRadius: '4px',
+                        borderLeft: '3px solid #0076d7'
+                      }}
+                    >
+                      <Text style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#0076d7' }}>
+                        {lista.DESLISTA || lista.IDLISTAOK}
+                      </Text>
+                      {lista.IDLISTAOK && (
+                        <Text style={{ fontSize: '0.8rem', color: '#666' }}>
+                          ID: {lista.IDLISTAOK}
+                        </Text>
+                      )}
+                      {lista.FECHAEXPIRAINI && lista.FECHAEXPIRAFIN && (
+                        <Text style={{ fontSize: '0.8rem', color: '#666' }}>
+                          Vigencia: {new Date(lista.FECHAEXPIRAINI).toLocaleDateString('es-ES')} - {new Date(lista.FECHAEXPIRAFIN).toLocaleDateString('es-ES')}
+                        </Text>
+                      )}
+                    </FlexBox>
+                  ))}
+                </FlexBox>
+              ) : (
+                <Text style={{ color: '#666', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                  No está registrado en ninguna lista de precios
+                </Text>
+              )}
             </FlexBox>
 
             {/* Auditoría */}
