@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   Bar,
@@ -8,15 +8,13 @@ import {
   Text,
   FlexBox,
   Input,
-  MessageStrip,
-  Select,
-  Option
+  MessageStrip
 } from '@ui5/webcomponents-react';
 import preciosItemsService from '../../api/preciosItemsService';
 
-const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, priceLists, onPriceAdded }) => {
+const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selectedListId, selectedListName, onPriceAdded }) => {
   const [newPrice, setNewPrice] = useState({
-    selectedListId: '',
+    selectedListId: selectedListId || '',
     CostoIni: 0,
     Formula: '',
     Precio: 0,
@@ -24,6 +22,28 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, priceLi
   });
   const [savingPrice, setSavingPrice] = useState(false);
   const [priceError, setPriceError] = useState('');
+
+  // Sincronizar selectedListId cuando cambia el prop
+  useEffect(() => {
+    setNewPrice(prev => ({
+      ...prev,
+      selectedListId: selectedListId || ''
+    }));
+  }, [selectedListId]);
+
+  // Resetear el formulario cuando se abre el modal
+  useEffect(() => {
+    if (open) {
+      setNewPrice({
+        selectedListId: selectedListId || '',
+        CostoIni: 0,
+        Formula: '',
+        Precio: 0,
+        CostoFin: 0
+      });
+      setPriceError('');
+    }
+  }, [open, selectedListId]);
 
   const formatCurrency = (value) => {
     if (typeof value !== 'number') return 'N/D';
@@ -43,12 +63,7 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, priceLi
     }
   };
 
-  const handleListChange = (e) => {
-    setNewPrice(prev => ({
-      ...prev,
-      selectedListId: e.detail.selectedOption.dataset.value
-    }));
-  };
+
 
   const handleCostoIniChange = (newValue) => {
     const costoIni = parseFloat(newValue) || 0;
@@ -101,14 +116,21 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, priceLi
     setPriceError('');
 
     try {
-      // Preparar datos para guardar
+      // Preparar datos para guardar con todos los campos requeridos por el backend
+      const generatedIdPrecioOK = `PRECIOS-${Date.now()}`;
+      const loggedUser = localStorage.getItem('user') || 'admin';
+
       const dataToSave = {
+        IdPrecioOK: generatedIdPrecioOK,
         IdListaOK: newPrice.selectedListId,
         IdPresentaOK: idPresentaOK,
+        SKUID: skuid,
+        IdTipoFormulaOK: 'FORM001', // Valor por defecto; ajusta según tu lógica
+        Formula: newPrice.Formula,
         CostoIni: newPrice.CostoIni,
         CostoFin: newPrice.CostoFin,
-        Formula: newPrice.Formula,
-        Precio: newPrice.Precio
+        Precio: newPrice.Precio,
+        REGUSER: loggedUser
       };
 
       // Llamar al servicio para agregar el precio
@@ -122,8 +144,16 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, priceLi
       // Cerrar modal y resetear estado
       handleCancel();
     } catch (err) {
-      setPriceError('Error al crear el precio. Intente nuevamente.');
-      console.error(err);
+      // Mejorar el mensaje de error con la respuesta del servidor (si existe)
+      const errorDetails = err?.response?.data?.value?.[0];
+      const serverMsg = errorDetails?.message || err?.response?.data?.message || err?.response?.data?.error?.message || err?.message;
+      setPriceError(`Error al crear el precio: ${serverMsg || 'Intente nuevamente.'}`);
+      console.error('Error al crear precio (detalles):', {
+        message: err.message,
+        status: err.response?.status,
+        response: err.response?.data,
+        errorDetails: errorDetails
+      });
     } finally {
       setSavingPrice(false);
     }
@@ -131,7 +161,7 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, priceLi
 
   const handleCancel = () => {
     setNewPrice({
-      selectedListId: '',
+      selectedListId: selectedListId || '',
       CostoIni: 0,
       Formula: '',
       Precio: 0,
@@ -165,25 +195,21 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, priceLi
         )}
 
         <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
-          {/* Sección: Seleccionar Lista de Precios */}
+          {/* Sección: Lista de Precios (Solo Lectura) */}
           <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-            <Label style={{ fontWeight: 'bold' }}>Selecciona una Lista de Precios</Label>
-            <Select
-              value={newPrice.selectedListId}
-              onChange={handleListChange}
-              style={{ width: '100%' }}
-              disabled={savingPrice}
-            >
-              <Option>Seleccionar lista...</Option>
-              {priceLists.map(list => (
-                <Option key={list.IDLISTAOK} data-value={list.IDLISTAOK}>
-                  {list.DESLISTA}
-                </Option>
-              ))}
-            </Select>
-            <Text style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
-              Seleccione una lista donde agregar el precio
-            </Text>
+            <Label style={{ fontWeight: 'bold' }}>Lista de Precios</Label>
+            <div style={{
+              padding: '0.75rem 1rem',
+              border: '1px solid #d0d0d0',
+              borderRadius: '4px',
+              background: '#f5f5f5',
+              minHeight: '2.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              fontSize: '1rem'
+            }}>
+              {selectedListName || 'Sin seleccionar'}
+            </div>
           </FlexBox>
 
           {/* Sección: Costo Inicial */}
