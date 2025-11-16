@@ -205,12 +205,25 @@ const PresentationPriceViewer = ({ skuid, idPresentaOK }) => {
   };
 
   const handlePriceAdded = (newPrice) => {
+    // Asegurar que newPrice es un objeto (no array)
+    const priceObject = Array.isArray(newPrice) ? newPrice[0] : newPrice;
+    
+    console.log('✅ Precio agregado exitosamente:', priceObject);
+    
     // Agregar el nuevo precio a la lista
-    setPresentationPrices(prev => [...prev, newPrice]);
-    // Si el nuevo precio está en la lista seleccionada, actualizar la vista
-    if (newPrice.IdListaOK === selectedListId) {
-      setCurrentPrice(newPrice);
+    setPresentationPrices(prev => [...prev, priceObject]);
+    
+    // Actualizar selectedListId para que coincida con el precio recién agregado
+    // Esto triggeará el useEffect que busca el precio por IdListaOK
+    if (priceObject.IdListaOK) {
+      setSelectedListId(priceObject.IdListaOK);
     }
+    
+    // Actualizar currentPrice para mostrar el nuevo precio inmediatamente
+    // y que renderPriceDetails se ejecute con los nuevos datos
+    setCurrentPrice(priceObject);
+    
+    // El modal se cierra automáticamente en AddPresentationPriceModal
     setIsAddingPrice(false);
   };
 
@@ -395,7 +408,8 @@ const PresentationPriceViewer = ({ skuid, idPresentaOK }) => {
         onClose={() => setIsAddingPrice(false)}
         skuid={skuid}
         idPresentaOK={idPresentaOK}
-        priceLists={priceLists}
+        selectedListId={selectedListId}
+        selectedListName={priceLists.find(l => l.IDLISTAOK === selectedListId)?.DESLISTA || ''}
         onPriceAdded={handlePriceAdded}
       />
     </Card>
