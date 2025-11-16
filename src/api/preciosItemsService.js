@@ -127,7 +127,7 @@ const preciosItemsService = {
   },
 
   /**
-   * Crear un nuevo precio para una presentación.
+   * Crear un nuevo precio para una presentación usando ProcessType=AddOne.
    * @param {object} priceData - Los datos del nuevo precio.
    * @returns {Promise<Object>} - El precio creado.
    */
@@ -139,7 +139,8 @@ const preciosItemsService = {
       console.log('➕ Creando nuevo precio:', priceData);
 
       const params = new URLSearchParams({
-        ProcessType: 'Create'
+        ProcessType: 'AddOne',
+        DBServer: 'MongoDB'
       }).toString();
 
       const res = await axiosInstance.post(
@@ -151,7 +152,17 @@ const preciosItemsService = {
       console.log('✅ Precio creado:', dataRes);
       return dataRes;
     } catch (error) {
-      console.error('❌ Error al crear precio:', error);
+      // Intentar extraer el mensaje de error de la respuesta OData
+      const errorDetails = error.response?.data?.value?.[0];
+      const errorMessage = errorDetails?.message || error.response?.data?.message || error.message;
+      
+      console.error('❌ Error al crear precio:', {
+        message: error.message,
+        status: error.response?.status,
+        response: error.response?.data,
+        errorMessage: errorMessage,
+        errorDetails: errorDetails
+      });
       throw error;
     }
   }
