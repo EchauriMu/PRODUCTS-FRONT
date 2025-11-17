@@ -62,11 +62,16 @@ const SKUButton = ({ skuId, skusCount, skusList, onSkuClick }) => {
             Productos registrados ({skusCount})
           </div>
           <div style={{ fontSize: '0.75rem', color: '#666' }}>
-            {Array.isArray(skusList) && skusList.map((sku, idx) => (
-              <div key={idx} style={{ padding: '0.25rem 0', borderBottom: idx < skusList.length - 1 ? '1px solid #eee' : 'none' }}>
+            {Array.isArray(skusList) && skusList.slice(0, 10).map((sku, idx) => (
+              <div key={idx} style={{ padding: '0.25rem 0', borderBottom: idx < Math.min(10, skusList.length - 1) ? '1px solid #eee' : 'none' }}>
                 • {sku}
               </div>
             ))}
+            {skusList.length > 10 && (
+              <div style={{ padding: '0.5rem 0', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #ddd', color: '#999', fontStyle: 'italic', textAlign: 'center' }}>
+                +{skusList.length - 10} más...
+              </div>
+            )}
           </div>
         </Popover>
       )}
