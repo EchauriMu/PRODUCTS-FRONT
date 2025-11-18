@@ -100,11 +100,13 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
 
   const handleFiltersChange = (filterData) => {
     if (filterData?.selectedSKUs) {
-      setFilteredSKUs(new Set(filterData.selectedSKUs));
+      const skusArray = Array.from(filterData.selectedSKUs);
+      setFilteredSKUs(new Set(skusArray));
       setFormData(prev => ({
         ...prev,
-        SKUSIDS: Array.from(filterData.selectedSKUs)
+        SKUSIDS: skusArray
       }));
+      console.log('✅ Productos actualizados en modal:', skusArray);
     }
   };
 
@@ -185,7 +187,7 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
           }
         />
       }
-      style={{ width: '1600px', maxWidth: '98vw', height: '90vh', borderRadius: '12px' }}
+      style={{ width: '98vw', maxWidth: '2000px', height: '97vh', borderRadius: '12px' }}
     >
       <MessageBox
         open={!!validationErrors}
@@ -200,10 +202,14 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
       <TabContainer 
         collapsed={false} 
         onTabSelect={(e) => setActiveTab(e.detail.tab.dataset.key)}
-        style={{ height: 'calc(90vh - 100px)', display: 'flex', flexDirection: 'column' }}
+        style={{ height: 'calc(97vh - 100px)', display: 'flex', flexDirection: 'column' }}
       >
-        <Tab text="Filtros (Paso 1)" icon="filter" data-key="filtros">
-          <div style={{ height: 'calc(90vh - 150px)', display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '1.5rem', background: '#f5f7fa' }}>
+        <Tab text="Paso 2: Selección de Productos" icon="filter" data-key="filtros">
+          <div style={{ height: 'calc(97vh - 150px)', display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '2rem', background: '#f5f7fa' }}>
+            <FlexBox direction="Column" style={{ marginBottom: '1rem', gap: '0.25rem' }}>
+              <Title level="H3" style={{ margin: 0, color: '#2c3e50' }}>Paso 2: Selección de Productos</Title>
+              <Text style={{ color: '#666', fontSize: '0.875rem' }}>Aplica filtros para definir el alcance • {formData.SKUSIDS?.length || 0} encontrados</Text>
+            </FlexBox>
             <AdvancedFiltersPreciosListas 
               onFiltersChange={handleFiltersChange}
               initialFilters={{}}
@@ -218,7 +224,7 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
         </Tab>
 
         <Tab text="Configuración (Paso 2)" icon="settings" data-key="config">
-          <div style={{ padding: '1.5rem', maxHeight: 'calc(90vh - 200px)', overflowY: 'auto', background: '#f5f7fa' }}>
+          <div style={{ padding: '2rem', maxHeight: 'calc(97vh - 200px)', overflowY: 'auto', background: '#f5f7fa' }}>
             <FlexBox direction="Column" style={{ gap: '1.25rem' }}>
               <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '10px' }}>
                 <CardHeader titleText="Información General" />
@@ -239,8 +245,8 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
                       <Label>Productos Seleccionados</Label>
                       <div style={{ padding: '0.75rem', backgroundColor: '#f9f9f9', borderRadius: '6px', marginTop: '0.5rem', minHeight: '50px', display: 'flex', alignItems: 'center' }}>
                         <Text style={{ fontSize: '0.875rem', fontWeight: '500' }}>
-                          {formData.SKUSIDS && formData.SKUSIDS.length > 0 
-                            ? `${formData.SKUSIDS.length} producto(s) seleccionado(s)` 
+                          {(formData.SKUSIDS && formData.SKUSIDS.length > 0) || (filteredSKUs && filteredSKUs.size > 0)
+                            ? `${formData.SKUSIDS?.length || filteredSKUs.size} producto(s) seleccionado(s)` 
                             : 'Sin productos seleccionados - ir a Filtros para agregar'}
                         </Text>
                       </div>

@@ -278,10 +278,19 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         if (!filters.marcas.includes(producto.MARCA?.trim())) return false;
       }
       
-      // Filtro por categoría - Ahora con CheckBox individual
+      // Filtro por categoría - Compara por CATID o IDCATEGORIAOK
       if (filters.categorias && filters.categorias.length > 0) {
         if (producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS)) {
-          const hasCategory = producto.CATEGORIAS.some(cat => filters.categorias.includes(cat));
+          const hasCategory = producto.CATEGORIAS.some(cat => {
+            // Si cat es un objeto, obtén su ID
+            const catId = typeof cat === 'object' ? (cat.CATID || cat.IDCATEGORIAOK || cat.Nombre) : cat;
+            const matches = filters.categorias.includes(catId);
+            // Debug log
+            if (producto.MARCA === 'Logitech') {
+              console.log(`🔍 Logitech - Cat en BD: ${JSON.stringify(cat)}, CatId extraído: ${catId}, Filtros: ${JSON.stringify(filters.categorias)}, Match: ${matches}`);
+            }
+            return matches;
+          });
           if (!hasCategory) return false;
         } else if (!producto.CATEGORIAS || producto.CATEGORIAS.length === 0) {
           return false;
@@ -536,19 +545,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         filteredProducts: getFilteredProducts()
       });
     }
-  }, [selectedPresentaciones, productPresentaciones, productos, presentacionesPrecios, selectedProducts]);
-
-  // Efecto adicional para notificar INMEDIATAMENTE cuando cambia selectedProducts
-  useEffect(() => {
-    if (onFiltersChange && typeof onFiltersChange === 'function') {
-      const selectedSKUs = Array.from(selectedProducts);
-      console.log('SKUs actualizados:', selectedSKUs);
-      onFiltersChange({
-        selectedSKUs: selectedSKUs,
-        filteredProducts: getFilteredProducts()
-      });
-    }
-  }, [selectedProducts]);
+  }, [selectedPresentaciones, productPresentaciones, presentacionesPrecios, selectedProducts]);
 
   return (
     <div style={{ 
@@ -637,7 +634,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
           overflowY: 'auto',
           overflowX: 'hidden',
           minHeight: 0,
-          maxHeight: 'calc(100vh - 180px)'
+          maxHeight: 'calc(100vh - 80px)'
         }}>
           <FlexBox direction="Column" style={{ gap: '1rem' }}>
             
@@ -686,27 +683,52 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
               <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Categorías de Productos:</Label>
                 {categorias.length > 0 ? (
                   <>
-                    <MultiComboBox
-                      placeholder="Selecciona categorías..."
-                      style={{ width: '100%', marginTop: '0.25rem' }}
-                      onSelectionChange={(e) => handleMultiSelectChange('categorias', e.detail.items)}
-                    >
-                      {categorias.map(categoria => (
-                        <ComboBoxItem 
-                          key={categoria.CATID} 
-                          text={categoria.Nombre}
-                          data-value={categoria.CATID}
-                          selected={filters.categorias.includes(categoria.CATID)}
-                        />
-                      ))}
-                    </MultiComboBox>
+                    <div style={{ 
+                      maxHeight: '300px',
+                      overflowY: 'auto',
+                      overflowX: 'hidden',
+                      paddingRight: '0.25rem',
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: '#999 #f0f0f0'
+                    }}>
+                      <style>{`
+                        div[style*="maxHeight: 300px"]::-webkit-scrollbar {
+                          width: 6px;
+                        }
+                        div[style*="maxHeight: 300px"]::-webkit-scrollbar-track {
+                          background: #f0f0f0;
+                          borderRadius: 3px;
+                        }
+                        div[style*="maxHeight: 300px"]::-webkit-scrollbar-thumb {
+                          background: #999;
+                          borderRadius: 3px;
+                        }
+                        div[style*="maxHeight: 300px"]::-webkit-scrollbar-thumb:hover {
+                          background: #666;
+                        }
+                      `}</style>
+                      <MultiComboBox
+                        placeholder="Selecciona categorías..."
+                        style={{ width: '100%', marginTop: '0.25rem' }}
+                        onSelectionChange={(e) => handleMultiSelectChange('categorias', e.detail.items)}
+                      >
+                        {categorias.map(categoria => (
+                          <ComboBoxItem 
+                            key={categoria.CATID} 
+                            text={categoria.Nombre}
+                            data-value={categoria.Nombre}
+                            selected={filters.categorias.includes(categoria.Nombre)}
+                          />
+                        ))}
+                      </MultiComboBox>
+                    </div>
                     
                     {filters.categorias.length > 0 && (
                       <FlexBox style={{ marginTop: '0.5rem', gap: '0.25rem', flexWrap: 'wrap' }}>
-                        {filters.categorias.map(catId => {
-                          const categoria = categorias.find(c => c.CATID === catId);
+                        {filters.categorias.map(catNombre => {
+                          const categoria = categorias.find(c => c.Nombre === catNombre);
                           return categoria ? (
-                            <ObjectStatus key={catId} state="Information">
+                            <ObjectStatus key={catNombre} state="Information">
                               {categoria.Nombre}
                             </ObjectStatus>
                           ) : null;
