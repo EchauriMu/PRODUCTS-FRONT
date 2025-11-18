@@ -21,8 +21,11 @@ import {
   Option
 } from '@ui5/webcomponents-react'; 
 import promoService from '../../api/promoService';
+import CustomDialog from '../common/CustomDialog';
+import { useDialog } from '../../hooks/useDialog';
 
 const PromotionsTableCard = ({ onPromotionClick }) => {
+  const { dialogState, showConfirm, showWarning, closeDialog } = useDialog();
   const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -131,7 +134,11 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
 
   const handleDeleteSelected = async () => {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`¿Estás seguro de que quieres desactivar ${selectedIds.size} promoción(es)? Se marcarán como eliminadas pero podrás reactivarlas después.`)) {
+    const confirmed = await showConfirm(
+      `¿Estás seguro de que quieres desactivar ${selectedIds.size} promoción(es)? Se marcarán como eliminadas pero podrás reactivarlas después.`,
+      'Desactivar Promociones'
+    );
+    if (!confirmed) {
       return;
     }
     try {
@@ -151,7 +158,12 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
 
   const handleDeleteHardSelected = async () => {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`⚠️ ADVERTENCIA: ¿Estás seguro de que quieres eliminar PERMANENTEMENTE ${selectedIds.size} promoción(es)? Esta acción NO se puede deshacer.`)) {
+    const confirmed = await showWarning(
+      `¿Estás seguro de que quieres eliminar PERMANENTEMENTE ${selectedIds.size} promoción(es)? Esta acción NO se puede deshacer.`,
+      'Advertencia: Eliminar Permanentemente',
+      { confirmText: 'Eliminar', cancelText: 'Cancelar' }
+    );
+    if (!confirmed) {
       return;
     }
     try {
@@ -582,6 +594,20 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
           </FlexBox>
         )}
       </div>
+
+      {/* Diálogo personalizado */}
+      <CustomDialog
+        open={dialogState.open}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        onClose={closeDialog}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmDesign={dialogState.confirmDesign}
+      />
     </Card>
   );
 };

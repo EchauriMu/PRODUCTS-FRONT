@@ -31,8 +31,11 @@ import promoService from '../../api/promoService';
 import productService from '../../api/productService';
 import productPresentacionesService from '../../api/productPresentacionesService';
 import AdvancedFilters from './AdvancedFilters';
+import CustomDialog from '../common/CustomDialog';
+import { useDialog } from '../../hooks/useDialog';
 
 const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
+  const { dialogState, showConfirm, showWarning, showSuccess, closeDialog } = useDialog();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   
@@ -243,7 +246,11 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`¿Estás seguro de que quieres desactivar la promoción "${editData.titulo}"? Se marcará como eliminada pero podrás reactivarla después.`)) {
+    const confirmed = await showConfirm(
+      `¿Estás seguro de que quieres desactivar la promoción "${editData.titulo}"? Se marcará como eliminada pero podrás reactivarla después.`,
+      'Desactivar Promoción'
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -265,7 +272,12 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   };
 
   const handleDeleteHard = async () => {
-    if (!window.confirm(`⚠️ ADVERTENCIA: ¿Estás seguro de que quieres eliminar PERMANENTEMENTE la promoción "${editData.titulo}"? Esta acción NO se puede deshacer.`)) {
+    const confirmed = await showWarning(
+      `¿Estás seguro de que quieres eliminar PERMANENTEMENTE la promoción "${editData.titulo}"? Esta acción NO se puede deshacer.`,
+      'Advertencia: Eliminar Permanentemente',
+      { confirmText: 'Eliminar', cancelText: 'Cancelar' }
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -287,7 +299,11 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   };
 
   const handleActivate = async () => {
-    if (!window.confirm(`¿Estás seguro de que quieres activar/reactivar la promoción "${editData.titulo}"?`)) {
+    const confirmed = await showConfirm(
+      `¿Estás seguro de que quieres activar/reactivar la promoción "${editData.titulo}"?`,
+      'Activar Promoción'
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -334,9 +350,9 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   };
 
   // Función para agregar las presentaciones filtradas a la promoción
-  const handleAddFilteredProducts = () => {
+  const handleAddFilteredProducts = async () => {
     if (!Array.isArray(filteredProductsToAdd) || filteredProductsToAdd.length === 0) {
-      alert('No hay presentaciones seleccionadas para agregar');
+      await showSuccess('No hay presentaciones seleccionadas para agregar', 'Información');
       return;
     }
 
@@ -353,9 +369,9 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     setFilteredProductsToAdd([]);
     
     if (newPresentaciones.length > 0) {
-      alert(`Se agregaron ${newPresentaciones.length} presentación(es) a la promoción`);
+      await showSuccess(`Se agregaron ${newPresentaciones.length} presentación(es) a la promoción`, 'Éxito');
     } else {
-      alert('Las presentaciones ya estaban incluidas en la promoción');
+      await showSuccess('Las presentaciones ya estaban incluidas en la promoción', 'Información');
     }
   };
 
@@ -492,11 +508,14 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   };
 
   // Eliminar presentaciones seleccionadas
-  const removeSelectedPresentaciones = () => {
+  const removeSelectedPresentaciones = async () => {
     if (selectedPresentacionesForDelete.size === 0) return;
     
-    const confirmMessage = `¿Estás seguro de eliminar ${selectedPresentacionesForDelete.size} presentación(es) de la promoción?`;
-    if (!window.confirm(confirmMessage)) return;
+    const confirmed = await showConfirm(
+      `¿Estás seguro de eliminar ${selectedPresentacionesForDelete.size} presentación(es) de la promoción?`,
+      'Eliminar Presentaciones'
+    );
+    if (!confirmed) return;
     
     const updated = selectedPresentaciones.filter(p => !selectedPresentacionesForDelete.has(p.IdPresentaOK));
     setSelectedPresentaciones(updated);
@@ -779,16 +798,15 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
           >
             <div style={{ 
               padding: '0.4rem',
-              height: '100%',
+              height: 'calc(96vh - 200px)',
               display: 'flex',
               flexDirection: 'column',
-              overflow: 'hidden'
+              overflow: 'auto'
             }}>
               <Card style={{ 
                 display: 'flex',
                 flexDirection: 'column',
-                height: '100%',
-                overflow: 'hidden'
+                minHeight: 'fit-content'
               }}>
                 <CardHeader 
                   titleText={`Presentaciones en la Promoción (${selectedPresentaciones.length})`}
@@ -822,10 +840,15 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                     </FlexBox>
                   }
                 />
-                <div style={{ padding: '0.4rem', flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ 
+                  padding: '0.4rem', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  gap: '0.5rem'
+                }}>
                   
                   {/* Buscador */}
-                  <FlexBox alignItems="Center" style={{ gap: '0.4rem', marginBottom: '0.5rem', flexShrink: 0 }}>
+                  <FlexBox alignItems="Center" style={{ gap: '0.4rem' }}>
                     <Label style={{ margin: 0 }}>Buscar productos:</Label>
                     <div style={{ flex: 1 }}>
                       <Input
@@ -843,30 +866,28 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                       <BusyIndicator size="Large" />
                     </FlexBox>
                   ) : (
-                    <div style={{ 
-                      flexGrow: 1,
-                      overflowY: 'auto',
-                      overflowX: 'hidden',
-                      border: '1px solid #e8e8e8',
-                      borderRadius: '4px',
-                      padding: '0.25rem'
-                    }}>
-                      {getProductsWithPresentaciones().length === 0 ? (
-                        <FlexBox 
-                          justifyContent="Center" 
-                          alignItems="Center" 
-                          style={{ padding: '2rem', flexDirection: 'column', gap: '1rem' }}
-                        >
-                          <Icon name="product" style={{ fontSize: '3rem', color: '#ccc' }} />
-                          <Text style={{ color: '#666', textAlign: 'center' }}>
-                            {selectedPresentaciones.length === 0 
-                              ? 'No hay presentaciones en esta promoción. Usa el botón "Agregar Productos" para incluir presentaciones.'
-                              : 'No se encontraron presentaciones con ese criterio de búsqueda.'
-                            }
-                          </Text>
-                        </FlexBox>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    <>
+                      <div style={{ 
+                        border: '1px solid #e8e8e8',
+                        borderRadius: '4px',
+                        padding: '0.5rem'
+                      }}>
+                        {getProductsWithPresentaciones().length === 0 ? (
+                          <FlexBox 
+                            justifyContent="Center" 
+                            alignItems="Center" 
+                            style={{ padding: '2rem', flexDirection: 'column', gap: '1rem' }}
+                          >
+                            <Icon name="product" style={{ fontSize: '3rem', color: '#ccc' }} />
+                            <Text style={{ color: '#666', textAlign: 'center' }}>
+                              {selectedPresentaciones.length === 0 
+                                ? 'No hay presentaciones en esta promoción. Usa el botón "Agregar Productos" para incluir presentaciones.'
+                                : 'No se encontraron presentaciones con ese criterio de búsqueda.'
+                              }
+                            </Text>
+                          </FlexBox>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                           {getProductsWithPresentaciones()
                             .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                             .map((product) => {
@@ -989,47 +1010,48 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                           })}
                         </div>
                       )}
-                      
-                      {/* Paginación */}
-                      {getProductsWithPresentaciones().length > itemsPerPage && (
-                        <FlexBox 
-                          justifyContent="SpaceBetween" 
-                          alignItems="Center" 
-                          style={{ 
-                            padding: '0.75rem', 
-                            borderTop: '1px solid #e8e8e8',
-                            backgroundColor: '#f8f9fa',
-                            marginTop: '0.5rem'
-                          }}
-                        >
-                          <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                            Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, getProductsWithPresentaciones().length)} de {getProductsWithPresentaciones().length} productos
-                          </Text>
-                          <FlexBox style={{ gap: '0.5rem' }}>
-                            <Button
-                              icon="navigation-left-arrow"
-                              design="Transparent"
-                              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                              disabled={currentPage === 1}
-                            >
-                              Anterior
-                            </Button>
-                            <Text style={{ padding: '0 0.5rem', alignSelf: 'center', fontSize: '0.875rem' }}>
-                              Página {currentPage} de {Math.ceil(getProductsWithPresentaciones().length / itemsPerPage)}
-                            </Text>
-                            <Button
-                              icon="navigation-right-arrow"
-                              design="Transparent"
-                              iconEnd
-                              onClick={() => setCurrentPage(prev => Math.min(Math.ceil(getProductsWithPresentaciones().length / itemsPerPage), prev + 1))}
-                              disabled={currentPage >= Math.ceil(getProductsWithPresentaciones().length / itemsPerPage)}
-                            >
-                              Siguiente
-                            </Button>
-                          </FlexBox>
-                        </FlexBox>
-                      )}
                     </div>
+                    
+                    {/* Paginación */}
+                    {getProductsWithPresentaciones().length > itemsPerPage && (
+                      <FlexBox 
+                        justifyContent="SpaceBetween" 
+                        alignItems="Center" 
+                        style={{ 
+                          padding: '0.75rem', 
+                          borderTop: '1px solid #e8e8e8',
+                          backgroundColor: '#f8f9fa',
+                          borderRadius: '4px'
+                        }}
+                      >
+                        <Text style={{ fontSize: '0.875rem', color: '#666' }}>
+                          Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, getProductsWithPresentaciones().length)} de {getProductsWithPresentaciones().length} productos
+                        </Text>
+                        <FlexBox style={{ gap: '0.5rem' }}>
+                          <Button
+                            icon="navigation-left-arrow"
+                            design="Transparent"
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                          >
+                            Anterior
+                          </Button>
+                          <Text style={{ padding: '0 0.5rem', alignSelf: 'center', fontSize: '0.875rem' }}>
+                            Página {currentPage} de {Math.ceil(getProductsWithPresentaciones().length / itemsPerPage)}
+                          </Text>
+                          <Button
+                            icon="navigation-right-arrow"
+                            design="Transparent"
+                            iconEnd
+                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil(getProductsWithPresentaciones().length / itemsPerPage), prev + 1))}
+                            disabled={currentPage >= Math.ceil(getProductsWithPresentaciones().length / itemsPerPage)}
+                          >
+                            Siguiente
+                          </Button>
+                        </FlexBox>
+                      </FlexBox>
+                    )}
+                  </>
                   )}
 
                 </div>
@@ -1094,6 +1116,20 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         preselectedPresentaciones={selectedPresentaciones}
       />
     </Dialog>
+
+    {/* Diálogo personalizado */}
+    <CustomDialog
+      open={dialogState.open}
+      type={dialogState.type}
+      title={dialogState.title}
+      message={dialogState.message}
+      onClose={closeDialog}
+      onConfirm={dialogState.onConfirm}
+      onCancel={dialogState.onCancel}
+      confirmText={dialogState.confirmText}
+      cancelText={dialogState.cancelText}
+      confirmDesign={dialogState.confirmDesign}
+    />
     </>
   );
 };

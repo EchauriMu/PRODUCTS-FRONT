@@ -6,9 +6,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import AdvancedFilters from '../components/Promotions/AdvancedFilters';
 import promoService from '../api/promoService';
+import CustomDialog from '../components/common/CustomDialog';
+import { useDialog } from '../hooks/useDialog';
 
 const CrearPromocion = () => {
   const navigate = useNavigate();
+  const { dialogState, showSuccess, closeDialog } = useDialog();
 
   const [step, setStep] = useState(1); // 1: Detalles, 2: Filtros, 3: Descuento, 4: Vista previa
   const [loading, setLoading] = useState(false);
@@ -156,7 +159,7 @@ const CrearPromocion = () => {
         {} // filters summary is optional here
       );
 
-      alert(`Promoción "${form.titulo}" creada exitosamente`);
+      await showSuccess(`Promoción "${form.titulo}" creada exitosamente`, 'Promoción Creada');
       navigate('/promociones');
     } catch (err) {
       setError(err.message || 'Error creando la promoción');
@@ -458,6 +461,20 @@ const CrearPromocion = () => {
           Estado actual: Paso {step} de 4
         </div>
       </div>
+
+      {/* Diálogo personalizado */}
+      <CustomDialog
+        open={dialogState.open}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        onClose={closeDialog}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmDesign={dialogState.confirmDesign}
+      />
     </div>
   );
 };

@@ -22,12 +22,17 @@ import {
 } from '@ui5/webcomponents-react';
 import productService from '../../api/productService';
 import promoService from '../../api/promoService';
+import CustomDialog from '../common/CustomDialog';
+import { useDialog } from '../../hooks/useDialog';
+import PromotionEditModal from './PromotionEditModal';
 
 const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) => {
+  const { dialogState, showAlert, showError, closeDialog } = useDialog();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month'); // 'month', 'year', 'timeline', 'agenda'
   const [selectedPromotion, setSelectedPromotion] = useState(null);
   const [showPromotionDetail, setShowPromotionDetail] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -151,11 +156,11 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
   };
 
   // Función para exportar promociones a CSV
-  const handleExport = () => {
+  const handleExport = async () => {
     const filtered = getFilteredPromotions();
     
     if (filtered.length === 0) {
-      alert('No hay promociones para exportar');
+      await showAlert('No hay promociones para exportar', 'Información');
       return;
     }
 
@@ -358,7 +363,7 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
       setShowPromotionDetail(false);
     } catch (error) {
       console.error('Error al actualizar productos:', error);
-      alert('Error al guardar los cambios: ' + error.message);
+      await showError('Error al guardar los cambios: ' + error.message, 'Error');
     }
   };
 
@@ -658,7 +663,7 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                   icon="edit"
                   onClick={() => {
                     setShowPromotionDetail(false);
-                    if (onPromotionClick) onPromotionClick(selectedPromotion);
+                    setShowEditModal(true);
                   }}
                 >
                   Gestionar Promoción
@@ -758,46 +763,56 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                 </Card>
               </div>
 
-              {/* Lista de Presentaciones */}
+              {/* Lista de Productos Agrupados */}
               {selectedPromotion.ProductosAplicables && selectedPromotion.ProductosAplicables.length > 0 && (
                 <Card>
-                  <CardHeader titleText="Presentaciones Incluidas" />
+                  <CardHeader titleText="Productos Incluidos" />
                   <div style={{ padding: '1rem', maxHeight: '300px', overflowY: 'auto' }}>
                     <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-                      {selectedPromotion.ProductosAplicables.map((presentacion, index) => (
-                        <FlexBox 
-                          key={presentacion.IdPresentaOK || index}
-                          justifyContent="SpaceBetween"
-                          alignItems="Center"
-                          style={{ 
-                            padding: '0.75rem', 
-                            border: '1px solid #e0e0e0', 
-                            borderRadius: '4px',
-                            backgroundColor: '#fafafa'
-                          }}
-                        >
-                          <FlexBox direction="Column">
-                            {presentacion.NombrePresentacion && (
-                              <Text style={{ fontWeight: '600' }}>
-                                {presentacion.NombrePresentacion}
-                              </Text>
-                            )}
-                            {presentacion.SKUID && (
-                              <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                                SKU: {presentacion.SKUID}
-                              </Text>
-                            )}
-                          </FlexBox>
-                          {presentacion.PrecioOriginal && (
-                            <FlexBox direction="Column" alignItems="End">
-                              <Text style={{ fontSize: '0.875rem', color: '#666' }}>Precio Original</Text>
-                              <Text style={{ fontWeight: 'bold' }}>
-                                ${presentacion.PrecioOriginal.toLocaleString()}
-                              </Text>
+                      {(() => {
+                        // Agrupar presentaciones por SKUID
+                        const productosMap = new Map();
+                        selectedPromotion.ProductosAplicables.forEach((presentacion) => {
+                          const skuid = presentacion.SKUID;
+                          if (!productosMap.has(skuid)) {
+                            productosMap.set(skuid, {
+                              SKUID: skuid,
+                              NombreProducto: presentacion.NombreProducto || 'Producto sin nombre',
+                              presentaciones: []
+                            });
+                          }
+                          productosMap.get(skuid).presentaciones.push(presentacion);
+                        });
+
+                        // Convertir a array y renderizar
+                        return Array.from(productosMap.values()).map((producto, index) => (
+                          <div 
+                            key={producto.SKUID || index}
+                            style={{ 
+                              padding: '0.75rem', 
+                              border: '1px solid #e0e0e0', 
+                              borderRadius: '4px',
+                              backgroundColor: '#fafafa'
+                            }}
+                          >
+                            <FlexBox justifyContent="SpaceBetween" alignItems="Center">
+                              <FlexBox direction="Column" style={{ flex: 1 }}>
+                                <Text style={{ fontWeight: '600', fontSize: '0.95rem' }}>
+                                  {producto.NombreProducto}
+                                </Text>
+                                <Text style={{ fontSize: '0.875rem', color: '#666', marginTop: '0.25rem' }}>
+                                  SKU: {producto.SKUID}
+                                </Text>
+                              </FlexBox>
+                              <FlexBox direction="Column" alignItems="End">
+                                <Text style={{ fontSize: '0.875rem', color: '#0854a0', fontWeight: '600' }}>
+                                  {producto.presentaciones.length} presentación{producto.presentaciones.length !== 1 ? 'es' : ''}
+                                </Text>
+                              </FlexBox>
                             </FlexBox>
-                          )}
-                        </FlexBox>
-                      ))}
+                          </div>
+                        ));
+                      })()}
                     </FlexBox>
                   </div>
                 </Card>
@@ -828,6 +843,40 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
           </div>
         )}
       </Dialog>
+
+      {/* Diálogo personalizado */}
+      <CustomDialog
+        open={dialogState.open}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        onClose={closeDialog}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmDesign={dialogState.confirmDesign}
+      />
+
+      {/* Modal de edición de promoción */}
+      <PromotionEditModal
+        open={showEditModal}
+        promotion={selectedPromotion}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedPromotion(null);
+        }}
+        onSave={async (updatedPromotion) => {
+          setShowEditModal(false);
+          setSelectedPromotion(null);
+          await loadPromotions();
+        }}
+        onDelete={async () => {
+          setShowEditModal(false);
+          setSelectedPromotion(null);
+          await loadPromotions();
+        }}
+      />
 
     </div>
   );

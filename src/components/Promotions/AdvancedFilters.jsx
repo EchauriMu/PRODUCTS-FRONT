@@ -29,6 +29,8 @@ import categoryService from '../../api/categoryService';
 import promoService from '../../api/promoService';
 import productPresentacionesService from '../../api/productPresentacionesService';
 import preciosItemsService from '../../api/preciosItemsService';
+import CustomDialog from '../common/CustomDialog';
+import { useDialog } from '../../hooks/useDialog';
 
 // DATOS ESTÁTICOS/MOCK PARA FILTROS
 const AdvancedFilters = ({ 
@@ -38,6 +40,7 @@ const AdvancedFilters = ({
   lockedProducts = new Set(),
   preselectedPresentaciones = [] // Array de presentaciones pre-seleccionadas
 }) => {
+  const { dialogState, showAlert, showSuccess, showError, closeDialog } = useDialog();
   const [filters, setFilters] = useState({
     categorias: [],
     marcas: [],
@@ -531,7 +534,7 @@ const AdvancedFilters = ({
   };
 
   // MANEJAR CREACIÓN DE PROMOCIÓN
-  const handleCreatePromotion = () => {
+  const handleCreatePromotion = async () => {
     // Obtener lista de presentaciones seleccionadas
     const selectedPresentacionesList = [];
     
@@ -548,7 +551,7 @@ const AdvancedFilters = ({
     });
     
     if (selectedPresentacionesList.length === 0) {
-      alert('Por favor selecciona al menos una presentación para crear la promoción.');
+      await showAlert('Por favor selecciona al menos una presentación para crear la promoción.', 'Selección requerida');
       return;
     }
     
@@ -596,27 +599,27 @@ const AdvancedFilters = ({
       
       // Validaciones básicas
       if (!promoFormData.titulo.trim()) {
-        alert('El título es obligatorio');
+        await showAlert('El título es obligatorio', 'Campo requerido');
         return;
       }
       
       if (!promoFormData.fechaInicio || !promoFormData.fechaFin) {
-        alert('Las fechas de inicio y fin son obligatorias');
+        await showAlert('Las fechas de inicio y fin son obligatorias', 'Campos requeridos');
         return;
       }
       
       if (new Date(promoFormData.fechaFin) <= new Date(promoFormData.fechaInicio)) {
-        alert('La fecha de fin debe ser posterior a la fecha de inicio');
+        await showAlert('La fecha de fin debe ser posterior a la fecha de inicio', 'Fechas inválidas');
         return;
       }
       
       if (promoFormData.tipoDescuento === 'PORCENTAJE' && (promoFormData.descuentoPorcentaje <= 0 || promoFormData.descuentoPorcentaje > 100)) {
-        alert('El porcentaje de descuento debe estar entre 1 y 100');
+        await showAlert('El porcentaje de descuento debe estar entre 1 y 100', 'Descuento inválido');
         return;
       }
       
       if (promoFormData.tipoDescuento === 'MONTO_FIJO' && promoFormData.descuentoMonto <= 0) {
-        alert('El monto de descuento debe ser mayor a 0');
+        await showAlert('El monto de descuento debe ser mayor a 0', 'Monto inválido');
         return;
       }
       
@@ -631,7 +634,7 @@ const AdvancedFilters = ({
       console.log('Promoción creada exitosamente:', result);
       
       // Mostrar mensaje de éxito
-      alert(`Promoción "${promoFormData.titulo}" creada exitosamente con ${selectedPresentacionesList.length} presentación(es)!`);
+      await showSuccess(`Promoción "${promoFormData.titulo}" creada exitosamente con ${selectedPresentacionesList.length} presentación(es)!`, 'Éxito');
       
       // Limpiar formulario y cerrar modal
       setShowCreatePromoModal(false);
@@ -648,7 +651,7 @@ const AdvancedFilters = ({
       
     } catch (error) {
       console.error('Error al crear promoción:', error);
-      alert('Error al crear la promoción: ' + (error.message || 'Error desconocido'));
+      await showError('Error al crear la promoción: ' + (error.message || 'Error desconocido'), 'Error');
     } finally {
       setCreatingPromo(false);
     }
@@ -693,7 +696,7 @@ const AdvancedFilters = ({
   };
 
   // CONFIRMAR CREACIÓN DE PROMOCIÓN (función legacy para compatibilidad)
-  const handleConfirmPromotion = () => {
+  const handleConfirmPromotion = async () => {
     // Aquí integrarías con tu sistema de creación de promociones
     const promotionData = {
       title: generatePromotionTitle(),
@@ -721,7 +724,7 @@ const AdvancedFilters = ({
     setShowPreviewModal(false);
     
     // Aquí podrías mostrar un mensaje de éxito o redirigir
-    alert(`Promoción creada con ${filteredProducts.length} productos!`);
+    await showSuccess(`Promoción creada con ${filteredProducts.length} productos!`, 'Éxito');
   };
 
   // FUNCIONES DE SELECCIÓN DE PRODUCTOS
@@ -1890,6 +1893,20 @@ const AdvancedFilters = ({
           }
         />
       </Dialog>
+
+      {/* Diálogo personalizado */}
+      <CustomDialog
+        open={dialogState.open}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        onClose={closeDialog}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmDesign={dialogState.confirmDesign}
+      />
     </div>
   );
 };
