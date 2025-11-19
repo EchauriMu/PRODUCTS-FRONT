@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Card,
   CardHeader,
@@ -50,6 +50,9 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
   const [selectedProducts, setSelectedProducts] = useState(preselectedProducts);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Usar ref para rastrear preselectedProducts anterior y evitar loops infinitos
+  const prevPreselectedRef = useRef(null);
+  
   // Estados para presentaciones
   const [expandedProducts, setExpandedProducts] = useState(new Set());
   const [productPresentaciones, setProductPresentaciones] = useState({});
@@ -61,6 +64,9 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
   const ITEMS_PER_PAGE = 5; // Productos por página
   const [currentPage, setCurrentPage] = useState(1);
   const [paginatedProducts, setPaginatedProducts] = useState([]);
+  
+  // Ref para rastrear la última notificación al padre
+  const lastNotifiedSkusRef = useRef(null);
 
   // TIPOS DISPONIBLES (datos estáticos del backend)
   const TIPOS_GENERALES = [
@@ -85,7 +91,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     { id: 'BAJO', name: 'Bajo ($0 - $500)', min: 0, max: 500 },
     { id: 'MEDIO', name: 'Medio ($500 - $2,000)', min: 500, max: 2000 },
     { id: 'ALTO', name: 'Alto ($2,000 - $10,000)', min: 2000, max: 10000 },
-    { id: 'PREMIUM', name: 'Premium ($10,000+)', min: 10000, max: null }
+    { id: 'VERY_HIGH', name: 'Muy Alto ($10,000+)', min: 10000, max: null }
   ];
 
   // CARGAR DATOS REALES AL MONTAR COMPONENTE
@@ -93,10 +99,24 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     loadData();
   }, []);
 
-  // Actualizar productos seleccionados cuando cambien los preseleccionados
+  // Actualizar productos seleccionados cuando cambien los preseleccionados (solo una vez)
   useEffect(() => {
-    if (preselectedProducts && preselectedProducts.size > 0) {
-      setSelectedProducts(new Set(preselectedProducts));
+    if (!preselectedProducts || preselectedProducts.size === 0) {
+      return;
+    }
+    
+    // Convertir Set a array ordenado para comparar
+    const preselectedArray = Array.from(preselectedProducts).sort();
+    const prevArray = prevPreselectedRef.current;
+    
+    // Comparar con el anterior - solo actualizar si realmente cambió
+    const isSame = prevArray && 
+      prevArray.length === preselectedArray.length && 
+      prevArray.every((v, i) => v === preselectedArray[i]);
+    
+    if (!isSame) {
+      prevPreselectedRef.current = preselectedArray;
+      setSelectedProducts(new Set(preselectedArray));
     }
   }, [preselectedProducts]);
 
@@ -151,11 +171,9 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
 
       setProductos(productosData);
       
-      // Filtrar solo categorías activas
-      const categoriasActivas = categoriasData.filter(cat => 
-        cat.ACTIVED === true && cat.DELETED === false
-      );
-      setCategorias(categoriasActivas);
+      // Usar TODAS las categorías, sin filtrar por ACTIVED o DELETED
+      // (igual que en el módulo de Promociones)
+      setCategorias(categoriasData);
 
       // Extraer marcas únicas de los productos
       const marcasUnicas = [...new Set(
@@ -278,21 +296,23 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         if (!filters.marcas.includes(producto.MARCA?.trim())) return false;
       }
       
-      // Filtro por categoría - Compara por CATID o IDCATEGORIAOK
+      // Filtro por categoría - Compara DIRECTAMENTE con CATID
       if (filters.categorias && filters.categorias.length > 0) {
         if (producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS)) {
+          // Comparar directamente los CATID de categoría
           const hasCategory = producto.CATEGORIAS.some(cat => {
-            // Si cat es un objeto, obtén su ID
-            const catId = typeof cat === 'object' ? (cat.CATID || cat.IDCATEGORIAOK || cat.Nombre) : cat;
-            const matches = filters.categorias.includes(catId);
-            // Debug log
-            if (producto.MARCA === 'Logitech') {
-              console.log(`🔍 Logitech - Cat en BD: ${JSON.stringify(cat)}, CatId extraído: ${catId}, Filtros: ${JSON.stringify(filters.categorias)}, Match: ${matches}`);
+            // Si cat es string (CATID), comparar directamente
+            if (typeof cat === 'string') {
+              return filters.categorias.includes(cat);
             }
-            return matches;
+            // Si cat es objeto, obtener el CATID
+            if (typeof cat === 'object' && cat.CATID) {
+              return filters.categorias.includes(cat.CATID);
+            }
+            return false;
           });
           if (!hasCategory) return false;
-        } else if (!producto.CATEGORIAS || producto.CATEGORIAS.length === 0) {
+        } else {
           return false;
         }
       }
@@ -301,17 +321,24 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
       if (filters.precioMin && producto.PRECIO < parseFloat(filters.precioMin)) return false;
       if (filters.precioMax && producto.PRECIO > parseFloat(filters.precioMax)) return false;
       
-      // Filtro por fecha de ingreso
-      if (filters.fechaIngresoDesde) {
+      // Filtro por fecha de ingreso - SOLO FILTRA si el producto tiene REGDATE
+      // Si el producto NO tiene REGDATE, se INCLUYE SIEMPRE (ignore este filtro)
+      if (filters.fechaIngresoDesde && producto.REGDATE) {
         const fechaDesde = new Date(filters.fechaIngresoDesde);
+        fechaDesde.setHours(0, 0, 0, 0);
         const fechaProducto = new Date(producto.REGDATE);
-        if (fechaProducto < fechaDesde) return false;
+        fechaProducto.setHours(0, 0, 0, 0);
+        // Solo excluir si la fecha es inválida Y es menor que la fecha desde
+        if (!isNaN(fechaProducto.getTime()) && fechaProducto < fechaDesde) return false;
       }
       
-      if (filters.fechaIngresoHasta) {
+      if (filters.fechaIngresoHasta && producto.REGDATE) {
         const fechaHasta = new Date(filters.fechaIngresoHasta);
+        fechaHasta.setHours(23, 59, 59, 999);
         const fechaProducto = new Date(producto.REGDATE);
-        if (fechaProducto > fechaHasta) return false;
+        fechaProducto.setHours(0, 0, 0, 0);
+        // Solo excluir si la fecha es válida Y es mayor que la fecha hasta
+        if (!isNaN(fechaProducto.getTime()) && fechaProducto > fechaHasta) return false;
       }
       
       return true;
@@ -512,40 +539,27 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     setCurrentPage(1);
   }, [filters, searchTerm]);
 
-  // Notificar al padre cuando cambien las presentaciones seleccionadas
+  // Notificar al padre cuando cambien los productos seleccionados
   useEffect(() => {
     if (onFiltersChange && typeof onFiltersChange === 'function') {
-      const selectedPresentacionesList = [];
+      const selectedSKUs = Array.from(selectedProducts).sort();
+      const skusString = JSON.stringify(selectedSKUs);
       
-      Object.entries(productPresentaciones).forEach(([skuid, presentaciones]) => {
-        presentaciones.forEach(presentacion => {
-          if (selectedPresentaciones.has(presentacion.IdPresentaOK)) {
-            const producto = productos.find(p => p.SKUID === skuid);
-            const precio = getPrecioPresentacion(presentacion.IdPresentaOK);
-            
-            selectedPresentacionesList.push({
-              ...presentacion,
-              Precio: precio,
-              producto: producto ? {
-                SKUID: producto.SKUID,
-                PRODUCTNAME: producto.PRODUCTNAME,
-                MARCA: producto.MARCA,
-                PRECIO: producto.PRECIO
-              } : null
-            });
+      // Solo notificar si hay cambios reales y si hay SKUs seleccionados
+      if (selectedSKUs.length > 0 && lastNotifiedSkusRef.current !== skusString) {
+        lastNotifiedSkusRef.current = skusString;
+        onFiltersChange({
+          selectedPresentaciones: [],
+          selectedSKUs: selectedSKUs,
+          filteredProducts: getFilteredProducts(),
+          filterDates: {
+            fechaIngresoDesde: filters.fechaIngresoDesde,
+            fechaIngresoHasta: filters.fechaIngresoHasta
           }
         });
-      });
-      
-      // También notificar con los SKUs seleccionados
-      const selectedSKUs = Array.from(selectedProducts);
-      onFiltersChange({
-        selectedPresentaciones: selectedPresentacionesList,
-        selectedSKUs: selectedSKUs,
-        filteredProducts: getFilteredProducts()
-      });
+      }
     }
-  }, [selectedPresentaciones, productPresentaciones, presentacionesPrecios, selectedProducts]);
+  }, [selectedProducts]);
 
   return (
     <div style={{ 
@@ -715,9 +729,9 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                         {categorias.map(categoria => (
                           <ComboBoxItem 
                             key={categoria.CATID} 
-                            text={categoria.Nombre}
-                            data-value={categoria.Nombre}
-                            selected={filters.categorias.includes(categoria.Nombre)}
+                            text={`${categoria.Nombre}`}
+                            data-value={categoria.CATID}
+                            selected={filters.categorias.includes(categoria.CATID)}
                           />
                         ))}
                       </MultiComboBox>
@@ -725,10 +739,10 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                     
                     {filters.categorias.length > 0 && (
                       <FlexBox style={{ marginTop: '0.5rem', gap: '0.25rem', flexWrap: 'wrap' }}>
-                        {filters.categorias.map(catNombre => {
-                          const categoria = categorias.find(c => c.Nombre === catNombre);
+                        {filters.categorias.map(catId => {
+                          const categoria = categorias.find(c => c.CATID === catId);
                           return categoria ? (
-                            <ObjectStatus key={catNombre} state="Information">
+                            <ObjectStatus key={catId} state="Information">
                               {categoria.Nombre}
                             </ObjectStatus>
                           ) : null;

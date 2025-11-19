@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   Bar,
@@ -75,6 +75,11 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
   const [validationErrors, setValidationErrors] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('filtros');
+  const [filterDates, setFilterDates] = useState({
+    fechaIngresoDesde: '',
+    fechaIngresoHasta: ''
+  });
+  const lastSelectedSkusRef = useRef(null);
 
   useEffect(() => {
     if (open && lista) {
@@ -98,9 +103,17 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleFiltersChange = (filterData) => {
-    if (filterData?.selectedSKUs) {
+  const handleFiltersChange = useCallback((filterData) => {
+    if (filterData?.selectedSKUs && filterData.selectedSKUs.length > 0) {
       const skusArray = Array.from(filterData.selectedSKUs);
+      
+      // Verificar si realmente ha habido cambios en los SKUs seleccionados
+      const skusString = JSON.stringify(skusArray.sort());
+      if (lastSelectedSkusRef.current === skusString) {
+        return; // No hacer nada si son los mismos SKUs
+      }
+      
+      lastSelectedSkusRef.current = skusString;
       setFilteredSKUs(new Set(skusArray));
       setFormData(prev => ({
         ...prev,
@@ -108,7 +121,12 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
       }));
       console.log('✅ Productos actualizados en modal:', skusArray);
     }
-  };
+    
+    // Guardar fechas de filtro
+    if (filterData?.filterDates) {
+      setFilterDates(filterData.filterDates);
+    }
+  }, []);
 
   const handleSaveClick = async () => {
     setIsSaving(true);
@@ -279,8 +297,16 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
                           style={{ width: '100%', marginTop: '0.5rem' }}
                         >
                           <Option value="">Seleccionar tipo...</Option>
-                          <Option value="TIPO_A">Tipo A</Option>
-                          <Option value="TIPO_B">Tipo B</Option>
+                          <Option value="BASE">Lista Base</Option>
+                          <Option value="MAYORISTA">Lista Mayorista</Option>
+                          <Option value="MINORISTA">Lista Minorista</Option>
+                          <Option value="PROMOCIONAL">Lista Promocional</Option>
+                          <Option value="VIP">Lista VIP</Option>
+                          <Option value="ESTACIONAL">Lista Estacional</Option>
+                          <Option value="REGIONAL">Lista por Región</Option>
+                          <Option value="CANAL">Lista por Canal</Option>
+                          <Option value="COSTO">Lista de Costo</Option>
+                          <Option value="ESPECIAL">Lista Especial</Option>
                         </Select>
                       </div>
 
@@ -314,29 +340,27 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
                 </div>
               </Card>
 
-              <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '10px' }}>
-                <CardHeader titleText="Vigencia de la Lista" />
-                <div style={{ padding: '1rem' }}>
-                  <FlexBox style={{ gap: '1rem' }}>
-                    <div style={{ flex: 1 }}>
-                      <Label required>Fecha de Inicio</Label>
-                      <DatePicker
-                        value={formData.FECHAEXPIRAINI || ''}
-                        onChange={(e) => handleInputChange('FECHAEXPIRAINI', e.target.value)}
-                        style={{ width: '100%', marginTop: '0.5rem' }}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <Label required>Fecha de Fin</Label>
-                      <DatePicker
-                        value={formData.FECHAEXPIRAFIN || ''}
-                        onChange={(e) => handleInputChange('FECHAEXPIRAFIN', e.target.value)}
-                        style={{ width: '100%', marginTop: '0.5rem' }}
-                      />
-                    </div>
-                  </FlexBox>
-                </div>
-              </Card>
+              {(filterDates.fechaIngresoDesde || filterDates.fechaIngresoHasta) && (
+                <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '10px', backgroundColor: '#f0f7ff', borderLeft: '4px solid #0066cc' }}>
+                  <CardHeader titleText="Fechas de Filtro Aplicadas" />
+                  <div style={{ padding: '1rem' }}>
+                    <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
+                      {filterDates.fechaIngresoDesde && (
+                        <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
+                          <Text style={{ fontWeight: '600', color: '#0066cc', minWidth: '120px' }}>Desde:</Text>
+                          <Text style={{ color: '#333' }}>{filterDates.fechaIngresoDesde}</Text>
+                        </FlexBox>
+                      )}
+                      {filterDates.fechaIngresoHasta && (
+                        <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
+                          <Text style={{ fontWeight: '600', color: '#0066cc', minWidth: '120px' }}>Hasta:</Text>
+                          <Text style={{ color: '#333' }}>{filterDates.fechaIngresoHasta}</Text>
+                        </FlexBox>
+                      )}
+                    </FlexBox>
+                  </div>
+                </Card>
+              )}
 
             </FlexBox>
           </div>

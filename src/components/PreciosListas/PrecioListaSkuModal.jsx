@@ -19,6 +19,7 @@ import {
 import productService from '../../api/productService';
 import preciosItemsService from '../../api/preciosItemsService';
 import productPresentacionesService from '../../api/productPresentacionesService';
+import PrecioListaPresentacionPrice from '../CRUDprecios/PrecioListaPresentacionPrice';
 
 const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
   const [producto, setProducto] = useState(null);
@@ -513,6 +514,7 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                   </div>
 
                                   {/* Detalles de Presentación Expandidos */}
+                                                                    {/* Detalles de Presentación Expandidos */}
                                   {expandedPresentaciones[presentacionKey] && (
                                     <FlexBox
                                       direction="Column"
@@ -537,39 +539,66 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                           </Text>
                                         </FlexBox>
                                       )}
+
                                       {presenta.BARCODE && (
                                         <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
                                           <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
                                             Código de Barras
                                           </Label>
-                                          <Text style={{ fontSize: '0.8rem', color: '#333', fontFamily: 'monospace' }}>
+                                          <Text
+                                            style={{
+                                              fontSize: '0.8rem',
+                                              color: '#333',
+                                              fontFamily: 'monospace'
+                                            }}
+                                          >
                                             {presenta.BARCODE}
                                           </Text>
                                         </FlexBox>
                                       )}
+
                                       <FlexBox style={{ gap: '1.5rem', flexWrap: 'wrap' }}>
                                         {presenta.CostoIni && (
-                                          <FlexBox direction="Column" style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}>
+                                          <FlexBox
+                                            direction="Column"
+                                            style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}
+                                          >
                                             <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
                                               Costo Inicial
                                             </Label>
                                             <Text style={{ fontSize: '0.8rem', color: '#2e7d32' }}>
-                                              ${presenta.CostoIni.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                              $
+                                              {presenta.CostoIni.toLocaleString('es-ES', {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2
+                                              })}
                                             </Text>
                                           </FlexBox>
                                         )}
+
                                         {presenta.CostoFin && (
-                                          <FlexBox direction="Column" style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}>
+                                          <FlexBox
+                                            direction="Column"
+                                            style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}
+                                          >
                                             <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
                                               Costo Final
                                             </Label>
                                             <Text style={{ fontSize: '0.8rem', color: '#2e7d32' }}>
-                                              ${presenta.CostoFin.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                              $
+                                              {presenta.CostoFin.toLocaleString('es-ES', {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2
+                                              })}
                                             </Text>
                                           </FlexBox>
                                         )}
+
                                         {presenta.REGUSER && (
-                                          <FlexBox direction="Column" style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}>
+                                          <FlexBox
+                                            direction="Column"
+                                            style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}
+                                          >
                                             <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
                                               Registrado por
                                             </Label>
@@ -578,8 +607,12 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                             </Text>
                                           </FlexBox>
                                         )}
+
                                         {presenta.REGDATE && (
-                                          <FlexBox direction="Column" style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}>
+                                          <FlexBox
+                                            direction="Column"
+                                            style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}
+                                          >
                                             <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
                                               Fecha Registro
                                             </Label>
@@ -588,23 +621,38 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                             </Text>
                                           </FlexBox>
                                         )}
+
                                         {presenta.ACTIVED !== undefined && (
-                                          <FlexBox direction="Column" style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}>
+                                          <FlexBox
+                                            direction="Column"
+                                            style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}
+                                          >
                                             <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
                                               Estado
                                             </Label>
-                                            <Text style={{ 
-                                              fontSize: '0.8rem', 
-                                              color: presenta.ACTIVED ? '#2e7d32' : '#c00',
-                                              fontWeight: 500
-                                            }}>
+                                            <Text
+                                              style={{
+                                                fontSize: '0.8rem',
+                                                color: presenta.ACTIVED ? '#2e7d32' : '#c00',
+                                                fontWeight: 500
+                                              }}
+                                            >
                                               {presenta.ACTIVED ? '✓ Activo' : '✗ Inactivo'}
                                             </Text>
                                           </FlexBox>
                                         )}
                                       </FlexBox>
+
+                                      {/* >>> NUEVO: bloque de precio de esta presentación en la lista <<< */}
+                                      <PrecioListaPresentacionPrice
+                                        idPresentaOK={presenta.IdPresentaOK}
+                                        skuid={producto.SKUID}
+                                        idListaOK={idListaOK}
+                                      />
                                     </FlexBox>
                                   )}
+
+                                    
                                 </FlexBox>
                               );
                             })}
