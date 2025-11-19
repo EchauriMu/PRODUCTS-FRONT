@@ -34,6 +34,7 @@ const formatDateForPicker = (date) => {
 };
 
 const preciosListasValidationSchema = yup.object().shape({
+  IDLISTAOK: yup.string(),
   DESLISTA: yup.string()
     .required('La descripción de la lista es obligatoria.')
     .min(3, 'La descripción debe tener al menos 3 caracteres.'),
@@ -80,6 +81,7 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
     fechaIngresoHasta: ''
   });
   const lastSelectedSkusRef = useRef(null);
+  const nextIdRef = useRef(0);
 
   useEffect(() => {
     if (open && lista) {
@@ -93,7 +95,14 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
       setFilteredSKUs(new Set(Array.isArray(lista.SKUSIDS) ? lista.SKUSIDS : []));
       setActiveTab('config');
     } else if (open) {
-      setFormData(initialState);
+      // Generate sequential ID for new lists
+      const newId = nextIdRef.current;
+      nextIdRef.current += 1;
+      const newFormData = {
+        ...initialState,
+        IDLISTAOK: `ID-${newId.toString().padStart(3, '0')}`,
+      };
+      setFormData(newFormData);
       setFilteredSKUs(new Set());
       setActiveTab('filtros');
     }
@@ -249,6 +258,19 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
                 <div style={{ padding: '1rem' }}>
                   <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
                     
+                    <div>
+                      <Label required>ID de la Lista</Label>
+                      <Input
+                        value={formData.IDLISTAOK || ''}
+                        readOnly
+                        placeholder="Auto-generado"
+                        style={{ width: '100%', marginTop: '0.5rem', backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+                      />
+                      <Text style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.25rem' }}>
+                        Identificador único (generado automáticamente)
+                      </Text>
+                    </div>
+
                     <div>
                       <Label required>Descripción de la Lista</Label>
                       <Input
