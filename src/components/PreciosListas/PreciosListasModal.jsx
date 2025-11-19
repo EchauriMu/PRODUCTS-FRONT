@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   Bar,
@@ -75,6 +75,7 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
   const [validationErrors, setValidationErrors] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('filtros');
+  const lastSelectedSkusRef = useRef(null);
 
   useEffect(() => {
     if (open && lista) {
@@ -98,9 +99,17 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleFiltersChange = (filterData) => {
-    if (filterData?.selectedSKUs) {
+  const handleFiltersChange = useCallback((filterData) => {
+    if (filterData?.selectedSKUs && filterData.selectedSKUs.length > 0) {
       const skusArray = Array.from(filterData.selectedSKUs);
+      
+      // Verificar si realmente ha habido cambios en los SKUs seleccionados
+      const skusString = JSON.stringify(skusArray.sort());
+      if (lastSelectedSkusRef.current === skusString) {
+        return; // No hacer nada si son los mismos SKUs
+      }
+      
+      lastSelectedSkusRef.current = skusString;
       setFilteredSKUs(new Set(skusArray));
       setFormData(prev => ({
         ...prev,
@@ -108,7 +117,7 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
       }));
       console.log('✅ Productos actualizados en modal:', skusArray);
     }
-  };
+  }, []);
 
   const handleSaveClick = async () => {
     setIsSaving(true);
