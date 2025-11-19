@@ -551,11 +551,15 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         onFiltersChange({
           selectedPresentaciones: [],
           selectedSKUs: selectedSKUs,
-          filteredProducts: getFilteredProducts()
+          filteredProducts: getFilteredProducts(),
+          filterDates: {
+            fechaIngresoDesde: filters.fechaIngresoDesde,
+            fechaIngresoHasta: filters.fechaIngresoHasta
+          }
         });
       }
     }
-  }, [selectedProducts, onFiltersChange]);
+  }, [selectedProducts]);
 
   return (
     <div style={{ 
