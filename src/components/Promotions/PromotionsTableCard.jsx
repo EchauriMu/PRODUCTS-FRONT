@@ -132,30 +132,7 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
     if (promo && onPromotionClick) onPromotionClick(promo);
   };
 
-  const handleDeleteSelected = async () => {
-    if (selectedIds.size === 0) return;
-    const confirmed = await showConfirm(
-      `¿Estás seguro de que quieres desactivar ${selectedIds.size} promoción(es)? Se marcarán como eliminadas pero podrás reactivarlas después.`,
-      'Desactivar Promociones'
-    );
-    if (!confirmed) {
-      return;
-    }
-    try {
-      setLoading(true);
-      for (const id of selectedIds) {
-        await promoService.deletePromotion(id);
-      }
-      setInfo(`Se desactivaron ${selectedIds.size} promoción(es)`);
-      setSelectedIds(new Set());
-      await loadPromotions();
-    } catch (e) {
-      setError(e.message || 'Error desactivando promociones');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Elimina permanentemente de la base de datos (NO reversible)
   const handleDeleteHardSelected = async () => {
     if (selectedIds.size === 0) return;
     const confirmed = await showWarning(
@@ -163,9 +140,8 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
       'Advertencia: Eliminar Permanentemente',
       { confirmText: 'Eliminar', cancelText: 'Cancelar' }
     );
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
+    
     try {
       setLoading(true);
       for (const id of selectedIds) {
@@ -181,12 +157,19 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
     }
   };
 
+  // Activa promociones (ACTIVED: true - reversible con Desactivar)
   const handleActivateSelected = async () => {
     if (selectedIds.size === 0) return;
+    const confirmed = await showConfirm(
+      `¿Estás seguro de que quieres activar ${selectedIds.size} promoción(es)?`,
+      'Activar Promociones'
+    );
+    if (!confirmed) return;
+    
     try {
       setLoading(true);
       for (const id of selectedIds) {
-        await promoService.activatePromotion(id);
+        await promoService.updatePromotion(id, { ACTIVED: true });
       }
       setInfo(`Se activaron ${selectedIds.size} promoción(es)`);
       setSelectedIds(new Set());
@@ -198,8 +181,15 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
     }
   };
 
+  // Desactiva promociones (ACTIVED: false, pero NO las elimina - reversible con Activar)
   const handleDeactivateSelected = async () => {
     if (selectedIds.size === 0) return;
+    const confirmed = await showConfirm(
+      `¿Estás seguro de que quieres desactivar ${selectedIds.size} promoción(es)? Podrás reactivarlas después.`,
+      'Desactivar Promociones'
+    );
+    if (!confirmed) return;
+    
     try {
       setLoading(true);
       for (const id of selectedIds) {
@@ -347,18 +337,6 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
                 Editar
               </Button>
               <Button
-                icon="delete"
-                onClick={handleDeleteHardSelected}
-                disabled={selectedIds.size === 0}
-                style={{ 
-                  backgroundColor: '#FCE4EC',
-                  color: '#C2185B',
-                  border: 'none'
-                }}
-              >
-                Eliminar
-              </Button>
-              <Button
                 icon="decline"
                 onClick={handleDeactivateSelected}
                 disabled={selectedIds.size === 0}
@@ -367,8 +345,22 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
                   color: '#E65100',
                   border: 'none'
                 }}
+                tooltip="Desactivar (reversible con Activar)"
               >
                 Desactivar
+              </Button>
+              <Button
+                icon="delete"
+                onClick={handleDeleteHardSelected}
+                disabled={selectedIds.size === 0}
+                style={{ 
+                  backgroundColor: '#FCE4EC',
+                  color: '#C2185B',
+                  border: 'none'
+                }}
+                tooltip="Eliminar permanentemente (NO reversible)"
+              >
+                Eliminar
               </Button>
               {loading && <BusyIndicator active size="Small" />}
             </FlexBox>

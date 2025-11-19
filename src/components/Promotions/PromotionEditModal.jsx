@@ -113,7 +113,8 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         tipoDescuento: promotion.TipoDescuento || 'PORCENTAJE',
         descuentoPorcentaje: promotion['Descuento%'] || promotion.DescuentoPorcentaje || 0,
         descuentoMonto: promotion.DescuentoMonto || 0,
-        actived: promotion.ACTIVED !== false,
+        // Solo activa si ACTIVED es true Y NO está marcada como DELETED
+        actived: promotion.ACTIVED === true && promotion.DELETED !== true,
         skuids: []
       });
 
@@ -209,6 +210,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
       console.log('📋 Presentaciones a enviar:', presentacionesAplicables);
 
       // Preparar datos para la API - SOLO campos modificables
+      // El campo ACTIVED se actualiza con updatePromotion (el switch controla esto)
       const updateData = {
         Titulo: editData.titulo,
         Descripcion: editData.descripcion,
@@ -245,32 +247,6 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     }
   };
 
-  const handleDelete = async () => {
-    const confirmed = await showConfirm(
-      `¿Estás seguro de que quieres desactivar la promoción "${editData.titulo}"? Se marcará como eliminada pero podrás reactivarla después.`,
-      'Desactivar Promoción'
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    setDeleting(true);
-    try {
-      // Llamar al servicio de eliminación lógica (desactivación)
-      const response = await promoService.deletePromotion(promotion.IdPromoOK);
-      
-      console.log('✅ Promoción desactivada:', response);
-      
-      onDelete && onDelete(promotion);
-      onClose();
-    } catch (err) {
-      console.error('❌ Error al desactivar:', err);
-      setError('Error al desactivar la promoción: ' + err.message);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   const handleDeleteHard = async () => {
     const confirmed = await showWarning(
       `¿Estás seguro de que quieres eliminar PERMANENTEMENTE la promoción "${editData.titulo}"? Esta acción NO se puede deshacer.`,
@@ -298,31 +274,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     }
   };
 
-  const handleActivate = async () => {
-    const confirmed = await showConfirm(
-      `¿Estás seguro de que quieres activar/reactivar la promoción "${editData.titulo}"?`,
-      'Activar Promoción'
-    );
-    if (!confirmed) {
-      return;
-    }
 
-    setDeleting(true);
-    try {
-      // Llamar al servicio de activación
-      const response = await promoService.activatePromotion(promotion.IdPromoOK);
-      
-      console.log('✅ Promoción activada:', response);
-      
-      onSave && onSave({ ...promotion, ACTIVED: true, DELETED: false });
-      onClose();
-    } catch (err) {
-      console.error('❌ Error al activar:', err);
-      setError('Error al activar la promoción: ' + err.message);
-    } finally {
-      setDeleting(false);
-    }
-  };
 
   // DEPRECATED: Ya no se usa, ahora trabajamos con presentaciones
   // const toggleProductSelection = (productId) => {

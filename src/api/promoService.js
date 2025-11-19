@@ -192,27 +192,6 @@ const promoService = {
   },
 
   /**
-   * Eliminar una promoción (eliminación lógica)
-   * @param {string} idPromoOK - ID de la promoción
-   * @returns {Promise} Confirmación de eliminación
-   */
-  async deletePromotion(idPromoOK) {
-    try {
-      const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
-        new URLSearchParams({
-          ProcessType: 'DeleteLogic',
-          IdPromoOK: idPromoOK,
-          DBServer: 'MongoDB'
-          // LoggedUser se añade automáticamente por el interceptor
-        }), {});
-      return response.data;
-    } catch (error) {
-      console.error('Error deleting promotion:', error);
-      throw error;
-    }
-  },
-
-  /**
    * Eliminar una promoción permanentemente
    * @param {string} idPromoOK - ID de la promoción
    * @returns {Promise} Confirmación de eliminación
@@ -231,28 +210,55 @@ const promoService = {
       console.error('Error hard deleting promotion:', error);
       throw error;
     }
-  },
+  }
+
+  // ========================================
+  // FUNCIONES DEPRECADAS (Ya no se usan en la UI)
+  // ========================================
+  // Se mantienen comentadas por si se necesitan en el futuro
+  // Ahora se usa updatePromotion para activar/desactivar promociones
 
   /**
-   * Activar una promoción
+   * @deprecated - Usar updatePromotion(id, { ACTIVED: false }) en su lugar
+   * Eliminar una promoción (eliminación lógica - marca DELETED: true)
+   * @param {string} idPromoOK - ID de la promoción
+   * @returns {Promise} Confirmación de eliminación
+   */
+  // async deletePromotion(idPromoOK) {
+  //   try {
+  //     const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
+  //       new URLSearchParams({
+  //         ProcessType: 'DeleteLogic',
+  //         IdPromoOK: idPromoOK,
+  //         DBServer: 'MongoDB'
+  //       }), {});
+  //     return response.data;
+  //   } catch (error) {
+  //     console.error('Error deleting promotion:', error);
+  //     throw error;
+  //   }
+  // },
+
+  /**
+   * @deprecated - Usar updatePromotion(id, { ACTIVED: true }) en su lugar
+   * Activar una promoción (marca ACTIVED: true y DELETED: false)
    * @param {string} idPromoOK - ID de la promoción
    * @returns {Promise} Confirmación de activación
    */
-  async activatePromotion(idPromoOK) {
-    try {
-      const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
-        new URLSearchParams({
-          ProcessType: 'ActivateOne',
-          IdPromoOK: idPromoOK,
-          DBServer: 'MongoDB'
-          // LoggedUser se añade automáticamente por el interceptor
-        }), {});
-      return response.data;
-    } catch (error) {
-      console.error('Error activating promotion:', error);
-      throw error;
-    }
-  }
+  // async activatePromotion(idPromoOK) {
+  //   try {
+  //     const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
+  //       new URLSearchParams({
+  //         ProcessType: 'ActivateOne',
+  //         IdPromoOK: idPromoOK,
+  //         DBServer: 'MongoDB'
+  //       }), {});
+  //     return response.data;
+  //   } catch (error) {
+  //     console.error('Error activating promotion:', error);
+  //     throw error;
+  //   }
+  // }
 };
 
 export default promoService;
