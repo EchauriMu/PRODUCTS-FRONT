@@ -4,8 +4,6 @@ import {
   CardHeader,
   FlexBox,
   Label,
-  Select,
-  Option,
   Input,
   DatePicker,
   CheckBox,
@@ -17,22 +15,16 @@ import {
   ComboBoxItem,
   ObjectStatus,
   BusyIndicator,
-  Dialog,
-  Bar,
-  Icon,
-  Avatar,
-  TextArea,
-  RadioButton
+  Icon
 } from '@ui5/webcomponents-react';
 import productService from '../../api/productService';
 import categoryService from '../../api/categoryService';
-import promoService from '../../api/promoService';
 import productPresentacionesService from '../../api/productPresentacionesService';
 import preciosItemsService from '../../api/preciosItemsService';
 import CustomDialog from '../common/CustomDialog';
 import { useDialog } from '../../hooks/useDialog';
 
-// DATOS ESTÁTICOS/MOCK PARA FILTROS
+
 const AdvancedFilters = ({ 
   onFiltersChange, 
   initialFilters = {}, 
@@ -57,85 +49,15 @@ const AdvancedFilters = ({
   const [categorias, setCategorias] = useState([]);
   const [marcas, setMarcas] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const [filtersExpanded, setFiltersExpanded] = useState(true);
-  const [temporadaActiva, setTemporadaActiva] = useState(null);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [selectedProducts, setSelectedProducts] = useState(preselectedProducts); // Inicializar con preseleccionados
-  const [searchTerm, setSearchTerm] = useState(''); // Término de búsqueda
+  const [selectedProducts, setSelectedProducts] = useState(preselectedProducts);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Estados para presentaciones
-  const [expandedProducts, setExpandedProducts] = useState(new Set()); // Productos con presentaciones expandidas
-  const [productPresentaciones, setProductPresentaciones] = useState({}); // { SKUID: [presentaciones] }
-  const [loadingPresentaciones, setLoadingPresentaciones] = useState({}); // { SKUID: boolean }
-  const [selectedPresentaciones, setSelectedPresentaciones] = useState(new Set()); // IDs de presentaciones seleccionadas
-  const [presentacionesPrecios, setPresentacionesPrecios] = useState({}); // { IdPresentaOK: [precios] }
-  const [lockedPresentaciones, setLockedPresentaciones] = useState(new Set()); // IDs de presentaciones bloqueadas (ya en la promoción)
-
-  // Estados para creación de promociones
-  const [showCreatePromoModal, setShowCreatePromoModal] = useState(false);
-  const [creatingPromo, setCreatingPromo] = useState(false);
-  const [promoFormData, setPromoFormData] = useState({
-    titulo: '',
-    descripcion: '',
-    fechaInicio: '',
-    fechaFin: '',
-    tipoDescuento: 'PORCENTAJE',
-    descuentoPorcentaje: 10,
-    descuentoMonto: 0,
-    permiteAcumulacion: false,
-    limiteUsos: null
-  });
-
-  // TEMPORADAS ESTÁTICAS (basadas en fechas)
-  const TEMPORADAS = [
-    { 
-      id: 'HALLOWEEN_2025', 
-      name: 'Halloween 2025', 
-      fechaInicio: '2025-10-25', 
-      fechaFin: '2025-11-02',
-      categoriasSugeridas: ['DECORATIONS', 'TOYS'],
-      activa: true,
-      icono: 'calendar'
-    },
-    { 
-      id: 'BLACK_FRIDAY_2025', 
-      name: 'Black Friday 2025', 
-      fechaInicio: '2025-11-29', 
-      fechaFin: '2025-12-02',
-      categoriasSugeridas: ['ELECTRONICS', 'CLOTHING'],
-      activa: false,
-      icono: 'product'
-    },
-    { 
-      id: 'NAVIDAD_2025', 
-      name: 'Navidad 2025', 
-      fechaInicio: '2025-12-01', 
-      fechaFin: '2025-12-31',
-      categoriasSugeridas: ['TOYS', 'HOME'],
-      activa: false,
-      icono: 'calendar'
-    },
-    { 
-      id: 'SAN_VALENTIN_2026', 
-      name: 'San Valentín 2026', 
-      fechaInicio: '2026-02-10', 
-      fechaFin: '2026-02-16',
-      categoriasSugeridas: ['CLOTHING', 'JEWELRY'],
-      activa: false,
-      icono: '💖'
-    }
-  ];
-
-  // RANGOS DE PRECIOS ESTÁTICOS
-  const RANGOS_PRECIOS = [
-    { id: 'BAJO', name: 'Bajo ($0 - $500)', min: 0, max: 500 },
-    { id: 'MEDIO', name: 'Medio ($500 - $2,000)', min: 500, max: 2000 },
-    { id: 'ALTO', name: 'Alto ($2,000 - $10,000)', min: 2000, max: 10000 },
-    { id: 'PREMIUM', name: 'Premium ($10,000+)', min: 10000, max: null }
-  ];
+  const [expandedProducts, setExpandedProducts] = useState(new Set());
+  const [productPresentaciones, setProductPresentaciones] = useState({});
+  const [selectedPresentaciones, setSelectedPresentaciones] = useState(new Set());
+  const [presentacionesPrecios, setPresentacionesPrecios] = useState({});
+  const [lockedPresentaciones, setLockedPresentaciones] = useState(new Set());
 
   //  CARGAR DATOS REALES AL MONTAR COMPONENTE
   useEffect(() => {
@@ -157,7 +79,7 @@ const AdvancedFilters = ({
         return;
       }
       
-      console.log('🔄 Cargando presentaciones pre-seleccionadas:', preselectedPresentaciones);
+      console.log('¿Cargando presentaciones pre-seleccionadas:', preselectedPresentaciones);
       
       try {
         // Agrupar presentaciones por SKUID
@@ -250,14 +172,14 @@ const AdvancedFilters = ({
           return newPrecios;
         });
         
-        console.log('✅ Presentaciones cargadas:', {
+        console.log('Presentaciones cargadas:', {
           productos: skuidsUnicos.size,
           presentacionesBloqueadas: idsPresent.size,
           presentacionesTotales: todasLasPresentaciones.length
         });
         
       } catch (error) {
-        console.error('❌ Error cargando presentaciones pre-seleccionadas:', error);
+        console.error('Error cargando presentaciones pre-seleccionadas:', error);
       }
     };
 
@@ -266,7 +188,6 @@ const AdvancedFilters = ({
 
   const loadData = async () => {
     setLoading(true);
-    setError('');
     
     try {
       // Cargar productos y categorías en paralelo
@@ -275,68 +196,19 @@ const AdvancedFilters = ({
         categoryService.getAllCategories()
       ]);
 
-      // Extraer productos - Estructura específica de tu API
-      let productosData = [];
-      
-      // Estructura específica: response.data[0].dataRes
-      if (productosResponse?.data?.[0]?.dataRes) {
-        productosData = productosResponse.data[0].dataRes;
-      }
-      // Estructura opción 1: response.value[0].data[0].dataRes
-      else if (productosResponse?.value?.[0]?.data?.[0]?.dataRes) {
-        productosData = productosResponse.value[0].data[0].dataRes;
-      }
-      // Estructura opción 2: response.data (directo)
-      else if (Array.isArray(productosResponse?.data)) {
-        productosData = productosResponse.data;
-      }
-      // Estructura opción 3: response (directo)
-      else if (Array.isArray(productosResponse)) {
-        productosData = productosResponse;
-      }
-      // Estructura opción 4: response.dataRes (directo)
-      else if (Array.isArray(productosResponse?.dataRes)) {
-        productosData = productosResponse.dataRes;
-      }
+      // Extraer datos reales de la estructura conocida de la API
+      const productosData = productosResponse?.value?.[0]?.data?.[0]?.dataRes ?? [];
+      const categoriasData = categoriasResponse?.data?.[0]?.dataRes ?? [];
 
-      // Extraer categorías - Estructura específica de tu API
-      let categoriasData = [];
-      
-      // Estructura específica: response.data[0].dataRes
-      if (categoriasResponse?.data?.[0]?.dataRes) {
-        categoriasData = categoriasResponse.data[0].dataRes;
-      }
-      // Estructura opción 1: response.value[0].data[0].dataRes
-      else if (categoriasResponse?.value?.[0]?.data?.[0]?.dataRes) {
-        categoriasData = categoriasResponse.value[0].data[0].dataRes;
-      }
-      // Estructura opción 2: response.data (directo)
-      else if (Array.isArray(categoriasResponse?.data)) {
-        categoriasData = categoriasResponse.data;
-      }
-      // Estructura opción 3: response (directo)
-      else if (Array.isArray(categoriasResponse)) {
-        categoriasData = categoriasResponse;
-      }
-      // Estructura opción 4: response.dataRes (directo)
-      else if (Array.isArray(categoriasResponse?.dataRes)) {
-        categoriasData = categoriasResponse.dataRes;
-      }
-
-      console.log('Productos finales:', productosData.length, productosData.slice(0, 2));
-      console.log('Categorías finales:', categoriasData.length, categoriasData.slice(0, 2));
-
-      setProductos(productosData);
-      
       // Filtrar solo categorías activas
       const categoriasActivas = categoriasData.filter(cat => 
         cat.ACTIVED === true && cat.DELETED === false
       );
-      setCategorias(categoriasActivas);
 
-      // Extraer marcas únicas de los productos
+      // Extraer marcas únicas de los productos ACTIVOS
+      const productosActivos = productosData.filter(p => p.ACTIVED && !p.DELETED);
       const marcasUnicas = [...new Set(
-        productosData
+        productosActivos
           .filter(p => p.MARCA && p.MARCA.trim() !== '')
           .map(p => p.MARCA.trim())
       )];
@@ -344,11 +216,11 @@ const AdvancedFilters = ({
       const marcasConConteo = marcasUnicas.map(marca => ({ 
         id: marca.toUpperCase().replace(/\s+/g, '_'), 
         name: marca,
-        productos: productosData.filter(p => p.MARCA === marca).length
+        productos: productosActivos.filter(p => p.MARCA === marca).length
       }));
 
       setProductos(productosData);
-      setCategorias(categoriasData);
+      setCategorias(categoriasActivas);
       setMarcas(marcasConConteo);
 
       // Log de resumen una sola vez
@@ -356,63 +228,10 @@ const AdvancedFilters = ({
 
     } catch (err) {
       console.error('Error cargando datos:', err);
-      console.error('Stack trace:', err.stack);
-      setError('Error al cargar datos de productos y categorías: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
-
-  // Detectar temporada activa al cargar
-  useEffect(() => {
-    const hoy = new Date();
-    
-    // Buscar temporada activa (estamos dentro del rango)
-    let temporadaActivaEncontrada = TEMPORADAS.find(temp => {
-      const inicio = new Date(temp.fechaInicio);
-      const fin = new Date(temp.fechaFin);
-      return hoy >= inicio && hoy <= fin;
-    });
-    
-    // Si no hay temporada activa, buscar la próxima más cercana (dentro de 30 días)
-    if (!temporadaActivaEncontrada) {
-      const proximasTemporadas = TEMPORADAS
-        .filter(temp => {
-          const inicio = new Date(temp.fechaInicio);
-          const diffTime = inicio - hoy;
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays > 0 && diffDays <= 30; // Próximas 30 días
-        })
-        .sort((a, b) => new Date(a.fechaInicio) - new Date(b.fechaInicio));
-      
-      if (proximasTemporadas.length > 0) {
-        temporadaActivaEncontrada = {
-          ...proximasTemporadas[0],
-          esProxima: true,
-          diasRestantes: Math.ceil((new Date(proximasTemporadas[0].fechaInicio) - hoy) / (1000 * 60 * 60 * 24))
-        };
-      }
-    }
-    
-    if (temporadaActivaEncontrada) {
-      setTemporadaActiva(temporadaActivaEncontrada);
-      // Solo auto-seleccionar si es temporada activa (no próxima)
-      if (!temporadaActivaEncontrada.esProxima) {
-        handleFilterChange('temporada', temporadaActivaEncontrada.id);
-      }
-    }
-  }, []);
-
-  // Notificar cambios de filtros al componente padre
-  useEffect(() => {
-    if (onFiltersChange) {
-      const filteredProducts = getFilteredProducts();
-      onFiltersChange({
-        ...filters,
-        _filteredProducts: filteredProducts
-      });
-    }
-  }, [filters, productos]);
 
   const handleFilterChange = (filterKey, value) => {
     setFilters(prev => ({
@@ -451,43 +270,15 @@ const AdvancedFilters = ({
     return count;
   };
 
-  // CALCULAR PRODUCTOS FILTRADOS CON DATOS REALES
-  const getEstimatedProductCount = () => {
-    if (productos.length === 0) return 0;
-    
-    let filteredProducts = productos.filter(producto => {
-      // Solo productos activos
-      if (!producto.ACTIVED || producto.DELETED) return false;
-      
-      // Filtro por marca
-      if (filters.marcas.length > 0) {
-        if (!filters.marcas.includes(producto.MARCA)) return false;
-      }
-      
-      // Filtro por categoría (si tienes categorías en tus productos)
-      if (filters.categorias.length > 0) {
-        // Nota: Tus productos tienen CATEGORIAS como array vacío
-        // Puedes adaptarlo según tu estructura
-        if (producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS)) {
-          const hasCategory = producto.CATEGORIAS.some(cat => filters.categorias.includes(cat));
-          if (!hasCategory) return false;
-        }
-      }
-      
-      // Filtro por productos nuevos (últimos 30 días)
-      
-      return true;
-    });
-    
-    return filteredProducts.length;
-  };
-
   // OBTENER PRODUCTOS FILTRADOS COMPLETOS (con todos los filtros aplicados)
   const getFilteredProducts = () => {
     if (productos.length === 0) return [];
     
-    return productos.filter(producto => {
-      if (!producto.ACTIVED || producto.DELETED) return false;
+    const filtered = productos.filter(producto => {
+      // Solo mostrar productos activos y no eliminados
+      if (!producto.ACTIVED || producto.DELETED) {
+        return false;
+      }
       
       // Filtro de búsqueda por texto
       if (searchTerm) {
@@ -531,200 +322,8 @@ const AdvancedFilters = ({
       
       return true;
     });
-  };
-
-  // MANEJAR CREACIÓN DE PROMOCIÓN
-  const handleCreatePromotion = async () => {
-    // Obtener lista de presentaciones seleccionadas
-    const selectedPresentacionesList = [];
     
-    Object.entries(productPresentaciones).forEach(([skuid, presentaciones]) => {
-      presentaciones.forEach(presentacion => {
-        if (selectedPresentaciones.has(presentacion.IdPresentaOK)) {
-          const producto = productos.find(p => p.SKUID === skuid);
-          selectedPresentacionesList.push({
-            ...presentacion,
-            producto: producto
-          });
-        }
-      });
-    });
-    
-    if (selectedPresentacionesList.length === 0) {
-      await showAlert('Por favor selecciona al menos una presentación para crear la promoción.', 'Selección requerida');
-      return;
-    }
-    
-    // Generar título automático
-    const autoTitle = generatePromotionTitle(selectedPresentacionesList);
-    
-    // Configurar fechas por defecto
-    const today = new Date();
-    const oneMonthLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-    
-    setPromoFormData({
-      titulo: autoTitle,
-      descripcion: `Promoción aplicable a ${selectedPresentacionesList.length} presentación(es) seleccionada(s)`,
-      fechaInicio: today.toISOString().split('T')[0],
-      fechaFin: oneMonthLater.toISOString().split('T')[0],
-      tipoDescuento: 'PORCENTAJE',
-      descuentoPorcentaje: 10,
-      descuentoMonto: 0,
-      permiteAcumulacion: false,
-      limiteUsos: null
-    });
-    
-    setShowCreatePromoModal(true);
-  };
-
-  // MANEJAR ENVÍO DEL FORMULARIO DE PROMOCIÓN
-  const handleSubmitPromotion = async () => {
-    try {
-      setCreatingPromo(true);
-      
-      // Obtener lista de presentaciones seleccionadas
-      const selectedPresentacionesList = [];
-      
-      Object.entries(productPresentaciones).forEach(([skuid, presentaciones]) => {
-        presentaciones.forEach(presentacion => {
-          if (selectedPresentaciones.has(presentacion.IdPresentaOK)) {
-            const producto = productos.find(p => p.SKUID === skuid);
-            selectedPresentacionesList.push({
-              ...presentacion,
-              producto: producto
-            });
-          }
-        });
-      });
-      
-      // Validaciones básicas
-      if (!promoFormData.titulo.trim()) {
-        await showAlert('El título es obligatorio', 'Campo requerido');
-        return;
-      }
-      
-      if (!promoFormData.fechaInicio || !promoFormData.fechaFin) {
-        await showAlert('Las fechas de inicio y fin son obligatorias', 'Campos requeridos');
-        return;
-      }
-      
-      if (new Date(promoFormData.fechaFin) <= new Date(promoFormData.fechaInicio)) {
-        await showAlert('La fecha de fin debe ser posterior a la fecha de inicio', 'Fechas inválidas');
-        return;
-      }
-      
-      if (promoFormData.tipoDescuento === 'PORCENTAJE' && (promoFormData.descuentoPorcentaje <= 0 || promoFormData.descuentoPorcentaje > 100)) {
-        await showAlert('El porcentaje de descuento debe estar entre 1 y 100', 'Descuento inválido');
-        return;
-      }
-      
-      if (promoFormData.tipoDescuento === 'MONTO_FIJO' && promoFormData.descuentoMonto <= 0) {
-        await showAlert('El monto de descuento debe ser mayor a 0', 'Monto inválido');
-        return;
-      }
-      
-      // Crear promoción con presentaciones
-      const result = await promoService.createPromotionWithProducts(
-        promoFormData,
-        selectedPresentacionesList,
-        filters
-        // LoggedUser se maneja automáticamente por el interceptor de axios
-      );
-      
-      console.log('Promoción creada exitosamente:', result);
-      
-      // Mostrar mensaje de éxito
-      await showSuccess(`Promoción "${promoFormData.titulo}" creada exitosamente con ${selectedPresentacionesList.length} presentación(es)!`, 'Éxito');
-      
-      // Limpiar formulario y cerrar modal
-      setShowCreatePromoModal(false);
-      setSelectedProducts(new Set());
-      setSelectedPresentaciones(new Set());
-      
-      // Notificar al componente padre si hay callback
-      if (onFiltersChange) {
-        onFiltersChange({ 
-          ...filters, 
-          message: `Promoción creada: ${promoFormData.titulo}` 
-        });
-      }
-      
-    } catch (error) {
-      console.error('Error al crear promoción:', error);
-      await showError('Error al crear la promoción: ' + (error.message || 'Error desconocido'), 'Error');
-    } finally {
-      setCreatingPromo(false);
-    }
-  };
-
-  // GENERAR TÍTULO AUTOMÁTICO PARA LA PROMOCIÓN
-  const generatePromotionTitle = (selectedPresentacionesList = []) => {
-    const parts = [];
-    
-    if (temporadaActiva) {
-      parts.push(temporadaActiva.name);
-    }
-    
-    if (filters.marcas.length === 1) {
-      parts.push(filters.marcas[0]);
-    } else if (filters.marcas.length > 1) {
-      parts.push(`${filters.marcas.length} marcas`);
-    }
-    
-    if (filters.categorias.length === 1) {
-      const categoria = categorias.find(c => c.CATID === filters.categorias[0]);
-      if (categoria) parts.push(categoria.Nombre);
-    } else if (filters.categorias.length > 1) {
-      parts.push(`${filters.categorias.length} categorías`);
-    }
-    
-    // Si hay presentaciones específicas seleccionadas
-    if (selectedPresentacionesList.length === 1) {
-      const presentacion = selectedPresentacionesList[0];
-      parts.push(presentacion.NOMBREPRESENTACION || presentacion.producto?.PRODUCTNAME || 'Presentación');
-    } else if (selectedPresentacionesList.length > 1) {
-      // Contar productos únicos
-      const productosUnicos = new Set(selectedPresentacionesList.map(p => p.producto?.SKUID).filter(Boolean));
-      parts.push(`${selectedPresentacionesList.length} presentaciones de ${productosUnicos.size} producto(s)`);
-    }
-    
-    if (parts.length === 0) {
-      parts.push('Nueva Promoción');
-    }
-    
-    return parts.join(' - ');
-  };
-
-  // CONFIRMAR CREACIÓN DE PROMOCIÓN (función legacy para compatibilidad)
-  const handleConfirmPromotion = async () => {
-    // Aquí integrarías con tu sistema de creación de promociones
-    const promotionData = {
-      title: generatePromotionTitle(),
-      products: filteredProducts.map(p => ({
-        SKUID: p.SKUID,
-        PRODUCTNAME: p.PRODUCTNAME,
-        MARCA: p.MARCA,
-        PRECIO: p.PRECIO
-      })),
-      filters: filters,
-      temporada: temporadaActiva,
-      createdAt: new Date().toISOString()
-    };
-    
-    console.log('Datos de la nueva promoción:', promotionData);
-    
-    // Notificar al componente padre que se ha creado una promoción
-    if (onFiltersChange) {
-      onFiltersChange({
-        ...filters,
-        _promotionCreated: promotionData
-      });
-    }
-    
-    setShowPreviewModal(false);
-    
-    // Aquí podrías mostrar un mensaje de éxito o redirigir
-    await showSuccess(`Promoción creada con ${filteredProducts.length} productos!`, 'Éxito');
+    return filtered;
   };
 
   // FUNCIONES DE SELECCIÓN DE PRODUCTOS
@@ -734,114 +333,50 @@ const AdvancedFilters = ({
       return;
     }
     
-    setSelectedProducts(prev => {
-      const newSelection = new Set(prev);
-      const isSelecting = !newSelection.has(productId);
-      
-      if (isSelecting) {
+    const isCurrentlySelected = selectedProducts.has(productId);
+    
+    if (!isCurrentlySelected) {
+      // SELECCIONAR producto
+      setSelectedProducts(prev => {
+        const newSelection = new Set(prev);
         newSelection.add(productId);
-        // Cargar y seleccionar todas las presentaciones
-        loadAndSelectPresentaciones(productId);
-      } else {
-        newSelection.delete(productId);
-        // Deseleccionar todas las presentaciones del producto
-        deselectAllPresentacionesForProduct(productId);
+        return newSelection;
+      });
+      
+      // Cargar presentaciones si no están cargadas
+      if (!productPresentaciones[productId]) {
+        await loadPresentaciones(productId);
       }
       
-      return newSelection;
-    });
-  };
-
-  // Función auxiliar para cargar y seleccionar presentaciones automáticamente
-  const loadAndSelectPresentaciones = async (skuid) => {
-    // Si no están cargadas, cargarlas primero
-    if (!productPresentaciones[skuid]) {
-      setLoadingPresentaciones(prev => ({ ...prev, [skuid]: true }));
-      
-      try {
-        const presentaciones = await productPresentacionesService.getPresentacionesBySKUID(skuid);
-        
-        // Usar Map para evitar duplicados y mantener las bloqueadas
-        const presentacionesMap = new Map();
-        
-        // Primero agregar las presentaciones que ya teníamos (incluidas las bloqueadas)
-        if (productPresentaciones[skuid]) {
-          productPresentaciones[skuid].forEach(p => {
-            presentacionesMap.set(p.IdPresentaOK, p);
-          });
-        }
-        
-        // Luego agregar/actualizar con las del servidor
-        if (presentaciones && presentaciones.length > 0) {
-          presentaciones.forEach(p => {
-            if (presentacionesMap.has(p.IdPresentaOK)) {
-              const existing = presentacionesMap.get(p.IdPresentaOK);
-              presentacionesMap.set(p.IdPresentaOK, {
-                ...p,
-                ...existing,
-              });
-            } else {
-              presentacionesMap.set(p.IdPresentaOK, p);
-            }
-          });
-        }
-        
-        const presentacionesCombinadas = Array.from(presentacionesMap.values());
-        
-        // Actualizar el estado de presentaciones
-        setProductPresentaciones(prev => ({
-          ...prev,
-          [skuid]: presentacionesCombinadas
-        }));
-        
-        // Seleccionar automáticamente todas las presentaciones activas
-        const activePresentaciones = presentacionesCombinadas.filter(p => p.ACTIVED);
-        setSelectedPresentaciones(prev => {
-          const newSelection = new Set(prev);
-          activePresentaciones.forEach(p => newSelection.add(p.IdPresentaOK));
-          return newSelection;
-        });
-        
-        // Cargar precios para cada presentación en segundo plano (no bloqueante)
-        if (presentacionesCombinadas && presentacionesCombinadas.length > 0) {
-          const preciosPromises = presentacionesCombinadas.map(async (presentacion) => {
-            try {
-              const precios = await preciosItemsService.getPricesByIdPresentaOK(presentacion.IdPresentaOK);
-              return { idPresentaOK: presentacion.IdPresentaOK, precios };
-            } catch (error) {
-              console.error(`Error loading prices for ${presentacion.IdPresentaOK}:`, error);
-              return { idPresentaOK: presentacion.IdPresentaOK, precios: [] };
-            }
-          });
-          
-          Promise.all(preciosPromises).then(preciosResults => {
-            setPresentacionesPrecios(prev => {
-              const newPrecios = { ...prev };
-              preciosResults.forEach(({ idPresentaOK, precios }) => {
-                newPrecios[idPresentaOK] = precios;
-              });
-              return newPrecios;
-            });
-          });
-        }
-      } catch (error) {
-        console.error(`Error loading presentaciones for ${skuid}:`, error);
-        setProductPresentaciones(prev => ({
-          ...prev,
-          [skuid]: []
-        }));
-      } finally {
-        setLoadingPresentaciones(prev => ({ ...prev, [skuid]: false }));
-      }
-    } else {
-      // Si ya están cargadas, solo seleccionar las activas
-      const presentaciones = productPresentaciones[skuid] || [];
-      const activePresentaciones = presentaciones.filter(p => p.ACTIVED);
+      // Seleccionar todas las presentaciones activas del producto
+      const presentaciones = productPresentaciones[productId] || [];
+      const presentacionesActivas = presentaciones.filter(p => 
+        p.ACTIVED && !lockedPresentaciones.has(p.IdPresentaOK)
+      );
       
       setSelectedPresentaciones(prev => {
+        const newSel = new Set(prev);
+        presentacionesActivas.forEach(p => newSel.add(p.IdPresentaOK));
+        return newSel;
+      });
+    } else {
+      // DESELECCIONAR producto
+      setSelectedProducts(prev => {
         const newSelection = new Set(prev);
-        activePresentaciones.forEach(p => newSelection.add(p.IdPresentaOK));
+        newSelection.delete(productId);
         return newSelection;
+      });
+      
+      // Deseleccionar todas las presentaciones del producto (excepto las bloqueadas)
+      const presentaciones = productPresentaciones[productId] || [];
+      setSelectedPresentaciones(prev => {
+        const newSel = new Set(prev);
+        presentaciones.forEach(p => {
+          if (!lockedPresentaciones.has(p.IdPresentaOK)) {
+            newSel.delete(p.IdPresentaOK);
+          }
+        });
+        return newSel;
       });
     }
   };
@@ -852,7 +387,16 @@ const AdvancedFilters = ({
     
     // Cargar y seleccionar todas las presentaciones de todos los productos
     for (const skuid of allProductIds) {
-      await loadAndSelectPresentaciones(skuid);
+      if (!productPresentaciones[skuid]) {
+        await loadPresentaciones(skuid);
+      }
+      const presentaciones = productPresentaciones[skuid] || [];
+      const activePresentaciones = presentaciones.filter(p => p.ACTIVED);
+      setSelectedPresentaciones(prev => {
+        const newSelection = new Set(prev);
+        activePresentaciones.forEach(p => newSelection.add(p.IdPresentaOK));
+        return newSelection;
+      });
     }
   };
 
@@ -863,8 +407,6 @@ const AdvancedFilters = ({
     // Limpiar todas las presentaciones seleccionadas
     setSelectedPresentaciones(new Set());
   };
-
-  const getSelectedProductsCount = () => selectedProducts.size;
 
   // FUNCIONES PARA MANEJAR PRESENTACIONES
   const toggleProductExpansion = async (productId) => {
@@ -886,8 +428,6 @@ const AdvancedFilters = ({
   };
 
   const loadPresentaciones = async (skuid) => {
-    setLoadingPresentaciones(prev => ({ ...prev, [skuid]: true }));
-    
     try {
       const presentaciones = await productPresentacionesService.getPresentacionesBySKUID(skuid);
       
@@ -953,8 +493,6 @@ const AdvancedFilters = ({
         ...prev,
         [skuid]: []
       }));
-    } finally {
-      setLoadingPresentaciones(prev => ({ ...prev, [skuid]: false }));
     }
   };
 
@@ -988,27 +526,6 @@ const AdvancedFilters = ({
           return newProducts;
         });
       }
-      return newSelection;
-    });
-  };
-
-  const selectAllPresentacionesForProduct = (skuid) => {
-    const presentaciones = productPresentaciones[skuid] || [];
-    const activePresentaciones = presentaciones.filter(p => p.ACTIVED);
-    
-    setSelectedPresentaciones(prev => {
-      const newSelection = new Set(prev);
-      activePresentaciones.forEach(p => newSelection.add(p.IdPresentaOK));
-      return newSelection;
-    });
-  };
-
-  const deselectAllPresentacionesForProduct = (skuid) => {
-    const presentaciones = productPresentaciones[skuid] || [];
-    
-    setSelectedPresentaciones(prev => {
-      const newSelection = new Set(prev);
-      presentaciones.forEach(p => newSelection.delete(p.IdPresentaOK));
       return newSelection;
     });
   };
@@ -1081,9 +598,8 @@ const AdvancedFilters = ({
         width: '100%',
         flex: 1,
         minHeight: 0,
-        maxHeight: '100%',
         alignItems: 'stretch',
-        overflow: 'hidden'
+        // overflow: 'hidden'
       }}>
         
         {/* COLUMNA IZQUIERDA - FILTROS */}
@@ -1136,24 +652,13 @@ const AdvancedFilters = ({
           }
         />
 
-        {error && (
-          <MessageStrip 
-            type="Negative" 
-            style={{ margin: '1rem' }}
-          >
-            {error}
-          </MessageStrip>
-        )}
-
-      {filtersExpanded && (
         <div style={{ 
           padding: '0.75rem',
           paddingBottom: '1.5rem',
           flex: '1 1 auto',
           overflowY: 'auto',
           overflowX: 'hidden',
-          minHeight: 0,
-          maxHeight: 'calc(100vh - 180px)'
+          minHeight: 0
         }}>
           <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
             
@@ -1240,30 +745,7 @@ const AdvancedFilters = ({
             {/* FILTROS POR PRECIO */}
             <div style={{ marginBottom: '1rem' }}>
               <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Rango de Precios:</Label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                <div>
-                  <Select
-                    onChange={(e) => {
-                      const rango = RANGOS_PRECIOS.find(r => r.id === e.target.value);
-                      if (rango) {
-                        handleFilterChange('precioMin', rango.min.toString());
-                        handleFilterChange('precioMax', rango.max ? rango.max.toString() : '');
-                      } else {
-                        handleFilterChange('precioMin', '');
-                        handleFilterChange('precioMax', '');
-                      }
-                    }}
-                    style={{ width: '100%' }}
-                  >
-                    <Option value="">Seleccionar rango...</Option>
-                    {RANGOS_PRECIOS.map(rango => (
-                      <Option key={rango.id} value={rango.id}>
-                        {rango.name}
-                      </Option>
-                    ))}
-                  </Select>
-                </div>
-                
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <Input
                     type="number"
@@ -1311,15 +793,14 @@ const AdvancedFilters = ({
             </div>
 
           </FlexBox>
-          </div>
-        )}
+        </div>
         </Card>
 
         {/* COLUMNA DERECHA - PRODUCTOS ENCONTRADOS */}
         <Card style={{ 
           flex: '1',
           minWidth: '400px',
-          height: '100%',
+          maxHeight: 'calc(100vh - 180px)',
           borderRadius: '8px',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
           border: '1px solid #e0e6ed',
@@ -1337,19 +818,12 @@ const AdvancedFilters = ({
             overflowY: 'auto',
             overflowX: 'hidden',
             minHeight: 0,
-            maxHeight: 'calc(100vh - 150px)'
+            maxHeight: '60vh'
           }}>
             {loading ? (
               <FlexBox justifyContent="Center" style={{ padding: '2rem' }}>
                 <BusyIndicator active size="Large" />
               </FlexBox>
-            ) : getFilteredProducts().length === 0 ? (
-              <MessageStrip type="Information" icon="search">
-                {getActiveFiltersCount() === 0 ? 
-                  'Aplica filtros para ver productos específicos' : 
-                  'No hay productos que coincidan con los filtros seleccionados'
-                }
-              </MessageStrip>
             ) : (
               <>
                 {/* Buscador de productos */}
@@ -1388,41 +862,50 @@ const AdvancedFilters = ({
                   )}
                 </FlexBox>
 
-                {/* Controles de selección */}
-                <FlexBox justifyContent="SpaceBetween" alignItems="Center" style={{ 
-                  padding: '0.75rem', 
-                  backgroundColor: '#f8f9fa', 
-                  borderRadius: '8px',
-                  marginBottom: '0.75rem',
-                  border: '1px solid #e9ecef'
-                }}>
-                  <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
-                    <CheckBox 
-                      checked={getSelectedProductsCount() === getFilteredProducts().length && getFilteredProducts().length > 0}
-                      indeterminate={getSelectedProductsCount() > 0 && getSelectedProductsCount() < getFilteredProducts().length}
-                      onChange={(e) => e.target.checked ? selectAllProducts() : deselectAllProducts()}
-                      text={`Seleccionar todos (${getFilteredProducts().length})`}
-                    />
-                  </FlexBox>
-                  <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
-                    <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                      {selectedPresentaciones.size} presentación(es) seleccionada(s)
-                    </Text>
-                    {getSelectedProductsCount() > 0 && (
-                      <Button 
-                        design="Transparent"
-                        icon="reset"
-                        onClick={deselectAllProducts}
-                        style={{ color: '#666' }}
-                      >
-                        Limpiar selección
-                      </Button>
-                    )}
-                  </FlexBox>
-                </FlexBox>
+                {getFilteredProducts().length === 0 ? (
+                  <MessageStrip type="Information" icon="search" style={{ marginTop: '1rem' }}>
+                    {getActiveFiltersCount() === 0 ? 
+                      'Aplica filtros para ver productos específicos' : 
+                      'No hay productos que coincidan con los filtros seleccionados'
+                    }
+                  </MessageStrip>
+                ) : (
+                  <>
+                    {/* Controles de selección */}
+                    <FlexBox justifyContent="SpaceBetween" alignItems="Center" style={{ 
+                      padding: '0.0rem', 
+                      backgroundColor: '#f8f9fa', 
+                      borderRadius: '8px',
+                      marginBottom: '0.75rem',
+                      border: '1px solid #e9ecef',
+                    }}>
+                      <FlexBox alignItems="Center" style={{ gap: '0.5rem'}}>
+                        <CheckBox 
+                          checked={selectedProducts.size === getFilteredProducts().length && getFilteredProducts().length > 0}
+                          indeterminate={selectedProducts.size > 0 && selectedProducts.size < getFilteredProducts().length}
+                          onChange={(e) => e.target.checked ? selectAllProducts() : deselectAllProducts()}
+                          text={`Seleccionar todos (${getFilteredProducts().length})`}
+                        />
+                      </FlexBox>
+                      <FlexBox alignItems="Center" style={{ gap: '0.5rem', paddingRight: '.5rem'}}>
+                        <Text style={{ fontSize: '0.875rem', color: '#666' }}>
+                          {selectedPresentaciones.size} presentación(es) seleccionada(s)
+                        </Text>
+                        {selectedProducts.size > 0 && (
+                          <Button 
+                            design="Transparent"
+                            icon="reset"
+                            onClick={deselectAllProducts}
+                            style={{ color: '#666' }}
+                          >
+                            Limpiar selección
+                          </Button>
+                        )}
+                      </FlexBox>
+                    </FlexBox>
 
                 <FlexBox direction="Column" style={{ 
-                  gap: '0.5rem'
+                  gap: '0.5rem',
                 }}>
                   {getFilteredProducts().map(producto => (
                   <div key={producto.SKUID}>
@@ -1453,7 +936,7 @@ const AdvancedFilters = ({
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
-                                flex: 1
+                                flex: 1,
                               }}>
                                 {producto.PRODUCTNAME || `Producto ${producto.SKUID}` || 'Producto sin nombre'}
                               </Title>
@@ -1494,18 +977,11 @@ const AdvancedFilters = ({
                         borderRadius: '6px',
                         border: '1px solid #e0e6ed'
                       }}>
-                        {loadingPresentaciones[producto.SKUID] ? (
-                          <FlexBox justifyContent="Center" style={{ padding: '0.5rem' }}>
-                            <BusyIndicator active size="Small" />
-                            <Text style={{ marginLeft: '0.5rem', color: '#666', fontSize: '0.875rem' }}>Cargando...</Text>
-                          </FlexBox>
+                        {(!productPresentaciones[producto.SKUID] || productPresentaciones[producto.SKUID].length === 0) ? (
+                          <MessageStrip type="Information">
+                            No hay presentaciones disponibles
+                          </MessageStrip>
                         ) : (
-                          <>
-                            {(!productPresentaciones[producto.SKUID] || productPresentaciones[producto.SKUID].length === 0) ? (
-                              <MessageStrip type="Information">
-                                No hay presentaciones disponibles
-                              </MessageStrip>
-                            ) : (
                               <FlexBox direction="Column" style={{ gap: '0.35rem' }}>
                                 {productPresentaciones[producto.SKUID]
                                   .filter(p => p.ACTIVED || lockedPresentaciones.has(p.IdPresentaOK))
@@ -1569,330 +1045,19 @@ const AdvancedFilters = ({
                                   })}
                               </FlexBox>
                             )}
-                          </>
-                        )}
                       </div>
                     )}
                   </div>
                 ))}
                 </FlexBox>
+                  </>
+                )}
               </>
             )}
           </div>
         </Card>
 
       </FlexBox>
-
-      {/* MODAL DE PREVIEW */}
-      <Dialog
-        open={showPreviewModal}
-        headerText="Crear Nueva Promoción"
-        style={{ width: '80vw', height: '70vh' }}
-        footer={
-          <Bar
-            endContent={
-              <FlexBox style={{ gap: '0.5rem' }}>
-                <Button 
-                  design="Transparent"
-                  onClick={() => setShowPreviewModal(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  design="Emphasized"
-                  onClick={handleConfirmPromotion}
-                  disabled={filteredProducts.length === 0}
-                >
-                  Crear Promoción
-                </Button>
-              </FlexBox>
-            }
-          />
-        }
-      >
-        <div style={{ padding: '1rem', maxHeight: '60vh', overflowY: 'auto' }}>
-          <FlexBox direction="Column" style={{ gap: '1rem' }}>
-            
-            {/* Título sugerido */}
-            <Card>
-              <div style={{ padding: '1rem' }}>
-                <Title level="H4" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Icon name="edit" style={{ fontSize: '1.2rem', color: '#667eea' }} />
-                  Título Sugerido
-                </Title>
-                <Text style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#0f828f' }}>
-                  {generatePromotionTitle()}
-                </Text>
-              </div>
-            </Card>
-
-            {/* Resumen de filtros aplicados */}
-            <Card>
-              <div style={{ padding: '1rem' }}>
-                <Title level="H4" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Icon name="filter" style={{ fontSize: '1.2rem', color: '#667eea' }} />
-                  Filtros Aplicados
-                </Title>
-                <FlexBox style={{ gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-                  
-                  {temporadaActiva && (
-                    <ObjectStatus state="Information">
-                      {temporadaActiva.icono} {temporadaActiva.name}
-                    </ObjectStatus>
-                  )}
-                  
-                  {filters.marcas.length > 0 && (
-                    <ObjectStatus state="Warning">
-                      {filters.marcas.length} marca{filters.marcas.length > 1 ? 's' : ''}
-                    </ObjectStatus>
-                  )}
-                  
-                  {filters.categorias.length > 0 && (
-                    <ObjectStatus state="Success">
-                      {filters.categorias.length} categoría{filters.categorias.length > 1 ? 's' : ''}
-                    </ObjectStatus>
-                  )}
-                  
-                  {(filters.precioMin || filters.precioMax) && (
-                    <ObjectStatus state="Neutral">
-                      ${filters.precioMin || '0'} - ${filters.precioMax || '∞'}
-                    </ObjectStatus>
-                  )}
-                  
-                </FlexBox>
-              </div>
-            </Card>
-
-            {/* Vista previa de productos */}
-            <Card>
-              <CardHeader titleText={`Productos Incluidos (${filteredProducts.length})`} />
-              <div style={{ padding: '1rem', maxHeight: '400px', overflowY: 'auto' }}>
-                {filteredProducts.length > 0 ? (
-                  <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-                    {filteredProducts.slice(0, 10).map((producto, index) => (
-                      <Card key={producto.SKUID || index} style={{ padding: '0.75rem' }}>
-                        <FlexBox justifyContent="SpaceBetween" alignItems="Center">
-                          <FlexBox alignItems="Center" style={{ gap: '0.75rem', flex: 1 }}>
-                            <Avatar 
-                              size="XS" 
-                              initials={producto.PRODUCTNAME?.charAt(0) || 'P'}
-                              colorScheme="Accent1"
-                            />
-                            <FlexBox direction="Column" style={{ gap: '0.25rem', flex: 1 }}>
-                              <Text style={{ fontWeight: 'bold' }}>
-                                {producto.PRODUCTNAME || 'Sin nombre'}
-                              </Text>
-                              <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                                SKU: {producto.SKUID} | Marca: {producto.MARCA || 'Sin marca'}
-                              </Text>
-                            </FlexBox>
-                          </FlexBox>
-                          <ObjectStatus state="Information">
-                            ${producto.PRECIO?.toLocaleString() || 'N/A'}
-                          </ObjectStatus>
-                        </FlexBox>
-                      </Card>
-                    ))}
-                  </FlexBox>
-                ) : (
-                  <MessageStrip type="Warning">
-                    No hay productos que coincidan con los filtros seleccionados.
-                  </MessageStrip>
-                )}
-                
-                {filteredProducts.length > 10 && (
-                  <MessageStrip type="Information" style={{ marginTop: '1rem' }}>
-                    Mostrando 10 de {filteredProducts.length} productos. 
-                    La promoción incluirá todos los productos filtrados.
-                  </MessageStrip>
-                )}
-              </div>
-            </Card>
-            
-          </FlexBox>
-        </div>
-      </Dialog>
-
-      {/* MODAL DE CREACIÓN DE PROMOCIONES */}
-      <Dialog 
-        open={showCreatePromoModal} 
-        onAfterClose={() => setShowCreatePromoModal(false)}
-        headerText="Crear Nueva Promoción"
-        style={{ width: '600px', maxHeight: '90vh' }}
-      >
-        <div style={{ padding: '1rem', maxHeight: '70vh', overflowY: 'auto' }}>
-          <FlexBox direction="Column" style={{ gap: '1rem' }}>
-            
-            {/* Título */}
-            <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-              <Label required>Título de la Promoción</Label>
-              <Input 
-                value={promoFormData.titulo}
-                onChange={(e) => setPromoFormData(prev => ({
-                  ...prev,
-                  titulo: e.target.value
-                }))}
-                placeholder="Ej: Promoción Halloween 2025"
-              />
-            </FlexBox>
-
-            {/* Descripción */}
-            <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-              <Label>Descripción</Label>
-              <TextArea 
-                value={promoFormData.descripcion}
-                onChange={(e) => setPromoFormData(prev => ({
-                  ...prev,
-                  descripcion: e.target.value
-                }))}
-                placeholder="Descripción opcional de la promoción"
-                rows={3}
-              />
-            </FlexBox>
-
-            {/* Fechas */}
-            <FlexBox style={{ gap: '1rem' }}>
-              <FlexBox direction="Column" style={{ gap: '0.5rem', flex: 1 }}>
-                <Label required>Fecha de Inicio</Label>
-                <DatePicker 
-                  value={promoFormData.fechaInicio}
-                  onChange={(e) => setPromoFormData(prev => ({
-                    ...prev,
-                    fechaInicio: e.target.value
-                  }))}
-                />
-              </FlexBox>
-              <FlexBox direction="Column" style={{ gap: '0.5rem', flex: 1 }}>
-                <Label required>Fecha de Fin</Label>
-                <DatePicker 
-                  value={promoFormData.fechaFin}
-                  onChange={(e) => setPromoFormData(prev => ({
-                    ...prev,
-                    fechaFin: e.target.value
-                  }))}
-                />
-              </FlexBox>
-            </FlexBox>
-
-            {/* Tipo de Descuento */}
-            <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-              <Label>Tipo de Descuento</Label>
-              <FlexBox style={{ gap: '1rem' }}>
-                <RadioButton 
-                  text="Porcentaje (%)"
-                  checked={promoFormData.tipoDescuento === 'PORCENTAJE'}
-                  onChange={() => setPromoFormData(prev => ({
-                    ...prev,
-                    tipoDescuento: 'PORCENTAJE'
-                  }))}
-                />
-                <RadioButton 
-                  text="Monto Fijo ($)"
-                  checked={promoFormData.tipoDescuento === 'MONTO_FIJO'}
-                  onChange={() => setPromoFormData(prev => ({
-                    ...prev,
-                    tipoDescuento: 'MONTO_FIJO'
-                  }))}
-                />
-              </FlexBox>
-            </FlexBox>
-
-            {/* Valor del Descuento */}
-            {promoFormData.tipoDescuento === 'PORCENTAJE' ? (
-              <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-                <Label required>Porcentaje de Descuento (%)</Label>
-                <Input 
-                  type="Number"
-                  value={promoFormData.descuentoPorcentaje}
-                  onChange={(e) => setPromoFormData(prev => ({
-                    ...prev,
-                    descuentoPorcentaje: parseInt(e.target.value) || 0
-                  }))}
-                  placeholder="10"
-                  min="1"
-                  max="100"
-                />
-              </FlexBox>
-            ) : (
-              <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-                <Label required>Monto de Descuento ($)</Label>
-                <Input 
-                  type="Number"
-                  value={promoFormData.descuentoMonto}
-                  onChange={(e) => setPromoFormData(prev => ({
-                    ...prev,
-                    descuentoMonto: parseFloat(e.target.value) || 0
-                  }))}
-                  placeholder="100.00"
-                  min="0.01"
-                  step="0.01"
-                />
-              </FlexBox>
-            )}
-
-            {/* Configuraciones Adicionales */}
-            <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-              <CheckBox 
-                text="Permite acumulación con otras promociones"
-                checked={promoFormData.permiteAcumulacion}
-                onChange={(e) => setPromoFormData(prev => ({
-                  ...prev,
-                  permiteAcumulacion: e.target.checked
-                }))}
-              />
-            </FlexBox>
-
-            <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
-              <Label>Límite de Usos (opcional)</Label>
-              <Input 
-                type="Number"
-                value={promoFormData.limiteUsos || ''}
-                onChange={(e) => setPromoFormData(prev => ({
-                  ...prev,
-                  limiteUsos: e.target.value ? parseInt(e.target.value) : null
-                }))}
-                placeholder="Sin límite"
-                min="1"
-              />
-            </FlexBox>
-
-            {/* Resumen */}
-            <MessageStrip type="Information">
-              <strong>Resumen:</strong> Se aplicará a {selectedPresentaciones.size} presentación(es) seleccionada(s)
-            </MessageStrip>
-
-          </FlexBox>
-        </div>
-
-        <Bar 
-          slot="footer"
-          endContent={
-            <>
-              <Button 
-                onClick={() => setShowCreatePromoModal(false)}
-                design="Transparent"
-                disabled={creatingPromo}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                onClick={handleSubmitPromotion}
-                design="Emphasized"
-                disabled={creatingPromo}
-              >
-                {creatingPromo ? (
-                  <>
-                    <BusyIndicator size="Small" style={{ marginRight: '0.5rem' }} />
-                    Creando...
-                  </>
-                ) : (
-                  'Crear Promoción'
-                )}
-              </Button>
-            </>
-          }
-        />
-      </Dialog>
 
       {/* Diálogo personalizado */}
       <CustomDialog
