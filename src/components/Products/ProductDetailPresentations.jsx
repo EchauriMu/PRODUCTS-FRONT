@@ -59,7 +59,7 @@ const ProductDetailPresentations = ({
       setLoadingFiles(true);
       setErrorFiles(null);
       productFilesService
-        .getFilesByIdPresentaOK(selectedPresenta.IdPresentaOK, 'EECHAURIM')
+        .getFilesByIdPresentaOK(selectedPresenta.IdPresentaOK)
         .then(setFiles)
         .catch(() => setErrorFiles('Error al cargar archivos'))
         .finally(() => setLoadingFiles(false));

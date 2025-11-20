@@ -49,7 +49,7 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
       setLoadingPresentaciones(true);
       setErrorPresentaciones(null);
       productPresentacionesService
-        .getPresentacionesBySKUID(product.SKUID, 'EECHAURIM')
+        .getPresentacionesBySKUID(product.SKUID)
         .then((dataRes) => {
           setPresentaciones(dataRes);
         })
