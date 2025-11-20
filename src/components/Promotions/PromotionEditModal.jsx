@@ -31,8 +31,14 @@ import promoService from '../../api/promoService';
 import productService from '../../api/productService';
 import productPresentacionesService from '../../api/productPresentacionesService';
 import AdvancedFilters from './AdvancedFilters';
+import CustomDialog from '../common/CustomDialog';
+import { useDialog } from '../../hooks/useDialog';
 
 const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
+  const { dialogState, showConfirm, showWarning, showSuccess, closeDialog } = useDialog();
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
   const [editData, setEditData] = useState({
     titulo: '',
     descripcion: '',
@@ -60,6 +66,12 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   
   // Estados para presentaciones expandidas en la lista de productos de la promoción
   const [expandedProductsInList, setExpandedProductsInList] = useState(new Set());
+  
+  // Resetear página al cambiar búsqueda
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+  
   const [productPresentacionesInList, setProductPresentacionesInList] = useState({});
   const [loadingPresentacionesInList, setLoadingPresentacionesInList] = useState({});
   
@@ -101,7 +113,8 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         tipoDescuento: promotion.TipoDescuento || 'PORCENTAJE',
         descuentoPorcentaje: promotion['Descuento%'] || promotion.DescuentoPorcentaje || 0,
         descuentoMonto: promotion.DescuentoMonto || 0,
-        actived: promotion.ACTIVED !== false,
+        // Solo activa si ACTIVED es true Y NO está marcada como DELETED
+        actived: promotion.ACTIVED === true && promotion.DELETED !== true,
         skuids: []
       });
 
@@ -197,6 +210,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
       console.log('📋 Presentaciones a enviar:', presentacionesAplicables);
 
       // Preparar datos para la API - SOLO campos modificables
+      // El campo ACTIVED se actualiza con updatePromotion (el switch controla esto)
       const updateData = {
         Titulo: editData.titulo,
         Descripcion: editData.descripcion,
@@ -233,30 +247,13 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm(`¿Estás seguro de que quieres desactivar la promoción "${editData.titulo}"? Se marcará como eliminada pero podrás reactivarla después.`)) {
-      return;
-    }
-
-    setDeleting(true);
-    try {
-      // Llamar al servicio de eliminación lógica (desactivación)
-      const response = await promoService.deletePromotion(promotion.IdPromoOK);
-      
-      console.log('✅ Promoción desactivada:', response);
-      
-      onDelete && onDelete(promotion);
-      onClose();
-    } catch (err) {
-      console.error('❌ Error al desactivar:', err);
-      setError('Error al desactivar la promoción: ' + err.message);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   const handleDeleteHard = async () => {
-    if (!window.confirm(`⚠️ ADVERTENCIA: ¿Estás seguro de que quieres eliminar PERMANENTEMENTE la promoción "${editData.titulo}"? Esta acción NO se puede deshacer.`)) {
+    const confirmed = await showWarning(
+      `¿Estás seguro de que quieres eliminar PERMANENTEMENTE la promoción "${editData.titulo}"? Esta acción NO se puede deshacer.`,
+      'Advertencia: Eliminar Permanentemente',
+      { confirmText: 'Eliminar', cancelText: 'Cancelar' }
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -277,27 +274,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     }
   };
 
-  const handleActivate = async () => {
-    if (!window.confirm(`¿Estás seguro de que quieres activar/reactivar la promoción "${editData.titulo}"?`)) {
-      return;
-    }
 
-    setDeleting(true);
-    try {
-      // Llamar al servicio de activación
-      const response = await promoService.activatePromotion(promotion.IdPromoOK);
-      
-      console.log('✅ Promoción activada:', response);
-      
-      onSave && onSave({ ...promotion, ACTIVED: true, DELETED: false });
-      onClose();
-    } catch (err) {
-      console.error('❌ Error al activar:', err);
-      setError('Error al activar la promoción: ' + err.message);
-    } finally {
-      setDeleting(false);
-    }
-  };
 
   // DEPRECATED: Ya no se usa, ahora trabajamos con presentaciones
   // const toggleProductSelection = (productId) => {
@@ -325,9 +302,9 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   };
 
   // Función para agregar las presentaciones filtradas a la promoción
-  const handleAddFilteredProducts = () => {
+  const handleAddFilteredProducts = async () => {
     if (!Array.isArray(filteredProductsToAdd) || filteredProductsToAdd.length === 0) {
-      alert('No hay presentaciones seleccionadas para agregar');
+      await showSuccess('No hay presentaciones seleccionadas para agregar', 'Información');
       return;
     }
 
@@ -344,9 +321,9 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     setFilteredProductsToAdd([]);
     
     if (newPresentaciones.length > 0) {
-      alert(`Se agregaron ${newPresentaciones.length} presentación(es) a la promoción`);
+      await showSuccess(`Se agregaron ${newPresentaciones.length} presentación(es) a la promoción`, 'Éxito');
     } else {
-      alert('Las presentaciones ya estaban incluidas en la promoción');
+      await showSuccess('Las presentaciones ya estaban incluidas en la promoción', 'Información');
     }
   };
 
@@ -483,11 +460,14 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   };
 
   // Eliminar presentaciones seleccionadas
-  const removeSelectedPresentaciones = () => {
+  const removeSelectedPresentaciones = async () => {
     if (selectedPresentacionesForDelete.size === 0) return;
     
-    const confirmMessage = `¿Estás seguro de eliminar ${selectedPresentacionesForDelete.size} presentación(es) de la promoción?`;
-    if (!window.confirm(confirmMessage)) return;
+    const confirmed = await showConfirm(
+      `¿Estás seguro de eliminar ${selectedPresentacionesForDelete.size} presentación(es) de la promoción?`,
+      'Eliminar Presentaciones'
+    );
+    if (!confirmed) return;
     
     const updated = selectedPresentaciones.filter(p => !selectedPresentacionesForDelete.has(p.IdPresentaOK));
     setSelectedPresentaciones(updated);
@@ -770,16 +750,15 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
           >
             <div style={{ 
               padding: '0.4rem',
-              height: '100%',
+              height: 'calc(96vh - 200px)',
               display: 'flex',
               flexDirection: 'column',
-              overflow: 'hidden'
+              overflow: 'auto'
             }}>
               <Card style={{ 
                 display: 'flex',
                 flexDirection: 'column',
-                height: '100%',
-                overflow: 'hidden'
+                minHeight: 'fit-content'
               }}>
                 <CardHeader 
                   titleText={`Presentaciones en la Promoción (${selectedPresentaciones.length})`}
@@ -813,10 +792,15 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                     </FlexBox>
                   }
                 />
-                <div style={{ padding: '0.4rem', flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ 
+                  padding: '0.4rem', 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  gap: '0.5rem'
+                }}>
                   
                   {/* Buscador */}
-                  <FlexBox alignItems="Center" style={{ gap: '0.4rem', marginBottom: '0.5rem', flexShrink: 0 }}>
+                  <FlexBox alignItems="Center" style={{ gap: '0.4rem' }}>
                     <Label style={{ margin: 0 }}>Buscar productos:</Label>
                     <div style={{ flex: 1 }}>
                       <Input
@@ -834,31 +818,31 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                       <BusyIndicator size="Large" />
                     </FlexBox>
                   ) : (
-                    <div style={{ 
-                      flexGrow: 1,
-                      overflowY: 'auto',
-                      overflowX: 'hidden',
-                      border: '1px solid #e8e8e8',
-                      borderRadius: '4px',
-                      padding: '0.25rem'
-                    }}>
-                      {getProductsWithPresentaciones().length === 0 ? (
-                        <FlexBox 
-                          justifyContent="Center" 
-                          alignItems="Center" 
-                          style={{ padding: '2rem', flexDirection: 'column', gap: '1rem' }}
-                        >
-                          <Icon name="product" style={{ fontSize: '3rem', color: '#ccc' }} />
-                          <Text style={{ color: '#666', textAlign: 'center' }}>
-                            {selectedPresentaciones.length === 0 
-                              ? 'No hay presentaciones en esta promoción. Usa el botón "Agregar Productos" para incluir presentaciones.'
-                              : 'No se encontraron presentaciones con ese criterio de búsqueda.'
-                            }
-                          </Text>
-                        </FlexBox>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                          {getProductsWithPresentaciones().map((product) => {
+                    <>
+                      <div style={{ 
+                        border: '1px solid #e8e8e8',
+                        borderRadius: '4px',
+                        padding: '0.5rem'
+                      }}>
+                        {getProductsWithPresentaciones().length === 0 ? (
+                          <FlexBox 
+                            justifyContent="Center" 
+                            alignItems="Center" 
+                            style={{ padding: '2rem', flexDirection: 'column', gap: '1rem' }}
+                          >
+                            <Icon name="product" style={{ fontSize: '3rem', color: '#ccc' }} />
+                            <Text style={{ color: '#666', textAlign: 'center' }}>
+                              {selectedPresentaciones.length === 0 
+                                ? 'No hay presentaciones en esta promoción. Usa el botón "Agregar Productos" para incluir presentaciones.'
+                                : 'No se encontraron presentaciones con ese criterio de búsqueda.'
+                              }
+                            </Text>
+                          </FlexBox>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                          {getProductsWithPresentaciones()
+                            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                            .map((product) => {
                             const isExpanded = expandedProductsInList.has(product.SKUID);
                             const presentacionesSeleccionadas = product.presentaciones;
                             const isProductSelected = selectedProductsForDelete.has(product.SKUID);
@@ -956,9 +940,18 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                                               </Text>
                                             </FlexBox>
                                           </FlexBox>
-                                          <ObjectStatus state="Information">
-                                            ${presentacion.Precio?.toLocaleString() || 'N/A'}
-                                          </ObjectStatus>
+                                          <FlexBox direction="Column" alignItems="End" style={{ gap: '0.2rem' }}>
+                                            <Text style={{ fontSize: '0.7rem', color: '#999', textDecoration: 'line-through' }}>
+                                              ${presentacion.Precio?.toLocaleString() || 'N/A'}
+                                            </Text>
+                                            <ObjectStatus state="Positive">
+                                              ${
+                                                editData.tipoDescuento === 'PORCENTAJE'
+                                                  ? ((presentacion.Precio ?? 0) * (1 - editData.descuentoPorcentaje / 100)).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                                  : ((presentacion.Precio ?? 0) - editData.descuentoMonto).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                              }
+                                            </ObjectStatus>
+                                          </FlexBox>
                                         </FlexBox>
                                       )})
                                     )}
@@ -970,6 +963,47 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                         </div>
                       )}
                     </div>
+                    
+                    {/* Paginación */}
+                    {getProductsWithPresentaciones().length > itemsPerPage && (
+                      <FlexBox 
+                        justifyContent="SpaceBetween" 
+                        alignItems="Center" 
+                        style={{ 
+                          padding: '0.75rem', 
+                          borderTop: '1px solid #e8e8e8',
+                          backgroundColor: '#f8f9fa',
+                          borderRadius: '4px'
+                        }}
+                      >
+                        <Text style={{ fontSize: '0.875rem', color: '#666' }}>
+                          Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, getProductsWithPresentaciones().length)} de {getProductsWithPresentaciones().length} productos
+                        </Text>
+                        <FlexBox style={{ gap: '0.5rem' }}>
+                          <Button
+                            icon="navigation-left-arrow"
+                            design="Transparent"
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                          >
+                            Anterior
+                          </Button>
+                          <Text style={{ padding: '0 0.5rem', alignSelf: 'center', fontSize: '0.875rem' }}>
+                            Página {currentPage} de {Math.ceil(getProductsWithPresentaciones().length / itemsPerPage)}
+                          </Text>
+                          <Button
+                            icon="navigation-right-arrow"
+                            design="Transparent"
+                            iconEnd
+                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil(getProductsWithPresentaciones().length / itemsPerPage), prev + 1))}
+                            disabled={currentPage >= Math.ceil(getProductsWithPresentaciones().length / itemsPerPage)}
+                          >
+                            Siguiente
+                          </Button>
+                        </FlexBox>
+                      </FlexBox>
+                    )}
+                  </>
                   )}
 
                 </div>
@@ -1034,6 +1068,20 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         preselectedPresentaciones={selectedPresentaciones}
       />
     </Dialog>
+
+    {/* Diálogo personalizado */}
+    <CustomDialog
+      open={dialogState.open}
+      type={dialogState.type}
+      title={dialogState.title}
+      message={dialogState.message}
+      onClose={closeDialog}
+      onConfirm={dialogState.onConfirm}
+      onCancel={dialogState.onCancel}
+      confirmText={dialogState.confirmText}
+      cancelText={dialogState.cancelText}
+      confirmDesign={dialogState.confirmDesign}
+    />
     </>
   );
 };

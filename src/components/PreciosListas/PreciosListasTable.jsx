@@ -21,26 +21,75 @@ import {
 } from '@ui5/webcomponents-react';
 import preciosListasService from '../../api/preciosListasService';
 import PreciosListasModal from './PreciosListasModal';
+import PrecioSkuModal from './PrecioListaSkuModal';
+import SKUButton from './PreciosListasSKUButton';
+import { createActionHandlers } from './PreciosListasActions';
+
+/**
+ * ================================================================================
+ * TABLA DE LISTAS DE PRECIOS - PreciosListasTable.jsx
+ * ================================================================================
+ * 
+ * Este es el componente PRINCIPAL que:
+ * 1. Obtiene todas las listas de precios del servidor
+ * 2. Muestra una tabla con todas las listas
+ * 3. Permite buscar, filtrar y seleccionar listas
+ * 4. Abre modal para crear/editar listas
+ * 5. Maneja acciones como activar, desactivar y eliminar
+ * 6. Muestra detalles de productos (SKUs) asociados a cada lista
+ * 
+ * FLUJO PRINCIPAL:\n * 1. Se monta el componente (useEffect línea 39)
+ * 2. Se ejecuta fetchListas() que llama a preciosListasService.getAllListas()
+ * 3. Se cargan todas las listas en el estado
+ * 4. Se renderiza la tabla con las listas
+ * 5. Usuario puede hacer clic en botones para crear, editar, activar, etc
+ * 6. Las acciones se manejan en PreciosListasActions
+ * 7. Se recargan los datos después de cada operación
+ * 
+ * ================================================================================
+ */
 
 const PreciosListasTable = () => {
-  const [listas, setListas] = useState([]);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingLista, setEditingLista] = useState(null);
-  const [messageStrip, setMessageStrip] = useState(null);
-  const [expandedSKURows, setExpandedSKURows] = useState({});
-  const [selectedListas, setSelectedListas] = useState(new Set()); // Para rastrear listas seleccionadas // Para rastrear filas expandidas
+  // === ESTADOS LOCALES ===
+  const [listas, setListas] = useState([]); // Array de todas las listas
+  const [error, setError] = useState(''); // Mensaje de error
+  const [loading, setLoading] = useState(true); // Indicador de carga
+  const [searchTerm, setSearchTerm] = useState(''); // Término de búsqueda
+  const [isModalOpen, setIsModalOpen] = useState(false); // ¿Está abierto el modal?
+  const [editingLista, setEditingLista] = useState(null); // Lista que se está editando (null = crear)
+  const [messageStrip, setMessageStrip] = useState(null); // Mensaje temporal de éxito
+  const [selectedListas, setSelectedListas] = useState(new Set()); // Set de IDs de listas seleccionadas
+  const [selectedSKU, setSelectedSKU] = useState(null); // Modal de precios del SKU: { skuId, skusList }
 
-  // === Cargar listas al montar ===
+  /**
+   * 🔹 CARGAR LISTAS AL MONTAR EL COMPONENTE
+   * 
+   * ¿QUÉ SUCEDE?\n   * - Se ejecuta una sola vez cuando se monta el componente
+   * - Llama fetchListas() que trae todas las listas del servidor
+   * - Usa preciosListasService.getAllListas() ← ⭐ ESTA LÍNEA\n   */
   useEffect(() => {
     fetchListas();
   }, []);
 
+  /**
+   * 🔹 OBTENER LISTAS DEL SERVIDOR
+   * 
+   * ¿QUÉ SUCEDE?\n   * - Establece loading=true para mostrar indicador
+   * - Llama preciosListasService.getAllListas()
+   *   URL: POST /ztprecios-listas/preciosListasCRUD?ProcessType=GetAll&ShowInactive=true
+   * - Obtiene array de todas las listas
+   * - Actualiza el estado listas
+   * - Si hay error, muestra mensaje
+   * 
+   * LLAMADO DESDE:\n   * - useEffect al montar (línea 39-42)
+   * - handleSave() después de crear/actualizar/activar/desactivar (Actions línea 73)
+   * - handleToggleStatus() después de cambiar estados (Actions línea 99)
+   * - handleDeleteSelected() después de eliminar (Actions línea 113)
+   */
   const fetchListas = async () => {
     setLoading(true);
     try {
+      // Obtener todas las listas del servidor
       const result = await preciosListasService.getAllListas();
       setListas(result);
       setError('');
@@ -52,120 +101,86 @@ const PreciosListasTable = () => {
     }
   };
 
-  // === Handlers CRUD ===
-  const handleAdd = useCallback(() => {
-    setEditingLista(null);
-    setIsModalOpen(true);
-  }, []);
+  // === Inicializar handlers de acciones ===
+  const {
+    handleAdd,
+    handleSave,
+    handleToggleStatus,
+    handleDeleteSelected
+  } = createActionHandlers(
+    setEditingLista,
+    setIsModalOpen,
+    setError,
+    setLoading,
+    setSelectedListas,
+    setMessageStrip,
+    fetchListas,
+    listas,
+    selectedListas
+  );
 
-  const handleEdit = useCallback((record) => {
-    setEditingLista(record);
-    setIsModalOpen(true);
-  }, []);
-
-  const handleDelete = useCallback(async (lista) => {
-    if (!lista.IDLISTAOK) {
-      setError('ID de lista no válido');
-      return;
-    }
-
-    if (window.confirm(`¿Está seguro que desea eliminar permanentemente la lista "${lista.DESLISTA}"? Esta acción no se puede deshacer.`)) {
-      setLoading(true);
-      try {
-        console.log('Iniciando eliminación de lista:', lista.IDLISTAOK);
-        
-        // Intentar eliminar la lista
-        await preciosListasService.delete(lista.IDLISTAOK);
-        
-        // Si llegamos aquí, la eliminación fue exitosa
-        console.log('Lista eliminada exitosamente');
-        
-        // Actualizar la interfaz
-        await fetchListas();
-        setError('');
-        
-        // Mostrar mensaje de éxito temporal
-        setMessageStrip({
-          message: `Lista "${lista.DESLISTA}" eliminada exitosamente`,
-          type: 'Success'
-        });
-        setTimeout(() => setMessageStrip(null), 3000);
-        
-      } catch (err) {
-        console.error('Error al eliminar:', err);
-        
-        // Extraer el mensaje de error más relevante
-        let errorMessage;
-        if (err.response?.data?.messageUSR) {
-          errorMessage = err.response.data.messageUSR;
-        } else if (err.response?.status === 400) {
-          errorMessage = 'Error en la solicitud. Verifique los datos.';
-        } else if (err.response?.status === 404) {
-          errorMessage = 'La lista no existe o ya fue eliminada.';
-        } else {
-          errorMessage = err.message || 'Error desconocido al eliminar la lista de precios';
-        }
-        
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    }
-  }, []);
-
-  const handleSave = async (listaData) => {
-    setLoading(true);
-    try {
-      if (editingLista) {
-        // Si cambia el estado ACTIVED, llama a ActivateOne o DeleteLogic
-        if (typeof listaData.ACTIVED !== 'undefined' && editingLista.ACTIVED !== listaData.ACTIVED) {
-          if (listaData.ACTIVED) {
-            // Activar
-            await preciosListasService.activate(editingLista.IDLISTAOK);
-          } else {
-            // Desactivar (lógica)
-            await preciosListasService.deleteLogic(editingLista.IDLISTAOK);
-          }
-        } else {
-          // Actualización normal
-          await preciosListasService.update(editingLista.IDLISTAOK, listaData);
-        }
-      } else {
-        // Crear nueva lista
-        await preciosListasService.create(listaData);
-      }
-      await fetchListas(); // Recargar datos
-      setIsModalOpen(false);
-      setError('');
-    } catch (err) {
-      setError('Error al guardar la lista de precios: ' + (err.response?.data?.message || err.message));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  /**
+   * 🔹 CERRAR MODAL
+   * 
+   * ¿QUÉ SUCEDE?\n   * - Cierra el modal de crear/editar
+   * - Limpia la lista que se estaba editando
+   */
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingLista(null);
   };
 
-  // === Handler para expandir/contraer SKUs ===
-  const handleToggleSKUExpand = (listaId) => {
-    setExpandedSKURows(prev => ({
-      ...prev,
-      [listaId]: !prev[listaId]
-    }));
+  /**
+   * 🔹 ABRIR MODAL DE PRECIOS DEL SKU
+   * 
+   * ¿QUÉ SUCEDE?\n   * - Cuando haces clic en un SKU en la tabla
+   * - Se abre un modal mostrando los precios de ese SKU en esa lista
+   * 
+   * PARÁMETROS:
+   * - skuId: ID del SKU (producto)
+   * - skusList: Array con todos los SKUs de la lista
+   * - idListaOK: ID de la lista
+   */
+  const handleSKUClick = (skuId, skusList, idListaOK) => {
+    setSelectedSKU({ skuId, skusList, idListaOK });
   };
 
-  // === Handlers para selección ===
+  const handleCloseSKUModal = () => {
+    setSelectedSKU(null);
+  };
+
+  const handleSKUModalUpdate = () => {
+    fetchListas();
+  };
+
+  /**
+   * 🔹 SELECCIONAR TODAS LAS LISTAS
+   * 
+   * ¿QUÉ SUCEDE?\n   * - Cuando haces clic en el checkbox del encabezado de la tabla
+   * - Selecciona o deselecciona todas las listas visibles
+   * 
+   * PARÁMETRO:
+   * - e.target.checked: boolean, si está marcado el checkbox
+   */
   const handleSelectAll = (e) => {
     if (e.target.checked) {
+      // Seleccionar todas las listas mostradas (después de filtro)
       setSelectedListas(new Set(filteredListas.map(l => l.IDLISTAOK)));
     } else {
+      // Deseleccionar todas
       setSelectedListas(new Set());
     }
   };
 
+  /**
+   * 🔹 SELECCIONAR UNA LISTA INDIVIDUAL
+   * 
+   * ¿QUÉ SUCEDE?\n   * - Cuando haces clic en un checkbox de una fila
+   * - Agrega o quita esa lista del Set de seleccionadas
+   * 
+   * PARÁMETRO:
+   * - listaId: ID de la lista a seleccionar/deseleccionar
+   */
   const handleSelectLista = (listaId) => {
     setSelectedListas(prev => {
       const next = new Set(prev);
@@ -178,59 +193,13 @@ const PreciosListasTable = () => {
     });
   };
 
-  // === Handlers para acciones en lote ===
-  const handleToggleStatus = async () => {
-    if (selectedListas.size === 0) return;
-    
-    // Determinar si la mayoría están activas o inactivas
-    const listasArray = Array.from(selectedListas).map(id => listas.find(l => l.IDLISTAOK === id));
-    const activasCount = listasArray.filter(l => l && l.ACTIVED === true).length;
-    const inactivasCount = listasArray.filter(l => l && (l.ACTIVED === false || l.DELETED === true)).length;
-    
-    // Si la mayoría están activas, desactivas. Si la mayoría están inactivas, activas.
-    const shouldActivate = inactivasCount > activasCount;
-    const action = shouldActivate ? 'activar' : 'desactivar';
-    
-    if (!window.confirm(`¿Está seguro que desea ${action} ${selectedListas.size} lista(s)?`)) return;
-
-    setLoading(true);
-    try {
-      for (const listaId of selectedListas) {
-        if (shouldActivate) {
-          await preciosListasService.activate(listaId);
-        } else {
-          await preciosListasService.deleteLogic(listaId);
-        }
-      }
-      await fetchListas();
-      setSelectedListas(new Set());
-      setError('');
-    } catch (err) {
-      setError(`Error al ${action} listas: ` + (err.response?.data?.messageUSR || err.message));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteSelected = async () => {
-    if (selectedListas.size === 0) return;
-    if (!window.confirm(`¿Está seguro que desea eliminar permanentemente ${selectedListas.size} lista(s)? Esta acción no se puede deshacer.`)) return;
-
-    setLoading(true);
-    try {
-      for (const listaId of selectedListas) {
-        await preciosListasService.delete(listaId);
-      }
-      await fetchListas();
-      setSelectedListas(new Set());
-      setError('');
-    } catch (err) {
-      setError('Error al eliminar listas: ' + (err.response?.data?.messageUSR || err.message));
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  /**
+   * 🔹 EDITAR LA LISTA SELECCIONADA
+   * 
+   * ¿QUÉ SUCEDE?\n   * - Si hay exactamente 1 lista seleccionada
+   * - La carga en el modal para editarla
+   * - Abre el modal
+   */
   const handleEditSelected = () => {
     if (selectedListas.size !== 1) return;
     const listaId = Array.from(selectedListas)[0];
@@ -241,7 +210,9 @@ const PreciosListasTable = () => {
     }
   };
 
-  // === Utilidades ===
+  /**
+   * 🔹 UTILIDADES PARA FORMATO Y ESTADO
+   */
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     try {
@@ -281,7 +252,13 @@ const PreciosListasTable = () => {
     };
   };
 
-  // === Filtro por descripción o SKU ===
+  /**
+   * 🔹 FILTRAR LISTAS POR BÚSQUEDA
+   * 
+   * ¿QUÉ SUCEDE?\n   * - Filtra las listas según el término de búsqueda
+   * - Busca en descripción (DESLISTA) y en SKUs
+   * - En tiempo real mientras escribes en el campo de búsqueda
+   */
   const filteredListas = listas.filter((lista) => {
   const term = searchTerm.toLowerCase();
   const skus = Array.isArray(lista.SKUSIDS)
@@ -297,7 +274,7 @@ const PreciosListasTable = () => {
 
   return (
     <div style={{ margin: '1rem' }}>
-      {/* 1. BARRA SUPERIOR (Fuera de Card) */}
+      {/* === BARRA SUPERIOR: TÍTULO, BÚSQUEDA Y BOTONES === */}
       <FlexBox 
         alignItems="Center" 
         justifyContent="SpaceBetween" 
@@ -307,7 +284,7 @@ const PreciosListasTable = () => {
           borderBottom: '1px solid #ccc' 
         }}
       >
-        {/* Título y Subtítulo */}
+        {/* Título y contador */}
         <FlexBox direction="Column">
           <Title level="H3">Listas de Precios</Title>
           <Text style={{ color: '#666' }}>{filteredListas.length} listas encontradas</Text>
@@ -315,7 +292,7 @@ const PreciosListasTable = () => {
 
         {/* Acciones */}
         <FlexBox alignItems="Center" justifyContent="End" style={{ gap: '1rem' }}>
-          {/* Búsqueda */}
+          {/* 🔍 Campo de búsqueda */}
           <Input
             icon={<Icon name="search" />}
             placeholder="Buscar por descripción o SKU..."
@@ -323,12 +300,28 @@ const PreciosListasTable = () => {
             style={{ width: '300px' }}
           />
           
-          {/* Botones de Acción */}
+          {/* ➕ BOTÓN CREAR */}
+          {/* 
+            Cuando haces clic:
+            1. handleAdd() se ejecuta (línea 24-26 en Actions)
+            2. setEditingLista(null)
+            3. setIsModalOpen(true)
+            4. Se abre modal vacío para crear nueva lista
+          */}
           <Button design="Emphasized" icon="add" onClick={handleAdd}>
             Crear Lista
           </Button>
 
-          {/* Botón Editar */}
+          {/* ✏️ BOTÓN EDITAR */}
+          {/* 
+            Solo habilitado si hay exactamente 1 lista seleccionada
+            Cuando haces clic:
+            1. handleEditSelected() se ejecuta (línea 107-116)
+            2. Busca la lista seleccionada
+            3. setEditingLista(lista) para cargar datos
+            4. setIsModalOpen(true) para abrir modal
+            5. Modal se renderiza con datos cargados
+          */}
           <Button 
             icon="edit" 
             design="Transparent" 
@@ -338,7 +331,21 @@ const PreciosListasTable = () => {
             Editar
           </Button>
 
-          {/* Botón Activar/Desactivar */}
+          {/* ✅ BOTÓN ACTIVAR/DESACTIVAR */}
+          {/* 
+            Habilitado solo si hay listas seleccionadas
+            El botón cambia de nombre según el estado:
+            - Si hay INACTIVAS → botón dice "Activar"
+            - Si hay ACTIVAS → botón dice "Desactivar"
+            
+            Cuando haces clic:
+            1. handleToggleStatus() se ejecuta (línea 118-145 en Actions)
+            2. Calcula cuál acción ejecutar (activate o deleteLogic)
+            3. Llama:
+               - preciosListasService.activate() para activar ← ⭐ LÍNEA 93-95 EN ACTIONS
+               - preciosListasService.deleteLogic() para desactivar ← ⭐ LÍNEA 96-99 EN ACTIONS
+            4. Recarga tabla con fetchListas()
+          */}
           <Button 
             icon="accept" 
             design="Positive" 
@@ -355,12 +362,14 @@ const PreciosListasTable = () => {
               : 'Activar'}
           </Button>
 
-          {/* Botón Eliminar */}
+          {/* 🗑️ BOTÓN ELIMINAR */}
+          {
+}
           <Button 
             icon="delete" 
             design="Negative" 
             disabled={selectedListas.size === 0 || loading}
-            onClick={handleDeleteSelected}
+            onClick={handleDeleteSelected} //se ejecuta el handle 
           >
             Eliminar
           </Button>
@@ -369,12 +378,12 @@ const PreciosListasTable = () => {
         </FlexBox>
       </FlexBox>
 
-      {/* 2. CARD para el contenido de la tabla */}
+      {/* === CARD CON LA TABLA === */}
       <Card
         style={{ maxWidth: '100%' }}
       >
         <div style={{ padding: '1rem' }}>
-          {/* Mensajes de éxito/error */}
+          {/* Mostrar errores si hay */}
           {error && (
             <MessageStrip 
               design="Negative" 
@@ -385,7 +394,7 @@ const PreciosListasTable = () => {
             </MessageStrip>
           )}
 
-        {/* === Estado de carga === */}
+        {/* === ESTADO DE CARGA === */}
         {loading && filteredListas.length === 0 ? (
           <FlexBox justifyContent="Center" alignItems="Center" style={{ height: '200px', flexDirection: 'column' }}>
             <BusyIndicator active />
@@ -399,7 +408,9 @@ const PreciosListasTable = () => {
             <Text>Intenta con otro término de búsqueda o crea una nueva lista.</Text>
           </FlexBox>
         ) : (
-          // === Tabla de datos ===
+          // === TABLA DE DATOS ===
+          // Renderiza la tabla con todas las listas
+          // Cada fila es una lista
           <Table
             noDataText="No hay listas para mostrar"
             style={{ width: '100%' }}
@@ -433,16 +444,28 @@ const PreciosListasTable = () => {
                 <TableRow 
                   key={lista.IDLISTAOK || index} 
                   className="ui5-table-row-hover"
+                  onClick={(e) => {
+                    // No abrir modal si el clic fue en el checkbox
+                    if (e.target.tagName === 'INPUT' || e.target.closest('[role="checkbox"]')) {
+                      return;
+                    }
+                    if (lista.SKUSIDS && lista.SKUSIDS.length > 0) {
+                      handleSKUClick(lista.SKUSIDS[0], lista.SKUSIDS, lista.IDLISTAOK);
+                    }
+                  }}
                   style={{
                     backgroundColor: selectedListas.has(lista.IDLISTAOK) ? '#f0f7ff' : 'transparent',
                     cursor: 'pointer'
                   }}
                 >
+                  {/* Casilla para seleccionar/deseleccionar la lista */}
                   <TableCell>
-                    <CheckBox
-                      checked={selectedListas.has(lista.IDLISTAOK)}
-                      onChange={() => handleSelectLista(lista.IDLISTAOK)}
-                    />
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <CheckBox
+                        checked={selectedListas.has(lista.IDLISTAOK)}
+                        onChange={() => handleSelectLista(lista.IDLISTAOK)}
+                      />
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Text style={{ fontFamily: 'monospace', fontWeight: '600' }}>
@@ -451,47 +474,12 @@ const PreciosListasTable = () => {
                   </TableCell>
                   <TableCell>
                     {Array.isArray(lista.SKUSIDS) && lista.SKUSIDS.length > 0 ? (
-                      <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
-                        <Label 
-                          onClick={() => handleToggleSKUExpand(lista.IDLISTAOK)}
-                          style={{
-                            padding: '0.25rem 0.5rem',
-                            backgroundColor: '#e3f2fd',
-                            color: '#1976d2',
-                            borderRadius: '0.25rem',
-                            fontSize: '0.55rem',
-                            fontWeight: '600',
-                            display: 'inline-block',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            border: expandedSKURows[lista.IDLISTAOK] ? '1px solid #1976d2' : '1px solid transparent',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          {lista.SKUSIDS[0]} {lista.SKUSIDS.length > 1 && `+${lista.SKUSIDS.length - 1}`}
-                        </Label>
-                        
-                        {expandedSKURows[lista.IDLISTAOK] && (
-                          <FlexBox direction="Column" style={{ gap: '0.5rem', marginTop: '0.5rem' }}>
-                            {lista.SKUSIDS.map((sku, idx) => (
-                              <Label
-                                key={idx}
-                                style={{
-                                  padding: '0.25rem 0.5rem',
-                                  backgroundColor: '#f5f5f5ff',
-                                  color: '#333',
-                                  borderRadius: '0.25rem',
-                                  fontSize: '0.5rem',
-                                  border: '1px solid #ddd',
-                                  display: 'inline-block'
-                                }}
-                              >
-                                {sku}
-                              </Label>
-                            ))}
-                          </FlexBox>
-                        )}
-                      </FlexBox>
+                      <SKUButton 
+                        skuId={lista.SKUSIDS[0]}
+                        skusCount={lista.SKUSIDS.length}
+                        skusList={lista.SKUSIDS}
+                        onSkuClick={() => handleSKUClick(lista.SKUSIDS[0], lista.SKUSIDS, lista.IDLISTAOK)}
+                      />
                     ) : (
                       <Text>-</Text>
                     )}
@@ -568,7 +556,7 @@ const PreciosListasTable = () => {
           </Table>
         )}
 
-        {/* === Footer de información === */}
+        {/* === PIE DE PÁGINA CON INFORMACIÓN === */}
         {listas.length > 0 && (
           <FlexBox
             justifyContent="SpaceBetween"
@@ -597,15 +585,73 @@ const PreciosListasTable = () => {
         </div>
       </Card>
 
-      {/* === Modal === */}
+      {/* === MODAL PARA CREAR/EDITAR LISTA === */}
+      {/* 
+        Se abre cuando: isModalOpen=true
+        Modo CREAR: editingLista=null
+        Modo EDITAR: editingLista={...datos...}
+      */}
       <PreciosListasModal
         open={isModalOpen}
         onClose={handleCloseModal}
-        onSave={handleSave}
+        onSave={handleSave}  // handleSave viene de PreciosListasActions
         lista={editingLista}
+      />
+
+      {/* === MODAL PARA PRECIOS DEL SKU === */}
+      {/* 
+        Se abre cuando haces clic en un SKU en la tabla
+        Muestra los precios de ese SKU en esa lista
+      */}
+      <PrecioSkuModal
+        skuId={selectedSKU?.skuId}
+        skusList={selectedSKU?.skusList}
+        idListaOK={selectedSKU?.idListaOK}
+        open={!!selectedSKU}
+        onClose={handleCloseSKUModal}
       />
     </div>
   );
 };
 
 export default PreciosListasTable;
+
+/**
+ * ================================================================================
+ * RESUMEN COMPLETO DEL FLUJO DE PRECIOLISTAS
+ * ================================================================================
+ * 
+ * CREAR NUEVA LISTA:\n * 1. Usuario hace clic en botón "Crear Lista" (línea 142)
+ * 2. handleAdd() se ejecuta (PreciosListasActions línea 24-26)
+ * 3. Modal se abre con editingLista=null
+ * 4. Usuario completa formulario y hace clic "Guardar"
+ * 5. Modal valida con Yup
+ * 6. onSave(dataToSave) → handleSave() en PreciosListasActions
+ * 7. detecta que NO hay editingLista.IDLISTAOK
+ * 8. Ejecuta: preciosListasService.create(dataToSave) ← ⭐\n * 9. Backend inserta en BD con ProcessType=AddOne
+ * 10. fetchListas() recarga tabla
+ * 11. Modal se cierra\n * ACTUALIZAR LISTA:\n * 1. Usuario selecciona lista + clic "Editar" (línea 154)
+ * 2. handleEditSelected() se ejecuta (PreciosListasTable línea 107-116)
+ * 3. Modal se abre con editingLista={datos}
+ * 4. Usuario modifica campos
+ * 5. Hace clic "Guardar"
+ * 6. Modal valida con Yup
+ * 7. onSave(dataToSave) → handleSave() en PreciosListasActions
+ * 8. Detecta que SÍ hay editingLista.IDLISTAOK
+ * 9. Si NO cambió ACTIVED:
+ *    Ejecuta: preciosListasService.update(id, data) ← ⭐ LÍNEA 68 EN ACTIONS\n * 10. Si SÍ cambió ACTIVED:
+ *    - Si cambió a TRUE: preciosListasService.activate(id) ← ⭐ LÍNEA 61-62\n *    - Si cambió a FALSE: preciosListasService.deleteLogic(id) ← ⭐ LÍNEA 64-67\n * 11. Backend actualiza en BD
+ * 12. fetchListas() recarga tabla
+ * 13. Modal se cierra\n * ACTIVAR/DESACTIVAR:\n * 1. Usuario selecciona lista(s) + clic "Activar/Desactivar" (línea 162)
+ * 2. handleToggleStatus() se ejecuta (PreciosListasActions línea 118-145)
+ * 3. Determina acción según mayoría de estados
+ * 4. Loop para cada lista:
+ *    - Si activar: preciosListasService.activate(id) ← ⭐ LÍNEA 93-95\n *    - Si desactivar: preciosListasService.deleteLogic(id) ← ⭐ LÍNEA 96-99\n * 5. fetchListas() recarga tabla
+ * 6. Limpia selecciones\n * ELIMINAR:\n * 1. Usuario selecciona lista(s) + clic "Eliminar" (línea 174)
+ * 2. handleDeleteSelected() se ejecuta (PreciosListasActions línea 146-176)
+ * 3. Solicita confirmación
+ * 4. Loop para cada lista:
+ *    Ejecuta: preciosListasService.delete(id) ← ⭐ LÍNEA 116-117\n * 5. Backend elimina PERMANENTEMENTE (DeleteHard)
+ * 6. fetchListas() recarga tabla
+ * 7. Limpia selecciones\n * ENDPOINTS UTILIZADOS:\n * - CREATE: POST /ztprecios-listas/preciosListasCRUD?ProcessType=AddOne
+ * - UPDATE: POST /ztprecios-listas/preciosListasCRUD?ProcessType=UpdateOne&IDLISTAOK=<id>\n * - ACTIVATE: POST /ztprecios-listas/preciosListasCRUD?ProcessType=ActivateOne&IDLISTAOK=<id>\n * - DEACTIVATE: POST /ztprecios-listas/preciosListasCRUD?ProcessType=DeleteLogic&IDLISTAOK=<id>\n * - DELETE: POST /ztprecios-listas/preciosListasCRUD?ProcessType=DeleteHard&IDLISTAOK=<id>\n * - GET ALL: POST /ztprecios-listas/preciosListasCRUD?ProcessType=GetAll&ShowInactive=true\n * ================================================================================\n */
