@@ -76,7 +76,46 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
     fechaIngresoDesde: '',
     fechaIngresoHasta: ''
   });
-  const nextIdRef = useRef(0);
+  const idSuffixRef = useRef(null); // Para almacenar el sufijo único del ID de lista
+
+  /**
+   * Genera un ID autogenerado para la lista de precios
+   * Formato corto: [3-PRIMERAS-LETRAS]-[4-NUMEROS-ALEATORIOS]
+   * 
+   * Ejemplo:
+   * - "Lista de Precios" → "LIS-4872"
+   * - "Precios Mayorista" → "PRE-9215"
+   * - "Promoción de Verano" → "PRO-5643"
+   * 
+   * @param {string} description - Descripción de la lista
+   * @returns {string} ID generado
+   */
+  const generateListId = (description) => {
+    if (!description || typeof description !== 'string' || description.trim() === '') {
+      idSuffixRef.current = null; // Reiniciar sufijo si no hay descripción
+      return '';
+    }
+
+    if (!idSuffixRef.current) {
+      // Generar y guardar el sufijo numérico solo la primera vez
+      // 4 dígitos aleatorios (1000-9999)
+      const randomNumber = Math.floor(Math.random() * 9000) + 1000;
+      idSuffixRef.current = randomNumber.toString();
+    }
+
+    // Extraer las primeras 3 letras de la descripción
+    const cleanDescription = description
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, ''); // Quitar caracteres especiales (solo A-Z y 0-9)
+
+    // Tomar solo las primeras 3 letras
+    const initials = cleanDescription.slice(0, 3);
+
+    // Retornar: [3-LETRAS]-[4-DIGITOS-ALEATORIOS]
+    // Ejemplo: LIS-4872
+    return `${initials}-${idSuffixRef.current}`;
+  };
 
   // === CARGAR DATOS AL MONTAR ===
   useEffect(() => {
@@ -92,19 +131,27 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
       setFilteredSKUs(new Set(Array.isArray(lista.SKUSIDS) ? lista.SKUSIDS : []));
       setCurrentStep(1); // Empezar en paso 1
     } else {
-      // MODO CREACIÓN
-      const newId = nextIdRef.current;
-      nextIdRef.current += 1;
-      const newFormData = {
+      // MODO CREACIÓN - inicializar con ID vacío, se autogenera con la descripción
+      setFormData({
         ...initialState,
-        IDLISTAOK: `ID-${newId.toString().padStart(3, '0')}`,
-      };
-      setFormData(newFormData);
+        IDLISTAOK: '',
+      });
       setFilteredSKUs(new Set());
       setCurrentStep(1);
     }
     setValidationErrors(null);
   }, [lista]);
+
+  /**
+   * Efecto para autogenerar el IDLISTAOK cuando DESLISTA cambia
+   * Similar al comportamiento del SKU en productos
+   */
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      IDLISTAOK: generateListId(prev.DESLISTA)
+    }));
+  }, [formData.DESLISTA]);
 
   const handleInputChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -288,24 +335,33 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
                 <CardHeader titleText="Información General" />
                 <div style={{ padding: '1.5rem' }}>
                   <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
-                    <FlexBox direction="Column">
-                      <Label required style={{ fontSize: '0.85rem' }}>ID de la Lista</Label>
-                      <Input
-                        value={formData.IDLISTAOK || ''}
-                        readOnly
-                        placeholder="Auto-generado"
-                        style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed', fontSize: '0.9rem' }}
-                      />
-                    </FlexBox>
+                    <FlexBox style={{ gap: '1.5rem', alignItems: 'flex-start' }}>
+                      <FlexBox direction="Column" style={{ flex: 1 }}>
+                        <Label required style={{ fontSize: '0.85rem' }}>Descripción</Label>
+                        <Input
+                          value={formData.DESLISTA || ''}
+                          onInput={(e) => handleInputChange('DESLISTA', e.target.value)}
+                          placeholder="Ej: Lista de Precios Verano 2024"
+                          style={{ fontSize: '0.9rem', width: '100%' }}
+                        />
+                      </FlexBox>
 
-                    <FlexBox direction="Column">
-                      <Label required style={{ fontSize: '0.85rem' }}>Descripción</Label>
-                      <Input
-                        value={formData.DESLISTA || ''}
-                        onInput={(e) => handleInputChange('DESLISTA', e.target.value)}
-                        placeholder="Ej: Lista de Precios Verano 2024"
-                        style={{ fontSize: '0.9rem' }}
-                      />
+                      <FlexBox direction="Column" style={{ flex: 0.6 }}>
+                        <Label style={{ fontSize: '0.85rem' }}>ID (Autogenerado)</Label>
+                        <Input
+                          value={formData.IDLISTAOK || ''}
+                          readOnly
+                          placeholder="Se genera automáticamente"
+                          valueState={formData.IDLISTAOK ? 'None' : 'Information'}
+                          style={{ 
+                            fontSize: '0.9rem', 
+                            backgroundColor: '#f5f5f5', 
+                            cursor: 'default',
+                            fontFamily: 'monospace',
+                            fontWeight: '600'
+                          }}
+                        />
+                      </FlexBox>
                     </FlexBox>
 
                     <FlexBox direction="Column">
@@ -314,7 +370,7 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
                         value={formData.IDINSTITUTOOK || ''}
                         onInput={(e) => handleInputChange('IDINSTITUTOOK', e.target.value)}
                         placeholder="ID del Instituto"
-                        style={{ fontSize: '0.9rem' }}
+                        style={{ fontSize: '0.9rem', width: '100%' }}
                       />
                     </FlexBox>
                   </FlexBox>

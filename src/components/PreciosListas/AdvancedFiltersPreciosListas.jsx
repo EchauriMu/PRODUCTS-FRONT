@@ -49,6 +49,11 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
   const [selectedProducts, setSelectedProducts] = useState(preselectedProducts);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Estados para buscadores de marcas y categorías
+  const [searchMarcas, setSearchMarcas] = useState('');
+  const [searchCategorias, setSearchCategorias] = useState('');
+  const [searchUnificado, setSearchUnificado] = useState('');
+  
   // Usar ref para rastrear preselectedProducts anterior y evitar loops infinitos
   const prevPreselectedRef = useRef(null);
   
@@ -114,6 +119,32 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
       setSelectedProducts(new Set(preselectedArray));
     }
   }, [preselectedProducts]);
+
+  // Abrir automáticamente el MultiComboBox de marcas cuando hay búsqueda
+  useEffect(() => {
+    if (searchUnificado.trim().length > 0) {
+      // Solo actualizar el contenido sin abrir automáticamente
+      // El dropdown se abrirá solo cuando el usuario haga clic en él
+      const marcasCombo = document.querySelector('[data-test-id="marcas-combo-box"]');
+      if (marcasCombo) {
+        // No abrir automáticamente, dejar que el usuario lo haga
+        // marcasCombo.open = true;
+      }
+    }
+  }, [searchUnificado]);
+
+  // Abrir automáticamente el MultiComboBox de categorías cuando hay búsqueda
+  useEffect(() => {
+    if (searchUnificado.trim().length > 0) {
+      // Solo actualizar el contenido sin abrir automáticamente
+      // El dropdown se abrirá solo cuando el usuario haga clic en él
+      const categoriasCombo = document.querySelector('[data-test-id="categorias-combo-box"]');
+      if (categoriasCombo) {
+        // No abrir automáticamente, dejar que el usuario lo haga
+        // categoriasCombo.open = true;
+      }
+    }
+  }, [searchUnificado]);
 
   const loadData = async () => {
     setLoading(true);
@@ -274,10 +305,29 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
       // Filtro de búsqueda por texto
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
-        const matchesSearch = 
-          producto.PRODUCTNAME?.toLowerCase().includes(searchLower) ||
-          producto.SKUID?.toLowerCase().includes(searchLower) ||
-          producto.MARCA?.toLowerCase().includes(searchLower);
+        
+        // Buscar en nombre del producto
+        const matchesName = producto.PRODUCTNAME?.toLowerCase().includes(searchLower);
+        
+        // Buscar en SKU
+        const matchesSKU = producto.SKUID?.toLowerCase().includes(searchLower);
+        
+        // Buscar en marca
+        const matchesMarca = producto.MARCA?.toLowerCase().includes(searchLower);
+        
+        // Buscar en categorías
+        const matchesCategoria = producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS) && 
+          producto.CATEGORIAS.some(cat => {
+            if (typeof cat === 'string') {
+              return cat.toLowerCase().includes(searchLower);
+            }
+            if (typeof cat === 'object' && cat.Nombre) {
+              return cat.Nombre.toLowerCase().includes(searchLower);
+            }
+            return false;
+          });
+        
+        const matchesSearch = matchesName || matchesSKU || matchesMarca || matchesCategoria;
         
         if (!matchesSearch) return false;
       }
@@ -622,19 +672,38 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         }}>
           <FlexBox direction="Column" style={{ gap: '1rem' }}>
             
+            {/* BUSCADOR UNIFICADO PARA MARCAS Y CATEGORÍAS */}
+            <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#f5f5f5', borderRadius: '6px', border: '1px solid #ddd' }}>
+              <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Buscar Marcas o Categorías:</Label>
+              <Input
+                data-test-id="search-unificado-input"
+                icon="search"
+                placeholder="Buscar por marcas o categorías..."
+                value={searchUnificado}
+                onInput={(e) => setSearchUnificado(e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </div>
+
             {/* FILTROS POR MARCA */}
             <div style={{ marginBottom: '1rem' }}>
               <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Marcas de Productos:</Label>
                 {marcas.length > 0 ? (
                   <>
                     <MultiComboBox
+                      data-test-id="marcas-combo-box"
+                      key={`marcas-combo-${searchUnificado}`}
                       placeholder="Selecciona marcas..."
                       style={{ width: '100%', marginTop: '0.25rem' }}
                       onSelectionChange={(e) => handleMultiSelectChange('marcas', e.detail.items)}
                     >
-                      {marcas.map(marca => (
+                      {marcas
+                        .filter(marca => 
+                          marca.name.toLowerCase().includes(searchUnificado.toLowerCase())
+                        )
+                        .map(marca => (
                         <ComboBoxItem 
-                          key={marca.id} 
+                          key={`${marca.id}-${searchUnificado}`}
                           text={`${marca.name} (${marca.productos} productos)`}
                           data-value={marca.name}
                           selected={filters.marcas.includes(marca.name)}
@@ -692,13 +761,19 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                         }
                       `}</style>
                       <MultiComboBox
+                        data-test-id="categorias-combo-box"
+                        key={`categorias-combo-${searchUnificado}`}
                         placeholder="Selecciona categorías..."
                         style={{ width: '100%', marginTop: '0.25rem' }}
                         onSelectionChange={(e) => handleMultiSelectChange('categorias', e.detail.items)}
                       >
-                        {categorias.map(categoria => (
+                        {categorias
+                          .filter(categoria =>
+                            categoria.Nombre.toLowerCase().includes(searchUnificado.toLowerCase())
+                          )
+                          .map(categoria => (
                           <ComboBoxItem 
-                            key={categoria.CATID} 
+                            key={`${categoria.CATID}-${searchUnificado}`}
                             text={`${categoria.Nombre}`}
                             data-value={categoria.CATID}
                             selected={filters.categorias.includes(categoria.CATID)}
@@ -857,7 +932,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                   </Label>
                   <Input
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onInput={(e) => setSearchTerm(e.target.value)}
                     placeholder="Buscar por nombre, SKU, marca o categoría..."
                     icon="search"
                     style={{ width: '100%' }}
