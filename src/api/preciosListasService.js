@@ -64,7 +64,7 @@ const preciosListasService = {
  * - PreciosListasActions.jsx (línea 64-67: handleToggleStatus)
  * - PreciosListasActions.jsx (línea 58-60: handleSave - si cambia estado)
  */
-  async deleteLogic(idListaOK) {
+  async deleteLogic(idListaOK) { //aqui iniicia la funcion desactivar logic
     try {
       const params = new URLSearchParams({
         ProcessType: 'DeleteLogic',
@@ -284,7 +284,7 @@ const preciosListasService = {
  * LLAMADO DESDE:
  * - PreciosListasActions.jsx (línea 68: handleSave - si hay editingLista y ACTIVED no cambió)
  */
-  async update(idListaOK, payload) {
+  async update(idListaOK, payload) { //aqui inicia el update 
     try {
       // PASO 1: Log para debugging (puedes verlo en Console del navegador)
       console.log('📝 Actualizando lista de precios:', { idListaOK, payload });
@@ -323,7 +323,7 @@ const preciosListasService = {
       const res = await axiosInstance.post(
         `/ztprecios-listas/preciosListasCRUD?${params}`,
         cleanPayload
-      );
+      ); //aqui termina el update 
 
       // PASO 7: Procesar respuesta del servidor
       const dataRes = unwrapCAP(res);
@@ -448,7 +448,7 @@ const preciosListasService = {
  * - PreciosListasActions.jsx (línea 93-95: handleToggleStatus - cuando shouldActivate=true)
  * - PreciosListasActions.jsx (línea 61-62: handleSave - si cambió ACTIVED a true)
  */
-  async activate(idListaOK) {
+  async activate(idListaOK) { //aqui inicia la funcion de activar
     try {
       // PASO 1: Crear parámetros de URL para indicar ProcessType=ActivateOne
       const params = new URLSearchParams({

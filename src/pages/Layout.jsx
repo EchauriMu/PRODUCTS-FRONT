@@ -12,6 +12,7 @@ import Promociones from './Promociones';
 import CrearPromocion from './CrearPromocion';
 import Categorias from './Categorias';
 import StepperPage from './StepperPage';
+import CrearEditarListaPreciosPage from './CrearEditarListaPreciosPage';
 import AddPresentationPage from '../components/CRUDPresentaciones/AddPresentationPage';
 import SelectPresentationToEditPage from '../components/CRUDPresentaciones/SelectPresentationToEditPage';
 import EditPresentationPage from '../components/CRUDPresentaciones/EditPresentationPage';
@@ -178,6 +179,7 @@ const Layout = () => {
               <Route path="/products-files" element={<ProductsFiles />} />
               <Route path="/products-presentaciones" element={<ProductsPresentaciones />} />
               <Route path="/precios-listas" element={<PreciosListas />} />
+              <Route path="/precios-listas/crear" element={<CrearEditarListaPreciosPage />} />
               <Route path="/precios-items" element={<PreciosItems />} />
               <Route path="/promociones" element={<Promociones />} />
               <Route path="/promociones/crear" element={<CrearPromocion />} />

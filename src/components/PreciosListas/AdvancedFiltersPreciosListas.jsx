@@ -16,7 +16,9 @@ import {
   Icon,
   RadioButton,
   MultiComboBox,
-  ComboBoxItem
+  ComboBoxItem,
+  Select,
+  Option
 } from '@ui5/webcomponents-react';
 import productService from '../../api/productService';
 import categoryService from '../../api/categoryService';
@@ -30,11 +32,8 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     marcas: [],
     precioMin: '',
     precioMax: '',
-    fechaIngresoDesde: '',
-    fechaIngresoHasta: '',
     tipoGeneral: '',
     tipoFormula: '',
-    estadoVigencia: '', // 'vigente', 'expirada', 'proxima'
     ...initialFilters
   });
 
@@ -77,13 +76,9 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
   const TIPOS_FORMULA = [
     { id: 'FIJO', name: 'Fijo' },
     { id: 'PORCENTAJE', name: 'Porcentaje' },
+    { id: 'DESCUENTO', name: 'Descuento' },
+    { id: 'MARGEN', name: 'Margen' },
     { id: 'ESCALA', name: 'Escala' }
-  ];
-
-  const ESTADO_VIGENCIA = [
-    { id: 'vigente', name: 'Vigente', label: 'Actualmente vigente' },
-    { id: 'expirada', name: 'Expirada', label: 'Ya pasó su fecha de fin' },
-    { id: 'proxima', name: 'Próxima a expirar', label: 'Expira en los próximos 30 días' }
   ];
 
   // RANGOS DE PRECIOS ESTÁTICOS
@@ -172,7 +167,6 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
       setProductos(productosData);
       
       // Usar TODAS las categorías, sin filtrar por ACTIVED o DELETED
-      // (igual que en el módulo de Promociones)
       setCategorias(categoriasData);
 
       // Extraer marcas únicas de los productos
@@ -253,8 +247,6 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
       marcas: [],
       precioMin: '',
       precioMax: '',
-      fechaIngresoDesde: '',
-      fechaIngresoHasta: '',
     });
     setSearchTerm('');
     setSelectedProducts(new Set());
@@ -265,7 +257,6 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     if (filters.categorias.length > 0) count++;
     if (filters.marcas.length > 0) count++;
     if (filters.precioMin || filters.precioMax) count++;
-    if (filters.fechaIngresoDesde || filters.fechaIngresoHasta) count++;
     if (searchTerm) count++;
     return count;
   };
@@ -321,25 +312,6 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
       if (filters.precioMin && producto.PRECIO < parseFloat(filters.precioMin)) return false;
       if (filters.precioMax && producto.PRECIO > parseFloat(filters.precioMax)) return false;
       
-      // Filtro por fecha de ingreso - SOLO FILTRA si el producto tiene REGDATE
-      // Si el producto NO tiene REGDATE, se INCLUYE SIEMPRE (ignore este filtro)
-      if (filters.fechaIngresoDesde && producto.REGDATE) {
-        const fechaDesde = new Date(filters.fechaIngresoDesde);
-        fechaDesde.setHours(0, 0, 0, 0);
-        const fechaProducto = new Date(producto.REGDATE);
-        fechaProducto.setHours(0, 0, 0, 0);
-        // Solo excluir si la fecha es inválida Y es menor que la fecha desde
-        if (!isNaN(fechaProducto.getTime()) && fechaProducto < fechaDesde) return false;
-      }
-      
-      if (filters.fechaIngresoHasta && producto.REGDATE) {
-        const fechaHasta = new Date(filters.fechaIngresoHasta);
-        fechaHasta.setHours(23, 59, 59, 999);
-        const fechaProducto = new Date(producto.REGDATE);
-        fechaProducto.setHours(0, 0, 0, 0);
-        // Solo excluir si la fecha es válida Y es mayor que la fecha hasta
-        if (!isNaN(fechaProducto.getTime()) && fechaProducto > fechaHasta) return false;
-      }
       
       return true;
     });
@@ -551,11 +523,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         onFiltersChange({
           selectedPresentaciones: [],
           selectedSKUs: selectedSKUs,
-          filteredProducts: getFilteredProducts(),
-          filterDates: {
-            fechaIngresoDesde: filters.fechaIngresoDesde,
-            fechaIngresoHasta: filters.fechaIngresoHasta
-          }
+          filteredProducts: getFilteredProducts()
         });
       }
     }
@@ -578,21 +546,23 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         minHeight: 0,
         maxHeight: '100%',
         alignItems: 'stretch',
-        overflow: 'hidden'
+        overflow: window.innerWidth < 768 ? 'auto' : 'hidden',
+        flexDirection: window.innerWidth < 768 ? 'column' : 'row'
       }}>
         
         {/* COLUMNA IZQUIERDA - FILTROS */}
         <Card style={{ 
-          flex: '0 0 35%',
+          flex: window.innerWidth < 768 ? '0 0 100%' : '0 0 35%',
           minWidth: '320px',
-          height: '100%',
+          height: window.innerWidth < 768 ? 'auto' : '100%',
+          maxHeight: window.innerWidth < 768 ? 'auto' : '100%',
           borderRadius: '8px',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
           border: '1px solid #e0e6ed',
           background: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden'
+          overflow: window.innerWidth < 768 ? 'visible' : 'hidden'
         }}>
         <CardHeader
           titleText="Filtros Avanzados"
@@ -809,107 +779,27 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
               )}
             </div>
 
-            {/* FILTROS POR FECHA DE INGRESO */}
-            <div style={{ marginBottom: '1rem' }}>
-              <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block', color: '#333' }}>
-                Fecha de Ingreso:
-              </Label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                <DatePicker
-                  placeholder="Desde"
-                  value={filters.fechaIngresoDesde}
-                  onChange={(e) => handleFilterChange('fechaIngresoDesde', e.target.value)}
-                  style={{ width: '100%' }}
-                />
-                <DatePicker
-                  placeholder="Hasta"
-                  value={filters.fechaIngresoHasta}
-                  onChange={(e) => handleFilterChange('fechaIngresoHasta', e.target.value)}
-                  style={{ width: '100%' }}
-                />
-              </div>
-            </div>
-
             {/* SEPARADOR */}
             <div style={{ borderTop: '2px solid #e0e6ed', marginTop: '0.75rem' }}></div>
-
-            {/* FILTROS POR TIPO GENERAL */}
-            <div style={{ marginBottom: '1rem' }}>
-              <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block', color: '#333' }}>
-                Tipo General de Lista:
-              </Label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingLeft: '0.5rem' }}>
-                {TIPOS_GENERALES.map(tipo => (
-                  <RadioButton
-                    key={tipo.id}
-                    name="tipoGeneral"
-                    text={tipo.name}
-                    checked={filters.tipoGeneral === tipo.id}
-                    onChange={() => handleFilterChange('tipoGeneral', tipo.id)}
-                    style={{ fontSize: '0.875rem' }}
-                  />
-                ))}
-                <RadioButton
-                  name="tipoGeneral"
-                  text="Todos"
-                  checked={filters.tipoGeneral === ''}
-                  onChange={() => handleFilterChange('tipoGeneral', '')}
-                  style={{ fontSize: '0.875rem' }}
-                />
-              </div>
-            </div>
 
             {/* FILTROS POR TIPO FÓRMULA */}
             <div style={{ marginBottom: '1rem' }}>
               <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block', color: '#333' }}>
                 Tipo de Fórmula:
               </Label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingLeft: '0.5rem' }}>
+              <Select
+                value={filters.tipoFormula || ''}
+                onChange={(e) => handleFilterChange('tipoFormula', e.target.value)}
+                style={{ width: '100%', fontSize: '0.875rem' }}
+              >
+                <Option value="">Todos</Option>
                 {TIPOS_FORMULA.map(tipo => (
-                  <RadioButton
-                    key={tipo.id}
-                    name="tipoFormula"
-                    text={tipo.name}
-                    checked={filters.tipoFormula === tipo.id}
-                    onChange={() => handleFilterChange('tipoFormula', tipo.id)}
-                    style={{ fontSize: '0.875rem' }}
-                  />
+                  <Option key={tipo.id} value={tipo.id}>{tipo.name}</Option>
                 ))}
-                <RadioButton
-                  name="tipoFormula"
-                  text="Todos"
-                  checked={filters.tipoFormula === ''}
-                  onChange={() => handleFilterChange('tipoFormula', '')}
-                  style={{ fontSize: '0.875rem' }}
-                />
-              </div>
+              </Select>
             </div>
 
-            {/* FILTROS POR ESTADO DE VIGENCIA */}
-            <div style={{ marginBottom: '1rem' }}>
-              <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block', color: '#333' }}>
-                Estado de Vigencia:
-              </Label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingLeft: '0.5rem' }}>
-                {ESTADO_VIGENCIA.map(estado => (
-                  <RadioButton
-                    key={estado.id}
-                    name="estadoVigencia"
-                    text={`${estado.name} - ${estado.label}`}
-                    checked={filters.estadoVigencia === estado.id}
-                    onChange={() => handleFilterChange('estadoVigencia', estado.id)}
-                    style={{ fontSize: '0.875rem' }}
-                  />
-                ))}
-                <RadioButton
-                  name="estadoVigencia"
-                  text="Todos"
-                  checked={filters.estadoVigencia === ''}
-                  onChange={() => handleFilterChange('estadoVigencia', '')}
-                  style={{ fontSize: '0.875rem' }}
-                />
-              </div>
-            </div>
+
 
           </FlexBox>
           </div>
@@ -918,26 +808,27 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
 
         {/* COLUMNA DERECHA - PRODUCTOS ENCONTRADOS */}
         <Card style={{ 
-          flex: '1',
-          minWidth: '400px',
-          height: '100%',
+          flex: window.innerWidth < 768 ? '0 0 100%' : '1',
+          minWidth: window.innerWidth < 768 ? 'auto' : '400px',
+          height: window.innerWidth < 768 ? 'auto' : '100%',
+          maxHeight: window.innerWidth < 768 ? 'auto' : '100%',
           borderRadius: '8px',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
           border: '1px solid #e0e6ed',
           background: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden'
+          overflow: window.innerWidth < 768 ? 'visible' : 'hidden'
         }}>
 
           <div style={{ 
-            padding: '0.75rem',
-            paddingBottom: '1.5rem',
+            padding: window.innerWidth < 768 ? '0.5rem' : '0.75rem',
+            paddingBottom: window.innerWidth < 768 ? '1rem' : '1.5rem',
             flex: '1 1 auto',
             overflowY: 'auto',
             overflowX: 'hidden',
             minHeight: 0,
-            maxHeight: 'calc(100vh - 150px)'
+            maxHeight: window.innerHeight < 600 ? 'auto' : 'calc(100vh - 150px)'
           }}>
             {loading ? (
               <FlexBox justifyContent="Center" style={{ padding: '2rem' }}>
