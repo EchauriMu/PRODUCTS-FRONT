@@ -264,7 +264,7 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
       // PASO 2: Preparar datos para enviar al servidor
       const dataToSave = {
         IDLISTAOK: formData.IDLISTAOK || `LIS-${Date.now()}`,
-        SKUSIDS: JSON.stringify(formData.SKUSIDS), // Convertir array a JSON string
+        SKUSIDS: Array.isArray(formData.SKUSIDS) ? formData.SKUSIDS : [], // Enviar como array, no stringificado
         IDINSTITUTOOK: formData.IDINSTITUTOOK,
         DESLISTA: formData.DESLISTA,
         FECHAEXPIRAINI: formData.FECHAEXPIRAINI || null,
@@ -274,6 +274,13 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
         IDTIPOFORMULAOK: formData.IDTIPOFORMULAOK,
         ACTIVED: Boolean(formData.ACTIVED),
       };
+
+      // DEBUG: Log de lo que se va a guardar
+      console.log('📊 DEBUG - SKUSIDS antes de guardar:', {
+        formDataSKUSIDS: formData.SKUSIDS,
+        cantidad: formData.SKUSIDS?.length,
+        dataToSaveSKUSIDS: dataToSave.SKUSIDS
+      });
 
       // PASO 3: Llamar onSave que es handleSave() en PreciosListasActions
       // handleSave() determinará si es CREATE o UPDATE

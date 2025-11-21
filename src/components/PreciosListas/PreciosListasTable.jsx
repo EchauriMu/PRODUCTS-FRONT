@@ -91,7 +91,34 @@ const PreciosListasTable = () => {
     try {
       // Obtener todas las listas del servidor
       const result = await preciosListasService.getAllListas();
-      setListas(result);
+      
+      // Parsear SKUSIDS si viene como string JSON
+      const listasConSkusParsed = result.map(lista => {
+        let skusids = lista.SKUSIDS;
+        
+        // Si es string, parsear (puede ocurrir si se guarda como JSON string)
+        if (typeof skusids === 'string') {
+          try {
+            skusids = JSON.parse(skusids);
+          } catch (e) {
+            console.warn('No se pudo parsear SKUSIDS:', skusids);
+            skusids = [];
+          }
+        }
+        
+        // Asegurar que sea array
+        if (!Array.isArray(skusids)) {
+          console.warn('SKUSIDS no es array después de parsear:', skusids);
+          skusids = [];
+        }
+        
+        return {
+          ...lista,
+          SKUSIDS: skusids
+        };
+      });
+      
+      setListas(listasConSkusParsed);
       setError('');
     } catch (err) {
       setError('Error al obtener las listas de precios.');
