@@ -18,6 +18,7 @@ import {
   Select,
   Option,
   MultiComboBox,
+  MultiComboBoxItem,
   ComboBoxItem
 } from '@ui5/webcomponents-react';
 import productService from '../../api/productService';
@@ -29,7 +30,8 @@ import preciosItemsService from '../../api/preciosItemsService';
 const FilterCheckboxList = ({ 
   items, 
   selectedItems, 
-  onToggleItem, 
+  onToggleItem,
+  onRemoveItem,
   searchValue, 
   onSearchChange, 
   placeholder,
@@ -42,54 +44,127 @@ const FilterCheckboxList = ({
     getLabel(item).toLowerCase().includes(searchValue.toLowerCase())
   );
 
+  const handleItemClick = (itemKey, e) => {
+    e.stopPropagation();
+    onToggleItem(itemKey);
+    // Cerrar el dropdown después de seleccionar
+    setIsOpen(false);
+  };
+
+  const handleRemoveTag = (itemKey, e) => {
+    e.stopPropagation();
+    onRemoveItem(itemKey);
+  };
+
+  const selectedItemsObjects = selectedItems.map(key => 
+    items.find(item => getKey(item) === key)
+  ).filter(Boolean);
+
+  // Detectar clics fuera del dropdown para cerrarlo
+  React.useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (isOpen && e.target.closest('[data-filter-list]') === null) {
+        setIsOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, setIsOpen]);
+
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
+    <div style={{ position: 'relative', width: '100%' }} data-filter-list>
+      {/* Input con tags */}
       <div
         style={{
           padding: '0.5rem 0.75rem',
-          border: '1px solid #e0e6ed',
+          border: '1px solid #ccc',
           borderRadius: '4px',
           backgroundColor: '#ffffff',
-          cursor: 'pointer',
+          cursor: 'text',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          gap: '0.5rem',
+          flexWrap: 'wrap',
+          minHeight: '40px',
+          transition: 'border-color 0.2s',
+          borderColor: isOpen ? '#0066cc' : '#ccc'
         }}
         onClick={() => setIsOpen(!isOpen)}
       >
-        <Text style={{ fontSize: '0.875rem', color: selectedItems.length > 0 ? '#333' : '#999' }}>
-          {selectedItems.length > 0 
-            ? `${selectedItems.length} seleccionado${selectedItems.length !== 1 ? 's' : ''}`
-            : placeholder}
-        </Text>
-        <Icon 
-          name={isOpen ? 'navigation-up-arrow' : 'navigation-down-arrow'}
-          style={{ fontSize: '1rem', cursor: 'pointer' }}
-        />
+        {/* Tags de selecciones */}
+        {selectedItemsObjects.map(item => {
+          const itemKey = getKey(item);
+          return (
+            <div
+              key={itemKey}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.35rem 0.6rem',
+                backgroundColor: '#e8f4f8',
+                border: '1px solid #b3d9e8',
+                borderRadius: '18px',
+                fontSize: '0.85rem',
+                color: '#0066cc',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Text style={{ margin: 0, fontSize: '0.875rem' }}>
+                {getLabel(item)}
+              </Text>
+              <Icon
+                name="decline"
+                style={{
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  color: '#0066cc'
+                }}
+                onClick={(e) => handleRemoveTag(itemKey, e)}
+              />
+            </div>
+          );
+        })}
+
+        {/* Input placeholder y flecha */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto', flexShrink: 0 }}>
+          {selectedItems.length === 0 && (
+            <Text style={{ fontSize: '0.875rem', color: '#999', margin: 0 }}>
+              {placeholder}
+            </Text>
+          )}
+          <Icon 
+            name={isOpen ? 'slim-arrow-up' : 'slim-arrow-down'}
+            style={{ fontSize: '1.2rem', cursor: 'pointer', color: '#333' }}
+          />
+        </div>
       </div>
 
+      {/* Dropdown */}
       {isOpen && (
         <div
           style={{
             position: 'absolute',
-            top: '100%',
+            top: 'calc(100% + 4px)',
             left: 0,
             right: 0,
-            marginTop: '0.25rem',
-            border: '1px solid #e0e6ed',
+            border: '1px solid #ccc',
             borderRadius: '4px',
             backgroundColor: '#ffffff',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
             zIndex: 1000,
-            maxHeight: '350px',
-            overflowY: 'auto'
+            maxHeight: '300px',
+            overflowY: 'auto',
+            minWidth: '280px'
           }}
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Search Input */}
-          <div style={{ padding: '0.75rem', borderBottom: '1px solid #f0f0f0', position: 'sticky', top: 0, backgroundColor: '#ffffff' }}>
+          <div style={{ padding: '0.75rem', borderBottom: '1px solid #f0f0f0', position: 'sticky', top: 0, backgroundColor: '#ffffff', zIndex: 1001 }}>
             <Input
               value={searchValue}
-              onInput={(e) => onSearchChange(e.target.value)}
+              onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Buscar..."
               icon="search"
               style={{ width: '100%' }}
@@ -107,21 +182,21 @@ const FilterCheckboxList = ({
                     key={itemKey}
                     style={{
                       padding: '0.5rem 0.75rem',
-                      borderBottom: idx < filteredItems.length - 1 ? '1px solid #f0f0f0' : 'none',
+                      borderBottom: idx < filteredItems.length - 1 ? '1px solid #f5f5f5' : 'none',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.5rem',
                       cursor: 'pointer',
                       backgroundColor: isSelected ? '#f0f7ff' : '#ffffff',
-                      transition: 'background-color 0.2s'
+                      transition: 'background-color 0.15s'
                     }}
+                    onClick={(e) => handleItemClick(itemKey, e)}
                     onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = '#f8f9fa')}
                     onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = '#ffffff')}
                   >
                     <CheckBox
                       checked={isSelected}
-                      onChange={() => onToggleItem(itemKey)}
-                      style={{ marginRight: '0.25rem', pointerEvents: 'none' }}
+                      style={{ marginRight: '0.25rem' }}
                     />
                     <Text style={{ fontSize: '0.875rem', flex: 1 }}>
                       {getLabel(item)}
@@ -175,8 +250,6 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
   const [openMarcasDropdown, setOpenMarcasDropdown] = useState(false);
   const [openCategoriasDropdown, setOpenCategoriasDropdown] = useState(false);
   
-  // Usar ref para rastrear preselectedProducts anterior y evitar loops infinitos
-  const prevPreselectedRef = useRef(null);
   
   // Estados para presentaciones
   const [expandedProducts, setExpandedProducts] = useState(new Set());
@@ -595,6 +668,74 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     });
   };
 
+  // Nueva función: Obtener productos para el buscador
+  // Si hay búsqueda: busca en TODOS los productos (sin restricciones de marca/categoría)
+  // Si NO hay búsqueda: aplica filtros de marca/categoría
+  const getProductosParaBuscador = () => {
+    if (productos.length === 0) return [];
+    
+    // Primero filtrar por estado
+    let resultado = productos.filter(producto => {
+      if (!producto.ACTIVED || producto.DELETED) return false;
+      return true;
+    });
+
+    // Si hay búsqueda, buscar en TODOS sin restricciones de marca/categoría
+    if (searchTerm && searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      
+      resultado = resultado.filter(producto => {
+        const matchesName = producto.PRODUCTNAME?.toLowerCase().includes(searchLower);
+        const matchesSKU = producto.SKUID?.toLowerCase().includes(searchLower);
+        const matchesMarca = producto.MARCA?.toLowerCase().includes(searchLower);
+        
+        const matchesCategoria = producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS) && 
+          producto.CATEGORIAS.some(cat => {
+            if (typeof cat === 'string') {
+              return cat.toLowerCase().includes(searchLower);
+            }
+            if (typeof cat === 'object' && cat.Nombre) {
+              return cat.Nombre.toLowerCase().includes(searchLower);
+            }
+            return false;
+          });
+        
+        return matchesName || matchesSKU || matchesMarca || matchesCategoria;
+      });
+    } else {
+      // Si NO hay búsqueda, aplicar filtros de marca y categoría
+      if (filters.marcas && filters.marcas.length > 0) {
+        resultado = resultado.filter(producto => {
+          const productMarca = producto.MARCA?.trim();
+          return filters.marcas.includes(productMarca);
+        });
+      }
+      
+      if (filters.categorias && filters.categorias.length > 0) {
+        resultado = resultado.filter(producto => {
+          if (!producto.CATEGORIAS || !Array.isArray(producto.CATEGORIAS)) return false;
+          
+          return producto.CATEGORIAS.some(cat => {
+            if (typeof cat === 'string') {
+              return filters.categorias.includes(cat);
+            }
+            if (typeof cat === 'object' && cat.CATID) {
+              return filters.categorias.includes(cat.CATID);
+            }
+            return false;
+          });
+        });
+      }
+    }
+    
+    // Ordenar: seleccionados primero, luego no seleccionados
+    return resultado.sort((a, b) => {
+      const aSelected = selectedProducts.has(a.SKUID) ? 0 : 1;
+      const bSelected = selectedProducts.has(b.SKUID) ? 0 : 1;
+      return aSelected - bSelected;
+    });
+  };
+
   // FUNCIONES DE SELECCIÓN DE PRODUCTOS
   const toggleProductSelection = async (productId) => {
     if (lockedProducts.has(productId)) {
@@ -762,14 +903,16 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
 
   // Función para obtener productos paginados
   const getPaginatedProducts = () => {
-    const filtered = getFilteredProducts();
+    // Usar getProductosParaBuscador para mostrar TODOS los productos sin restricciones de marcas/categorías
+    const filtered = getProductosParaBuscador();
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
     return filtered.slice(startIndex, endIndex);
   };
 
   const getTotalPages = () => {
-    return Math.ceil(getFilteredProducts().length / ITEMS_PER_PAGE);
+    // Usar getProductosParaBuscador para contar TODOS los productos
+    return Math.ceil(getProductosParaBuscador().length / ITEMS_PER_PAGE);
   };
 
   const handleNextPage = () => {
@@ -904,33 +1047,28 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
             <div style={{ marginBottom: '1rem' }}>
               <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Marcas de Productos:</Label>
               {marcas.length > 0 ? (
-                <>
-                  <FilterCheckboxList
-                    items={getAvailableMarcas()}
-                    selectedItems={filters.marcas}
-                    onToggleItem={toggleMarcaFilter}
-                    searchValue={searchMarcas}
-                    onSearchChange={setSearchMarcas}
-                    placeholder="Selecciona marcas..."
-                    getLabel={(marca) => `${marca.name} (${marca.productos})`}
-                    getKey={(marca) => marca.name}
-                    isOpen={openMarcasDropdown}
-                    setIsOpen={setOpenMarcasDropdown}
-                  />
-                  
-                  {filters.marcas.length > 0 && (
-                    <FlexBox style={{ marginTop: '0.5rem', gap: '0.25rem', flexWrap: 'wrap' }}>
-                      {filters.marcas.map(marcaNombre => {
-                        const marca = getAvailableMarcas().find(m => m.name === marcaNombre);
-                        return marca ? (
-                          <ObjectStatus key={marcaNombre} state="Warning">
-                            {marca.name} ({marca.productos})
-                          </ObjectStatus>
-                        ) : null;
-                      })}
-                    </FlexBox>
-                  )}
-                </>
+                <MultiComboBox
+                  style={{ width: '100%' }}
+                  placeholder="Selecciona marcas..."
+                  showSecondaryValues
+                  onSelectionChange={(e) => {
+                    const selectedItems = e.detail.items;
+                    const selectedMarcas = selectedItems.map(item => item.getAttribute('data-value'));
+                    setFilters(prev => ({
+                      ...prev,
+                      marcas: selectedMarcas
+                    }));
+                  }}
+                >
+                  {getAvailableMarcas().map((marca) => (
+                    <MultiComboBoxItem
+                      key={marca.name}
+                      text={`${marca.name} (${marca.productos})`}
+                      data-value={marca.name}
+                      selected={filters.marcas.includes(marca.name)}
+                    />
+                  ))}
+                </MultiComboBox>
               ) : (
                 <Text style={{ marginTop: '0.25rem', color: '#666' }}>
                   {loading ? 'Cargando marcas...' : 'No hay marcas disponibles'}
@@ -942,33 +1080,28 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
             <div style={{ marginBottom: '1rem' }}>
               <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Categorías de Productos:</Label>
               {categorias.length > 0 ? (
-                <>
-                  <FilterCheckboxList
-                    items={getAvailableCategorias()}
-                    selectedItems={filters.categorias}
-                    onToggleItem={toggleCategoriaFilter}
-                    searchValue={searchCategorias}
-                    onSearchChange={setSearchCategorias}
-                    placeholder="Selecciona categorías..."
-                    getLabel={(categoria) => `${categoria.Nombre}${categoria.count ? ` (${categoria.count})` : ''}`}
-                    getKey={(categoria) => categoria.CATID}
-                    isOpen={openCategoriasDropdown}
-                    setIsOpen={setOpenCategoriasDropdown}
-                  />
-                  
-                  {filters.categorias.length > 0 && (
-                    <FlexBox style={{ marginTop: '0.5rem', gap: '0.25rem', flexWrap: 'wrap' }}>
-                      {filters.categorias.map(catId => {
-                        const categoria = getAvailableCategorias().find(c => c.CATID === catId);
-                        return categoria ? (
-                          <ObjectStatus key={catId} state="Information">
-                            {categoria.Nombre}
-                          </ObjectStatus>
-                        ) : null;
-                      })}
-                    </FlexBox>
-                  )}
-                </>
+                <MultiComboBox
+                  style={{ width: '100%' }}
+                  placeholder="Selecciona categorías..."
+                  showSecondaryValues
+                  onSelectionChange={(e) => {
+                    const selectedItems = e.detail.items;
+                    const selectedCategorias = selectedItems.map(item => item.getAttribute('data-value'));
+                    setFilters(prev => ({
+                      ...prev,
+                      categorias: selectedCategorias
+                    }));
+                  }}
+                >
+                  {getAvailableCategorias().map((categoria) => (
+                    <MultiComboBoxItem
+                      key={categoria.CATID}
+                      text={`${categoria.Nombre}${categoria.count ? ` (${categoria.count})` : ''}`}
+                      data-value={categoria.CATID}
+                      selected={filters.categorias.includes(categoria.CATID)}
+                    />
+                  ))}
+                </MultiComboBox>
               ) : (
                 <Text style={{ marginTop: '0.25rem', color: '#666' }}>
                   {loading ? 'Cargando categorías...' : 'No hay categorías disponibles'}
@@ -1106,7 +1239,8 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                   </Label>
                   <Input
                     value={searchTerm}
-                    onInput={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
                     placeholder="Buscar por nombre, SKU, marca o categoría..."
                     icon="search"
                     style={{ width: '100%' }}
@@ -1114,7 +1248,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                   {searchTerm && (
                     <FlexBox alignItems="Center" justifyContent="SpaceBetween" style={{ marginTop: '0.5rem' }}>
                       <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                        {getFilteredProducts().length} resultado{getFilteredProducts().length !== 1 ? 's' : ''} encontrado{getFilteredProducts().length !== 1 ? 's' : ''}
+                        {getProductosParaBuscador().length} resultado{getProductosParaBuscador().length !== 1 ? 's' : ''} encontrado{getProductosParaBuscador().length !== 1 ? 's' : ''}
                       </Text>
                       <Button 
                         design="Transparent"
@@ -1138,10 +1272,10 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                 }}>
                   <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
                     <CheckBox 
-                      checked={getSelectedProductsCount() === getFilteredProducts().length && getFilteredProducts().length > 0}
-                      indeterminate={getSelectedProductsCount() > 0 && getSelectedProductsCount() < getFilteredProducts().length}
+                      checked={getSelectedProductsCount() === getProductosParaBuscador().length && getProductosParaBuscador().length > 0}
+                      indeterminate={getSelectedProductsCount() > 0 && getSelectedProductsCount() < getProductosParaBuscador().length}
                       onChange={(e) => e.target.checked ? selectAllProducts() : deselectAllProducts()}
-                      text={`Seleccionar todos (${getFilteredProducts().length})`}
+                      text={`Seleccionar todos (${getProductosParaBuscador().length})`}
                     />
                   </FlexBox>
                   <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
@@ -1164,8 +1298,30 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                 <FlexBox direction="Column" style={{ 
                   gap: '0.5rem'
                 }}>
-                  {getPaginatedProducts().map(producto => (
-                  <div key={producto.SKUID}>
+                  {getPaginatedProducts().length === 0 ? (
+                    <div style={{ 
+                      textAlign: 'center', 
+                      padding: '2rem 1rem',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '8px',
+                      border: '1px solid #e9ecef'
+                    }}>
+                      <Icon 
+                        name="search" 
+                        style={{ 
+                          fontSize: '2rem', 
+                          color: '#ccc', 
+                          marginBottom: '0.5rem',
+                          display: 'block'
+                        }} 
+                      />
+                      <Text style={{ color: '#999', fontSize: '0.95rem' }}>
+                        {searchTerm ? `No se encontraron productos para "${searchTerm}"` : 'No hay productos disponibles'}
+                      </Text>
+                    </div>
+                  ) : (
+                    getPaginatedProducts().map(producto => (
+                    <div key={producto.SKUID}>
                     <Card 
                       style={{ 
                         padding: '0.75rem',
@@ -1302,7 +1458,8 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                       </div>
                     )}
                   </div>
-                ))}
+                ))
+                  )}
                 </FlexBox>
 
                 {/* PAGINACIÓN - BOTONES ANTERIOR/SIGUIENTE */}
