@@ -15,15 +15,133 @@ import {
   BusyIndicator,
   Icon,
   RadioButton,
-  MultiComboBox,
-  ComboBoxItem,
   Select,
-  Option
+  Option,
+  MultiComboBox,
+  ComboBoxItem
 } from '@ui5/webcomponents-react';
 import productService from '../../api/productService';
 import categoryService from '../../api/categoryService';
 import productPresentacionesService from '../../api/productPresentacionesService';
 import preciosItemsService from '../../api/preciosItemsService';
+
+// Componente personalizado para filtro con checkboxes y búsqueda
+const FilterCheckboxList = ({ 
+  items, 
+  selectedItems, 
+  onToggleItem, 
+  searchValue, 
+  onSearchChange, 
+  placeholder,
+  getLabel,
+  getKey,
+  isOpen,
+  setIsOpen 
+}) => {
+  const filteredItems = items.filter(item =>
+    getLabel(item).toLowerCase().includes(searchValue.toLowerCase())
+  );
+
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <div
+        style={{
+          padding: '0.5rem 0.75rem',
+          border: '1px solid #e0e6ed',
+          borderRadius: '4px',
+          backgroundColor: '#ffffff',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <Text style={{ fontSize: '0.875rem', color: selectedItems.length > 0 ? '#333' : '#999' }}>
+          {selectedItems.length > 0 
+            ? `${selectedItems.length} seleccionado${selectedItems.length !== 1 ? 's' : ''}`
+            : placeholder}
+        </Text>
+        <Icon 
+          name={isOpen ? 'navigation-up-arrow' : 'navigation-down-arrow'}
+          style={{ fontSize: '1rem', cursor: 'pointer' }}
+        />
+      </div>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            marginTop: '0.25rem',
+            border: '1px solid #e0e6ed',
+            borderRadius: '4px',
+            backgroundColor: '#ffffff',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            zIndex: 1000,
+            maxHeight: '350px',
+            overflowY: 'auto'
+          }}
+        >
+          {/* Search Input */}
+          <div style={{ padding: '0.75rem', borderBottom: '1px solid #f0f0f0', position: 'sticky', top: 0, backgroundColor: '#ffffff' }}>
+            <Input
+              value={searchValue}
+              onInput={(e) => onSearchChange(e.target.value)}
+              placeholder="Buscar..."
+              icon="search"
+              style={{ width: '100%' }}
+            />
+          </div>
+
+          {/* Checkbox List */}
+          {filteredItems.length > 0 ? (
+            <div>
+              {filteredItems.map((item, idx) => {
+                const itemKey = getKey(item);
+                const isSelected = selectedItems.includes(itemKey);
+                return (
+                  <div
+                    key={itemKey}
+                    style={{
+                      padding: '0.5rem 0.75rem',
+                      borderBottom: idx < filteredItems.length - 1 ? '1px solid #f0f0f0' : 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      cursor: 'pointer',
+                      backgroundColor: isSelected ? '#f0f7ff' : '#ffffff',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = '#f8f9fa')}
+                    onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = '#ffffff')}
+                  >
+                    <CheckBox
+                      checked={isSelected}
+                      onChange={() => onToggleItem(itemKey)}
+                      style={{ marginRight: '0.25rem', pointerEvents: 'none' }}
+                    />
+                    <Text style={{ fontSize: '0.875rem', flex: 1 }}>
+                      {getLabel(item)}
+                    </Text>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ padding: '1rem', textAlign: 'center' }}>
+              <Text style={{ fontSize: '0.875rem', color: '#999' }}>
+                No hay coincidencias
+              </Text>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Componente de Filtros Avanzados para Precios Listas
 const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, preselectedProducts = new Set(), lockedProducts = new Set() }) => {
@@ -52,7 +170,10 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
   // Estados para buscadores de marcas y categorías
   const [searchMarcas, setSearchMarcas] = useState('');
   const [searchCategorias, setSearchCategorias] = useState('');
-  const [searchUnificado, setSearchUnificado] = useState('');
+  
+  // Estados para controlar apertura/cierre de dropdowns
+  const [openMarcasDropdown, setOpenMarcasDropdown] = useState(false);
+  const [openCategoriasDropdown, setOpenCategoriasDropdown] = useState(false);
   
   // Usar ref para rastrear preselectedProducts anterior y evitar loops infinitos
   const prevPreselectedRef = useRef(null);
@@ -120,31 +241,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     }
   }, [preselectedProducts]);
 
-  // Abrir automáticamente el MultiComboBox de marcas cuando hay búsqueda
-  useEffect(() => {
-    if (searchUnificado.trim().length > 0) {
-      // Solo actualizar el contenido sin abrir automáticamente
-      // El dropdown se abrirá solo cuando el usuario haga clic en él
-      const marcasCombo = document.querySelector('[data-test-id="marcas-combo-box"]');
-      if (marcasCombo) {
-        // No abrir automáticamente, dejar que el usuario lo haga
-        // marcasCombo.open = true;
-      }
-    }
-  }, [searchUnificado]);
 
-  // Abrir automáticamente el MultiComboBox de categorías cuando hay búsqueda
-  useEffect(() => {
-    if (searchUnificado.trim().length > 0) {
-      // Solo actualizar el contenido sin abrir automáticamente
-      // El dropdown se abrirá solo cuando el usuario haga clic en él
-      const categoriasCombo = document.querySelector('[data-test-id="categorias-combo-box"]');
-      if (categoriasCombo) {
-        // No abrir automáticamente, dejar que el usuario lo haga
-        // categoriasCombo.open = true;
-      }
-    }
-  }, [searchUnificado]);
 
   const loadData = async () => {
     setLoading(true);
@@ -224,16 +321,140 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     }
   };
 
+  // OBTENER MARCAS DISPONIBLES BASADAS EN LA BÚSQUEDA Y FILTROS ACTUALES
+  const getAvailableMarcas = () => {
+    // Primero, obtener los productos que pasan el filtro de búsqueda y otras restricciones
+    // PERO ignorando el filtro de marcas (para poder mostrar qué marcas hay disponibles)
+    const productosFiltrados = productos.filter(producto => {
+      if (!producto.ACTIVED || producto.DELETED) return false;
+      
+      // Aplicar filtro de búsqueda
+      if (searchTerm && searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesName = producto.PRODUCTNAME?.toLowerCase().includes(searchLower);
+        const matchesSKU = producto.SKUID?.toLowerCase().includes(searchLower);
+        const matchesMarca = producto.MARCA?.toLowerCase().includes(searchLower);
+        const matchesCategoria = producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS) && 
+          producto.CATEGORIAS.some(cat => {
+            if (typeof cat === 'string') return cat.toLowerCase().includes(searchLower);
+            if (typeof cat === 'object' && cat.Nombre) return cat.Nombre.toLowerCase().includes(searchLower);
+            return false;
+          });
+        
+        if (!(matchesName || matchesSKU || matchesMarca || matchesCategoria)) return false;
+      }
+      
+      // Aplicar filtro de categorías (si está seleccionado)
+      if (filters.categorias && filters.categorias.length > 0) {
+        if (producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS)) {
+          const hasCategory = producto.CATEGORIAS.some(cat => {
+            if (typeof cat === 'string') return filters.categorias.includes(cat);
+            if (typeof cat === 'object' && cat.CATID) return filters.categorias.includes(cat.CATID);
+            return false;
+          });
+          if (!hasCategory) return false;
+        } else {
+          return false;
+        }
+      }
+      
+      // Aplicar filtro de precio
+      if (filters.precioMin && producto.PRECIO < parseFloat(filters.precioMin)) return false;
+      if (filters.precioMax && producto.PRECIO > parseFloat(filters.precioMax)) return false;
+      
+      return true;
+    });
+    
+    // Extraer marcas únicas de estos productos filtrados
+    const marcasUnicas = [...new Set(
+      productosFiltrados
+        .filter(p => p.MARCA && p.MARCA.trim() !== '')
+        .map(p => p.MARCA.trim())
+    )];
+    
+    return marcasUnicas.map(marca => ({ 
+      id: marca.toUpperCase().replace(/\s+/g, '_'), 
+      name: marca,
+      productos: productosFiltrados.filter(p => p.MARCA === marca).length
+    }));
+  };
+
+  // OBTENER CATEGORÍAS DISPONIBLES BASADAS EN LA BÚSQUEDA Y FILTROS ACTUALES
+  const getAvailableCategorias = () => {
+    // Obtener los productos que pasan el filtro de búsqueda y otras restricciones
+    // PERO ignorando el filtro de categorías
+    const productosFiltrados = productos.filter(producto => {
+      if (!producto.ACTIVED || producto.DELETED) return false;
+      
+      // Aplicar filtro de búsqueda
+      if (searchTerm && searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesName = producto.PRODUCTNAME?.toLowerCase().includes(searchLower);
+        const matchesSKU = producto.SKUID?.toLowerCase().includes(searchLower);
+        const matchesMarca = producto.MARCA?.toLowerCase().includes(searchLower);
+        const matchesCategoria = producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS) && 
+          producto.CATEGORIAS.some(cat => {
+            if (typeof cat === 'string') return cat.toLowerCase().includes(searchLower);
+            if (typeof cat === 'object' && cat.Nombre) return cat.Nombre.toLowerCase().includes(searchLower);
+            return false;
+          });
+        
+        if (!(matchesName || matchesSKU || matchesMarca || matchesCategoria)) return false;
+      }
+      
+      // Aplicar filtro de marcas (si está seleccionado)
+      if (filters.marcas && filters.marcas.length > 0) {
+        if (!filters.marcas.includes(producto.MARCA?.trim())) return false;
+      }
+      
+      // Aplicar filtro de precio
+      if (filters.precioMin && producto.PRECIO < parseFloat(filters.precioMin)) return false;
+      if (filters.precioMax && producto.PRECIO > parseFloat(filters.precioMax)) return false;
+      
+      return true;
+    });
+    
+    // Extraer categorías únicas de estos productos filtrados
+    const categoriasMap = new Map();
+    
+    productosFiltrados.forEach(producto => {
+      if (producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS)) {
+        producto.CATEGORIAS.forEach(cat => {
+          if (typeof cat === 'string') {
+            // Si es string, buscar la categoría en el listado original
+            const catObj = categorias.find(c => c.CATID === cat);
+            if (catObj && !categoriasMap.has(cat)) {
+              categoriasMap.set(cat, { ...catObj, count: 0 });
+            }
+            if (categoriasMap.has(cat)) {
+              categoriasMap.get(cat).count += 1;
+            }
+          } else if (typeof cat === 'object' && cat.CATID) {
+            if (!categoriasMap.has(cat.CATID)) {
+              categoriasMap.set(cat.CATID, { ...cat, count: 0 });
+            }
+            categoriasMap.get(cat.CATID).count += 1;
+          }
+        });
+      }
+    });
+    
+    return Array.from(categoriasMap.values());
+  };
+
+  const handleMultiSelectChange = (filterKey, selectedItems) => {
+    const values = selectedItems.map(item => item.getAttribute('data-value'));
+    setFilters(prev => ({
+      ...prev,
+      [filterKey]: values
+    }));
+  };
+
   const handleFilterChange = (filterKey, value) => {
     setFilters(prev => ({
       ...prev,
       [filterKey]: value
     }));
-  };
-
-  const handleMultiSelectChange = (filterKey, selectedItems) => {
-    const values = selectedItems.map(item => item.getAttribute('data-value'));
-    handleFilterChange(filterKey, values);
   };
 
   const toggleMarcaFilter = (marca) => {
@@ -300,10 +521,12 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     hoy.setHours(0, 0, 0, 0);
     
     return productos.filter(producto => {
+      // FILTRO 1: Estado del producto
       if (!producto.ACTIVED || producto.DELETED) return false;
       
-      // Filtro de búsqueda por texto
-      if (searchTerm) {
+      // FILTRO 2: Búsqueda por texto
+      // Si hay término de búsqueda, DEBE cumplir este filtro
+      if (searchTerm && searchTerm.trim()) {
         const searchLower = searchTerm.toLowerCase();
         
         // Buscar en nombre del producto
@@ -329,15 +552,20 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         
         const matchesSearch = matchesName || matchesSKU || matchesMarca || matchesCategoria;
         
+        // Si la búsqueda NO coincide, descartar el producto
         if (!matchesSearch) return false;
       }
       
-      // Filtro por marca - Compara con los nombres exactos de las marcas seleccionadas
+      // FILTRO 3: Por marca - SOLO si hay marcas seleccionadas
+      // Si hay marcas seleccionadas, el producto DEBE tener una de esas marcas
       if (filters.marcas && filters.marcas.length > 0) {
-        if (!filters.marcas.includes(producto.MARCA?.trim())) return false;
+        const productMarca = producto.MARCA?.trim();
+        const marcaMatches = filters.marcas.includes(productMarca);
+        if (!marcaMatches) return false;
       }
       
-      // Filtro por categoría - Compara DIRECTAMENTE con CATID
+      // FILTRO 4: Por categoría - SOLO si hay categorías seleccionadas
+      // Si hay categorías seleccionadas, el producto DEBE tener una de esas categorías
       if (filters.categorias && filters.categorias.length > 0) {
         if (producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS)) {
           // Comparar directamente los CATID de categoría
@@ -358,11 +586,11 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         }
       }
       
-      // Filtro por precio
+      // FILTRO 5: Por precio
       if (filters.precioMin && producto.PRECIO < parseFloat(filters.precioMin)) return false;
       if (filters.precioMax && producto.PRECIO > parseFloat(filters.precioMax)) return false;
       
-      
+      // Todos los filtros activos se cumplieron
       return true;
     });
   };
@@ -672,134 +900,80 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         }}>
           <FlexBox direction="Column" style={{ gap: '1rem' }}>
             
-            {/* BUSCADOR UNIFICADO PARA MARCAS Y CATEGORÍAS */}
-            <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#f5f5f5', borderRadius: '6px', border: '1px solid #ddd' }}>
-              <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Buscar Marcas o Categorías:</Label>
-              <Input
-                data-test-id="search-unificado-input"
-                icon="search"
-                placeholder="Buscar por marcas o categorías..."
-                value={searchUnificado}
-                onInput={(e) => setSearchUnificado(e.target.value)}
-                style={{ width: '100%' }}
-              />
-            </div>
-
             {/* FILTROS POR MARCA */}
             <div style={{ marginBottom: '1rem' }}>
               <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Marcas de Productos:</Label>
-                {marcas.length > 0 ? (
-                  <>
-                    <MultiComboBox
-                      data-test-id="marcas-combo-box"
-                      key={`marcas-combo-${searchUnificado}`}
-                      placeholder="Selecciona marcas..."
-                      style={{ width: '100%', marginTop: '0.25rem' }}
-                      onSelectionChange={(e) => handleMultiSelectChange('marcas', e.detail.items)}
-                    >
-                      {marcas
-                        .filter(marca => 
-                          marca.name.toLowerCase().includes(searchUnificado.toLowerCase())
-                        )
-                        .map(marca => (
-                        <ComboBoxItem 
-                          key={`${marca.id}-${searchUnificado}`}
-                          text={`${marca.name} (${marca.productos} productos)`}
-                          data-value={marca.name}
-                          selected={filters.marcas.includes(marca.name)}
-                        />
-                      ))}
-                    </MultiComboBox>
-                    
-                    {filters.marcas.length > 0 && (
-                      <FlexBox style={{ marginTop: '0.5rem', gap: '0.25rem', flexWrap: 'wrap' }}>
-                        {filters.marcas.map(marcaNombre => {
-                          const marca = marcas.find(m => m.name === marcaNombre);
-                          return marca ? (
-                            <ObjectStatus key={marcaNombre} state="Warning">
-                              {marca.name} ({marca.productos})
-                            </ObjectStatus>
-                          ) : null;
-                        })}
-                      </FlexBox>
-                    )}
-                  </>
-                ) : (
-                  <Text style={{ marginTop: '0.25rem', color: '#666' }}>
-                    {loading ? 'Cargando marcas...' : 'No hay marcas disponibles'}
-                  </Text>
-                )}
+              {marcas.length > 0 ? (
+                <>
+                  <FilterCheckboxList
+                    items={getAvailableMarcas()}
+                    selectedItems={filters.marcas}
+                    onToggleItem={toggleMarcaFilter}
+                    searchValue={searchMarcas}
+                    onSearchChange={setSearchMarcas}
+                    placeholder="Selecciona marcas..."
+                    getLabel={(marca) => `${marca.name} (${marca.productos})`}
+                    getKey={(marca) => marca.name}
+                    isOpen={openMarcasDropdown}
+                    setIsOpen={setOpenMarcasDropdown}
+                  />
+                  
+                  {filters.marcas.length > 0 && (
+                    <FlexBox style={{ marginTop: '0.5rem', gap: '0.25rem', flexWrap: 'wrap' }}>
+                      {filters.marcas.map(marcaNombre => {
+                        const marca = getAvailableMarcas().find(m => m.name === marcaNombre);
+                        return marca ? (
+                          <ObjectStatus key={marcaNombre} state="Warning">
+                            {marca.name} ({marca.productos})
+                          </ObjectStatus>
+                        ) : null;
+                      })}
+                    </FlexBox>
+                  )}
+                </>
+              ) : (
+                <Text style={{ marginTop: '0.25rem', color: '#666' }}>
+                  {loading ? 'Cargando marcas...' : 'No hay marcas disponibles'}
+                </Text>
+              )}
             </div>
 
             {/* FILTROS POR CATEGORÍA */}
             <div style={{ marginBottom: '1rem' }}>
               <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Categorías de Productos:</Label>
-                {categorias.length > 0 ? (
-                  <>
-                    <div style={{ 
-                      maxHeight: '300px',
-                      overflowY: 'auto',
-                      overflowX: 'hidden',
-                      paddingRight: '0.25rem',
-                      scrollbarWidth: 'thin',
-                      scrollbarColor: '#999 #f0f0f0'
-                    }}>
-                      <style>{`
-                        div[style*="maxHeight: 300px"]::-webkit-scrollbar {
-                          width: 6px;
-                        }
-                        div[style*="maxHeight: 300px"]::-webkit-scrollbar-track {
-                          background: #f0f0f0;
-                          borderRadius: 3px;
-                        }
-                        div[style*="maxHeight: 300px"]::-webkit-scrollbar-thumb {
-                          background: #999;
-                          borderRadius: 3px;
-                        }
-                        div[style*="maxHeight: 300px"]::-webkit-scrollbar-thumb:hover {
-                          background: #666;
-                        }
-                      `}</style>
-                      <MultiComboBox
-                        data-test-id="categorias-combo-box"
-                        key={`categorias-combo-${searchUnificado}`}
-                        placeholder="Selecciona categorías..."
-                        style={{ width: '100%', marginTop: '0.25rem' }}
-                        onSelectionChange={(e) => handleMultiSelectChange('categorias', e.detail.items)}
-                      >
-                        {categorias
-                          .filter(categoria =>
-                            categoria.Nombre.toLowerCase().includes(searchUnificado.toLowerCase())
-                          )
-                          .map(categoria => (
-                          <ComboBoxItem 
-                            key={`${categoria.CATID}-${searchUnificado}`}
-                            text={`${categoria.Nombre}`}
-                            data-value={categoria.CATID}
-                            selected={filters.categorias.includes(categoria.CATID)}
-                          />
-                        ))}
-                      </MultiComboBox>
-                    </div>
-                    
-                    {filters.categorias.length > 0 && (
-                      <FlexBox style={{ marginTop: '0.5rem', gap: '0.25rem', flexWrap: 'wrap' }}>
-                        {filters.categorias.map(catId => {
-                          const categoria = categorias.find(c => c.CATID === catId);
-                          return categoria ? (
-                            <ObjectStatus key={catId} state="Information">
-                              {categoria.Nombre}
-                            </ObjectStatus>
-                          ) : null;
-                        })}
-                      </FlexBox>
-                    )}
-                  </>
-                ) : (
-                  <Text style={{ marginTop: '0.25rem', color: '#666' }}>
-                    {loading ? 'Cargando categorías...' : 'No hay categorías disponibles'}
-                  </Text>
-                )}
+              {categorias.length > 0 ? (
+                <>
+                  <FilterCheckboxList
+                    items={getAvailableCategorias()}
+                    selectedItems={filters.categorias}
+                    onToggleItem={toggleCategoriaFilter}
+                    searchValue={searchCategorias}
+                    onSearchChange={setSearchCategorias}
+                    placeholder="Selecciona categorías..."
+                    getLabel={(categoria) => `${categoria.Nombre}${categoria.count ? ` (${categoria.count})` : ''}`}
+                    getKey={(categoria) => categoria.CATID}
+                    isOpen={openCategoriasDropdown}
+                    setIsOpen={setOpenCategoriasDropdown}
+                  />
+                  
+                  {filters.categorias.length > 0 && (
+                    <FlexBox style={{ marginTop: '0.5rem', gap: '0.25rem', flexWrap: 'wrap' }}>
+                      {filters.categorias.map(catId => {
+                        const categoria = getAvailableCategorias().find(c => c.CATID === catId);
+                        return categoria ? (
+                          <ObjectStatus key={catId} state="Information">
+                            {categoria.Nombre}
+                          </ObjectStatus>
+                        ) : null;
+                      })}
+                    </FlexBox>
+                  )}
+                </>
+              ) : (
+                <Text style={{ marginTop: '0.25rem', color: '#666' }}>
+                  {loading ? 'Cargando categorías...' : 'No hay categorías disponibles'}
+                </Text>
+              )}
             </div>
 
             {/* FILTROS POR RANGO DE PRECIOS */}
