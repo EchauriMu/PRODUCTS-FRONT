@@ -57,7 +57,6 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  // ❌ ESTADO ELIMINADO: const [isAddingPrice, setIsAddingPrice] = useState(false); 
   const [refreshKey, setRefreshKey] = useState(0);
 
   // 1. Obtener el precio actual
@@ -129,7 +128,6 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
 
   // Manejador para recargar (usado después de guardar/añadir)
   const handlePriceActionCompleted = () => {
-    // ❌ Eliminada la llamada a setIsAddingPrice(false);
     setError(''); 
     setRefreshKey(prev => prev + 1); 
   };
@@ -161,12 +159,15 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
     setIsSaving(true);
     setError('');
     
-    // El CostoFin para la base de datos es el resultado de la fórmula, o CostoIni
+    // 1. Calcular CostoFin
     const CostoFin = Formula 
         ? calculateFormulaResult(CostoIni, Formula) 
         : CostoIni; 
     
-    // Datos comunes para actualización/creación
+    // 2. Definir campos comunes (incluyendo los críticos)
+    const loggedUser = localStorage.getItem('user') || 'admin'; // Obtener usuario logueado
+    const tipoFormula = Formula ? 'FORM001' : ''; // Asumimos 'FORM001' si hay fórmula
+    
     const dataToSave = {
         CostoIni: CostoIni,
         Formula: Formula,
@@ -174,9 +175,15 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
         CostoFin: CostoFin, 
         IdPresentaOK: idPresentaOK,
         IdListaOK: idListaOK, 
+        SKUID: skuid, 
+        ACTIVED: true, 
+        
+        // CRÍTICO: CAMPOS FALTANTES QUE CAUSAN EL ERROR 500
+        IdTipoFormulaOK: tipoFormula,
+        REGUSER: loggedUser, 
     };
 
-    // 1. MODO EDITAR: Si ya existe un precio
+    // 3. MODO EDITAR: Si ya existe un precio
     if (hasPrice) {
       try {
         const dataToUpdate = {
@@ -193,26 +200,32 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
         setIsSaving(false);
       }
     } 
-    // 2. MODO AÑADIR (Directo, sin modal)
+    // 4. MODO AÑADIR (Directo)
     else {
       try {
-        // Llama a la función de creación del servicio con los datos del formulario
-        const newPrice = await preciosItemsService.createPrice(dataToSave);
-        
-        // Actualiza el estado para reflejar el nuevo precio guardado (ahora hasPrice será true)
-        setCurrentPrice(newPrice); 
+        // CRÍTICO: Generar el IdPrecioOK antes de crear (patrón del modal anterior)
+        const generatedIdPrecioOK = `PRECIOS-${Date.now()}`;
 
+        const dataToCreate = {
+            ...dataToSave,
+            IdPrecioOK: generatedIdPrecioOK, // ¡Este era crítico!
+        };
+
+        const newPrice = await preciosItemsService.createPrice(dataToCreate);
+        
+        setCurrentPrice(newPrice); 
         setError('✅ Precio añadido correctamente.');
         setTimeout(() => handlePriceActionCompleted(), 1000); 
 
       } catch (err) {
-        // En caso de error, intenta extraer el mensaje de error de la respuesta
-        setError(`❌ Error al añadir precio: ${err.message || 'Error desconocido'}`);
+        // Mejor manejo del error de backend
+        const errorMessage = err.response?.data?.message || err.message || 'Error desconocido en el servidor.';
+        setError(`❌ Error al añadir precio: ${errorMessage}`);
       } finally {
         setIsSaving(false);
       }
     }
-  };
+};
 
   // --- Renderizado ---
 
