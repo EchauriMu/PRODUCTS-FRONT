@@ -487,42 +487,35 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                               const presentacionKey = `${producto.SKUID}-${presenta.IdPresentaOK}`;
                               return (
                                 <FlexBox key={presentacionKey} direction="Column" style={{ gap: '0' }}>
-                                  {/* Presentación Hija - Expandible */}
+                                  {/* Presentación - Rectángulo con despliegue vacío */}
                                   <div
                                     onClick={() => togglePresentacionExpanded(presentacionKey)}
                                     style={{
-                                      width: '100%',
-                                      padding: '0.75rem',
-                                      backgroundColor: '#f0f0f0',
+                                      width: '150px',
+                                      padding: '0.5rem 0.8rem',
+                                      backgroundColor: '#fff',
                                       border: '1px solid #d0d0d0',
                                       borderRadius: '4px',
                                       marginBottom: expandedPresentaciones[presentacionKey] ? '0' : '0.5rem',
                                       borderBottomLeftRadius: expandedPresentaciones[presentacionKey] ? '0' : '4px',
                                       borderBottomRightRadius: expandedPresentaciones[presentacionKey] ? '0' : '4px',
-                                      cursor: 'pointer',
                                       display: 'flex',
-                                      gap: '0.75rem',
-                                      alignItems: 'center'
+                                      gap: '0.5rem',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer'
                                     }}
                                   >
                                     <Icon
                                       name={expandedPresentaciones[presentacionKey] ? 'navigation-down-arrow' : 'navigation-right-arrow'}
-                                      style={{ color: '#666', marginRight: '0.5rem', fontSize: '0.9rem' }}
+                                      style={{ color: '#666', fontSize: '0.8rem', flexShrink: 0 }}
                                     />
-                                    <div style={{ flex: 1, paddingLeft: '8px', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#333' }}>
-                                        {presenta.IdPresentaOK}
-                                      </div>
-                                      {presenta.Presentacion && (
-                                        <div style={{ fontSize: '0.8rem', color: '#666' }}>
-                                          {presenta.Presentacion}
-                                        </div>
-                                      )}
+                                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#333', textAlign: 'center' }}>
+                                      {presenta.IdPresentaOK}
                                     </div>
                                   </div>
 
-                                  {/* Detalles de Presentación Expandidos */}
-                                                                    {/* Detalles de Presentación Expandidos */}
+                                  {/* Detalles de Presentación Expandidos - VACÍO */}
                                   {expandedPresentaciones[presentacionKey] && (
                                     <FlexBox
                                       direction="Column"
@@ -537,126 +530,7 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                         gap: '0.75rem'
                                       }}
                                     >
-                                      {presenta.Descripcion && (
-                                        <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
-                                          <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
-                                            Descripción
-                                          </Label>
-                                          <Text style={{ fontSize: '0.8rem', color: '#333' }}>
-                                            {presenta.Descripcion}
-                                          </Text>
-                                        </FlexBox>
-                                      )}
-
-                                      {presenta.BARCODE && (
-                                        <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
-                                          <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
-                                            Código de Barras
-                                          </Label>
-                                          <Text
-                                            style={{
-                                              fontSize: '0.8rem',
-                                              color: '#333',
-                                              fontFamily: 'monospace'
-                                            }}
-                                          >
-                                            {presenta.BARCODE}
-                                          </Text>
-                                        </FlexBox>
-                                      )}
-
-                                      <FlexBox style={{ gap: '1.5rem', flexWrap: 'wrap' }}>
-                                        {presenta.CostoIni && (
-                                          <FlexBox
-                                            direction="Column"
-                                            style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}
-                                          >
-                                            <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
-                                              Costo Inicial
-                                            </Label>
-                                            <Text style={{ fontSize: '0.8rem', color: '#2e7d32' }}>
-                                              $
-                                              {presenta.CostoIni.toLocaleString('es-ES', {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2
-                                              })}
-                                            </Text>
-                                          </FlexBox>
-                                        )}
-
-                                        {presenta.CostoFin && (
-                                          <FlexBox
-                                            direction="Column"
-                                            style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}
-                                          >
-                                            <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
-                                              Costo Final
-                                            </Label>
-                                            <Text style={{ fontSize: '0.8rem', color: '#2e7d32' }}>
-                                              $
-                                              {presenta.CostoFin.toLocaleString('es-ES', {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2
-                                              })}
-                                            </Text>
-                                          </FlexBox>
-                                        )}
-
-                                        {presenta.REGUSER && (
-                                          <FlexBox
-                                            direction="Column"
-                                            style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}
-                                          >
-                                            <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
-                                              Registrado por
-                                            </Label>
-                                            <Text style={{ fontSize: '0.8rem', color: '#333' }}>
-                                              {presenta.REGUSER}
-                                            </Text>
-                                          </FlexBox>
-                                        )}
-
-                                        {presenta.REGDATE && (
-                                          <FlexBox
-                                            direction="Column"
-                                            style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}
-                                          >
-                                            <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
-                                              Fecha Registro
-                                            </Label>
-                                            <Text style={{ fontSize: '0.8rem', color: '#333' }}>
-                                              {formatDate(presenta.REGDATE)}
-                                            </Text>
-                                          </FlexBox>
-                                        )}
-
-                                        {presenta.ACTIVED !== undefined && (
-                                          <FlexBox
-                                            direction="Column"
-                                            style={{ gap: '0.25rem', flex: '1 1 45%', minWidth: '150px' }}
-                                          >
-                                            <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
-                                              Estado
-                                            </Label>
-                                            <Text
-                                              style={{
-                                                fontSize: '0.8rem',
-                                                color: presenta.ACTIVED ? '#2e7d32' : '#c00',
-                                                fontWeight: 500
-                                              }}
-                                            >
-                                              {presenta.ACTIVED ? '✓ Activo' : '✗ Inactivo'}
-                                            </Text>
-                                          </FlexBox>
-                                        )}
-                                      </FlexBox>
-
-                                      {/* >>> NUEVO: bloque de precio de esta presentación en la lista <<< */}
-                                      <PrecioListaPresentacionPrice
-                                        idPresentaOK={presenta.IdPresentaOK}
-                                        skuid={producto.SKUID}
-                                        idListaOK={idListaOK}
-                                      />
+                                      {/* Espacio vacío para agregar contenido después */}
                                     </FlexBox>
                                   )}
 
