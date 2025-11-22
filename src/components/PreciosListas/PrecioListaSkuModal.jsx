@@ -291,13 +291,17 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
           </FlexBox>
         } />
       }
-      style={{ width: '1200px', maxHeight: '95vh' }}
+      style={{ 
+        width: window.innerWidth < 768 ? '100vw' : window.innerWidth < 1024 ? '95vw' : '1200px', 
+        maxHeight: '95vh',
+        margin: window.innerWidth < 768 ? '0' : 'auto'
+      }}
     >
       <FlexBox
         direction={FlexBoxDirection.Column}
         style={{
           width: '100%',
-          padding: '2rem',
+          padding: window.innerWidth < 768 ? '1rem' : '2rem',
           gap: '2rem',
           maxHeight: 'calc(95vh - 120px)',
           overflowY: 'auto'
@@ -336,7 +340,11 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                 placeholder="Buscar por producto o presentación..."
                 value={searchSKU}
                 onChange={(e) => setSearchSKU(e.target.value)}
-                style={{ width: '300px', marginLeft: 'auto' }}
+                style={{ 
+                  width: window.innerWidth < 768 ? '100%' : window.innerWidth < 1024 ? '200px' : '300px',
+                  marginLeft: window.innerWidth < 768 ? '0' : 'auto',
+                  minWidth: '150px'
+                }}
               />
             </FlexBox>
 
@@ -434,7 +442,7 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                 backgroundColor: '#fff',
                                 borderRadius: '4px',
                                 border: '1px solid #e0e0e0',
-                                height: '200px'
+                                height: window.innerWidth < 768 ? '150px' : '200px'
                               }}
                             >
                               {archivosPorSKU[producto.SKUID].filter(f => f.FILETYPE === 'IMG').map((file, fidx) => (
@@ -443,7 +451,7 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                   alignItems="Center"
                                   justifyContent="Center"
                                   style={{
-                                    height: '200px',
+                                    height: window.innerWidth < 768 ? '150px' : '200px',
                                     padding: '0.5rem',
                                     maxWidth: '100%'
                                   }}
@@ -454,8 +462,8 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                     style={{
                                       width: '100%',
                                       height: '100%',
-                                      maxWidth: '500px',
-                                      maxHeight: '200px',
+                                      maxWidth: window.innerWidth < 768 ? '100%' : '500px',
+                                      maxHeight: window.innerWidth < 768 ? '150px' : '200px',
                                       objectFit: 'contain',
                                       borderRadius: '4px',
                                       display: 'block'

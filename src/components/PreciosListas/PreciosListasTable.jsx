@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardHeader,
@@ -20,7 +21,6 @@ import {
   Tag
 } from '@ui5/webcomponents-react';
 import preciosListasService from '../../api/preciosListasService';
-import PreciosListasModal from './PreciosListasModal';
 import PrecioSkuModal from './PrecioListaSkuModal';
 import SKUButton from './PreciosListasSKUButton';
 import { createActionHandlers } from './PreciosListasActions';
@@ -50,13 +50,13 @@ import { createActionHandlers } from './PreciosListasActions';
  */
 
 const PreciosListasTable = () => {
+  const navigate = useNavigate();
+  
   // === ESTADOS LOCALES ===
   const [listas, setListas] = useState([]); // Array de todas las listas
   const [error, setError] = useState(''); // Mensaje de error
   const [loading, setLoading] = useState(true); // Indicador de carga
   const [searchTerm, setSearchTerm] = useState(''); // Término de búsqueda
-  const [isModalOpen, setIsModalOpen] = useState(false); // ¿Está abierto el modal?
-  const [editingLista, setEditingLista] = useState(null); // Lista que se está editando (null = crear)
   const [messageStrip, setMessageStrip] = useState(null); // Mensaje temporal de éxito
   const [selectedListas, setSelectedListas] = useState(new Set()); // Set de IDs de listas seleccionadas
   const [selectedSKU, setSelectedSKU] = useState(null); // Modal de precios del SKU: { skuId, skusList }
@@ -68,7 +68,7 @@ const PreciosListasTable = () => {
    * - Llama fetchListas() que trae todas las listas del servidor
    * - Usa preciosListasService.getAllListas() ← ⭐ ESTA LÍNEA\n   */
   useEffect(() => {
-    fetchListas();
+    fetchListas(); 
   }, []);
 
   /**
@@ -91,7 +91,34 @@ const PreciosListasTable = () => {
     try {
       // Obtener todas las listas del servidor
       const result = await preciosListasService.getAllListas();
-      setListas(result);
+      
+      // Parsear SKUSIDS si viene como string JSON
+      const listasConSkusParsed = result.map(lista => {
+        let skusids = lista.SKUSIDS;
+        
+        // Si es string, parsear (puede ocurrir si se guarda como JSON string)
+        if (typeof skusids === 'string') {
+          try {
+            skusids = JSON.parse(skusids);
+          } catch (e) {
+            console.warn('No se pudo parsear SKUSIDS:', skusids);
+            skusids = [];
+          }
+        }
+        
+        // Asegurar que sea array
+        if (!Array.isArray(skusids)) {
+          console.warn('SKUSIDS no es array después de parsear:', skusids);
+          skusids = [];
+        }
+        
+        return {
+          ...lista,
+          SKUSIDS: skusids
+        };
+      });
+      
+      setListas(listasConSkusParsed);
       setError('');
     } catch (err) {
       setError('Error al obtener las listas de precios.');
@@ -101,15 +128,17 @@ const PreciosListasTable = () => {
     }
   };
 
-  // === Inicializar handlers de acciones ===
+  // === MANEJADORES LOCALES ===
+  const handleAdd = () => {
+    navigate('/precios-listas/crear');
+  };
+
   const {
-    handleAdd,
-    handleSave,
     handleToggleStatus,
     handleDeleteSelected
   } = createActionHandlers(
-    setEditingLista,
-    setIsModalOpen,
+    null, // setEditingLista (no usado)
+    null, // setIsModalOpen (no usado)
     setError,
     setLoading,
     setSelectedListas,
@@ -118,17 +147,6 @@ const PreciosListasTable = () => {
     listas,
     selectedListas
   );
-
-  /**
-   * 🔹 CERRAR MODAL
-   * 
-   * ¿QUÉ SUCEDE?\n   * - Cierra el modal de crear/editar
-   * - Limpia la lista que se estaba editando
-   */
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingLista(null);
-  };
 
   /**
    * 🔹 ABRIR MODAL DE PRECIOS DEL SKU
@@ -197,16 +215,15 @@ const PreciosListasTable = () => {
    * 🔹 EDITAR LA LISTA SELECCIONADA
    * 
    * ¿QUÉ SUCEDE?\n   * - Si hay exactamente 1 lista seleccionada
-   * - La carga en el modal para editarla
-   * - Abre el modal
+   * - Navega a la página de edición
    */
   const handleEditSelected = () => {
     if (selectedListas.size !== 1) return;
     const listaId = Array.from(selectedListas)[0];
     const lista = listas.find(l => l.IDLISTAOK === listaId);
     if (lista) {
-      setEditingLista(lista);
-      setIsModalOpen(true);
+      // Navegar a la página de edición (pasar la lista como state)
+      navigate('/precios-listas/crear', { state: { lista, isEditMode: true } });
     }
   };
 
@@ -278,26 +295,39 @@ const PreciosListasTable = () => {
       <FlexBox 
         alignItems="Center" 
         justifyContent="SpaceBetween" 
+        direction={window.innerWidth < 768 ? 'Column' : 'Row'}
         style={{ 
           marginBottom: '1rem', 
           padding: '0.5rem 0', 
-          borderBottom: '1px solid #ccc' 
+          borderBottom: '1px solid #ccc',
+          gap: window.innerWidth < 768 ? '0.75rem' : '0'
         }}
       >
         {/* Título y contador */}
         <FlexBox direction="Column">
-          <Title level="H3">Listas de Precios</Title>
-          <Text style={{ color: '#666' }}>{filteredListas.length} listas encontradas</Text>
+          <Title level="H3" style={{ margin: '0' }}>Listas de Precios</Title>
+          <Text style={{ color: '#666', fontSize: '0.875rem' }}>{filteredListas.length} listas encontradas</Text>
         </FlexBox>
 
         {/* Acciones */}
-        <FlexBox alignItems="Center" justifyContent="End" style={{ gap: '1rem' }}>
+        <FlexBox 
+          alignItems="Center" 
+          justifyContent="End" 
+          direction={window.innerWidth < 768 ? 'Column' : 'Row'}
+          style={{ 
+            gap: window.innerWidth < 768 ? '0.5rem' : '1rem',
+            width: window.innerWidth < 768 ? '100%' : 'auto'
+          }}
+        >
           {/* 🔍 Campo de búsqueda */}
           <Input
             icon={<Icon name="search" />}
             placeholder="Buscar por descripción o SKU..."
             onInput={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '300px' }}
+            style={{ 
+              width: window.innerWidth < 768 ? '100%' : window.innerWidth < 1024 ? '200px' : '300px',
+              minWidth: '150px'
+            }}
           />
           
           {/* ➕ BOTÓN CREAR */}
@@ -588,15 +618,9 @@ const PreciosListasTable = () => {
       {/* === MODAL PARA CREAR/EDITAR LISTA === */}
       {/* 
         Se abre cuando: isModalOpen=true
-        Modo CREAR: editingLista=null
-        Modo EDITAR: editingLista={...datos...}
+        Modo CREAR: navegar a /precios-listas/crear
+        Modo EDITAR: navegar a /precios-listas/editar/{id}
       */}
-      <PreciosListasModal
-        open={isModalOpen}
-        onClose={handleCloseModal}
-        onSave={handleSave}  // handleSave viene de PreciosListasActions
-        lista={editingLista}
-      />
 
       {/* === MODAL PARA PRECIOS DEL SKU === */}
       {/* 

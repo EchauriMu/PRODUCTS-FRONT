@@ -15,13 +15,208 @@ import {
   BusyIndicator,
   Icon,
   RadioButton,
+  Select,
+  Option,
   MultiComboBox,
+  MultiComboBoxItem,
   ComboBoxItem
 } from '@ui5/webcomponents-react';
 import productService from '../../api/productService';
 import categoryService from '../../api/categoryService';
 import productPresentacionesService from '../../api/productPresentacionesService';
 import preciosItemsService from '../../api/preciosItemsService';
+
+// Componente personalizado para filtro con checkboxes y búsqueda
+const FilterCheckboxList = ({ 
+  items, 
+  selectedItems, 
+  onToggleItem,
+  onRemoveItem,
+  searchValue, 
+  onSearchChange, 
+  placeholder,
+  getLabel,
+  getKey,
+  isOpen,
+  setIsOpen 
+}) => {
+  const filteredItems = items.filter(item =>
+    getLabel(item).toLowerCase().includes(searchValue.toLowerCase())
+  );
+
+  const handleItemClick = (itemKey, e) => {
+    e.stopPropagation();
+    onToggleItem(itemKey);
+    // Cerrar el dropdown después de seleccionar
+    setIsOpen(false);
+  };
+
+  const handleRemoveTag = (itemKey, e) => {
+    e.stopPropagation();
+    onRemoveItem(itemKey);
+  };
+
+  const selectedItemsObjects = selectedItems.map(key => 
+    items.find(item => getKey(item) === key)
+  ).filter(Boolean);
+
+  // Detectar clics fuera del dropdown para cerrarlo
+  React.useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (isOpen && e.target.closest('[data-filter-list]') === null) {
+        setIsOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, setIsOpen]);
+
+  return (
+    <div style={{ position: 'relative', width: '100%' }} data-filter-list>
+      {/* Input con tags */}
+      <div
+        style={{
+          padding: '0.5rem 0.75rem',
+          border: '1px solid #ccc',
+          borderRadius: '4px',
+          backgroundColor: '#ffffff',
+          cursor: 'text',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          flexWrap: 'wrap',
+          minHeight: '40px',
+          transition: 'border-color 0.2s',
+          borderColor: isOpen ? '#0066cc' : '#ccc'
+        }}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {/* Tags de selecciones */}
+        {selectedItemsObjects.map(item => {
+          const itemKey = getKey(item);
+          return (
+            <div
+              key={itemKey}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.35rem 0.6rem',
+                backgroundColor: '#e8f4f8',
+                border: '1px solid #b3d9e8',
+                borderRadius: '18px',
+                fontSize: '0.85rem',
+                color: '#0066cc',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Text style={{ margin: 0, fontSize: '0.875rem' }}>
+                {getLabel(item)}
+              </Text>
+              <Icon
+                name="decline"
+                style={{
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  color: '#0066cc'
+                }}
+                onClick={(e) => handleRemoveTag(itemKey, e)}
+              />
+            </div>
+          );
+        })}
+
+        {/* Input placeholder y flecha */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto', flexShrink: 0 }}>
+          {selectedItems.length === 0 && (
+            <Text style={{ fontSize: '0.875rem', color: '#999', margin: 0 }}>
+              {placeholder}
+            </Text>
+          )}
+          <Icon 
+            name={isOpen ? 'slim-arrow-up' : 'slim-arrow-down'}
+            style={{ fontSize: '1.2rem', cursor: 'pointer', color: '#333' }}
+          />
+        </div>
+      </div>
+
+      {/* Dropdown */}
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            right: 0,
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            backgroundColor: '#ffffff',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+            zIndex: 1000,
+            maxHeight: '300px',
+            overflowY: 'auto',
+            minWidth: '280px'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Search Input */}
+          <div style={{ padding: '0.75rem', borderBottom: '1px solid #f0f0f0', position: 'sticky', top: 0, backgroundColor: '#ffffff', zIndex: 1001 }}>
+            <Input
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Buscar..."
+              icon="search"
+              style={{ width: '100%' }}
+            />
+          </div>
+
+          {/* Checkbox List */}
+          {filteredItems.length > 0 ? (
+            <div>
+              {filteredItems.map((item, idx) => {
+                const itemKey = getKey(item);
+                const isSelected = selectedItems.includes(itemKey);
+                return (
+                  <div
+                    key={itemKey}
+                    style={{
+                      padding: '0.5rem 0.75rem',
+                      borderBottom: idx < filteredItems.length - 1 ? '1px solid #f5f5f5' : 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      cursor: 'pointer',
+                      backgroundColor: isSelected ? '#f0f7ff' : '#ffffff',
+                      transition: 'background-color 0.15s'
+                    }}
+                    onClick={(e) => handleItemClick(itemKey, e)}
+                    onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = '#f8f9fa')}
+                    onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = '#ffffff')}
+                  >
+                    <CheckBox
+                      checked={isSelected}
+                      style={{ marginRight: '0.25rem' }}
+                    />
+                    <Text style={{ fontSize: '0.875rem', flex: 1 }}>
+                      {getLabel(item)}
+                    </Text>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ padding: '1rem', textAlign: 'center' }}>
+              <Text style={{ fontSize: '0.875rem', color: '#999' }}>
+                No hay coincidencias
+              </Text>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Componente de Filtros Avanzados para Precios Listas
 const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, preselectedProducts = new Set(), lockedProducts = new Set() }) => {
@@ -30,11 +225,8 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     marcas: [],
     precioMin: '',
     precioMax: '',
-    fechaIngresoDesde: '',
-    fechaIngresoHasta: '',
     tipoGeneral: '',
     tipoFormula: '',
-    estadoVigencia: '', // 'vigente', 'expirada', 'proxima'
     ...initialFilters
   });
 
@@ -50,8 +242,14 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
   const [selectedProducts, setSelectedProducts] = useState(preselectedProducts);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Usar ref para rastrear preselectedProducts anterior y evitar loops infinitos
-  const prevPreselectedRef = useRef(null);
+  // Estados para buscadores de marcas y categorías
+  const [searchMarcas, setSearchMarcas] = useState('');
+  const [searchCategorias, setSearchCategorias] = useState('');
+  
+  // Estados para controlar apertura/cierre de dropdowns
+  const [openMarcasDropdown, setOpenMarcasDropdown] = useState(false);
+  const [openCategoriasDropdown, setOpenCategoriasDropdown] = useState(false);
+  
   
   // Estados para presentaciones
   const [expandedProducts, setExpandedProducts] = useState(new Set());
@@ -77,13 +275,9 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
   const TIPOS_FORMULA = [
     { id: 'FIJO', name: 'Fijo' },
     { id: 'PORCENTAJE', name: 'Porcentaje' },
+    { id: 'DESCUENTO', name: 'Descuento' },
+    { id: 'MARGEN', name: 'Margen' },
     { id: 'ESCALA', name: 'Escala' }
-  ];
-
-  const ESTADO_VIGENCIA = [
-    { id: 'vigente', name: 'Vigente', label: 'Actualmente vigente' },
-    { id: 'expirada', name: 'Expirada', label: 'Ya pasó su fecha de fin' },
-    { id: 'proxima', name: 'Próxima a expirar', label: 'Expira en los próximos 30 días' }
   ];
 
   // RANGOS DE PRECIOS ESTÁTICOS
@@ -119,6 +313,8 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
       setSelectedProducts(new Set(preselectedArray));
     }
   }, [preselectedProducts]);
+
+
 
   const loadData = async () => {
     setLoading(true);
@@ -172,7 +368,6 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
       setProductos(productosData);
       
       // Usar TODAS las categorías, sin filtrar por ACTIVED o DELETED
-      // (igual que en el módulo de Promociones)
       setCategorias(categoriasData);
 
       // Extraer marcas únicas de los productos
@@ -199,16 +394,140 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     }
   };
 
+  // OBTENER MARCAS DISPONIBLES BASADAS EN LA BÚSQUEDA Y FILTROS ACTUALES
+  const getAvailableMarcas = () => {
+    // Primero, obtener los productos que pasan el filtro de búsqueda y otras restricciones
+    // PERO ignorando el filtro de marcas (para poder mostrar qué marcas hay disponibles)
+    const productosFiltrados = productos.filter(producto => {
+      if (!producto.ACTIVED || producto.DELETED) return false;
+      
+      // Aplicar filtro de búsqueda
+      if (searchTerm && searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesName = producto.PRODUCTNAME?.toLowerCase().includes(searchLower);
+        const matchesSKU = producto.SKUID?.toLowerCase().includes(searchLower);
+        const matchesMarca = producto.MARCA?.toLowerCase().includes(searchLower);
+        const matchesCategoria = producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS) && 
+          producto.CATEGORIAS.some(cat => {
+            if (typeof cat === 'string') return cat.toLowerCase().includes(searchLower);
+            if (typeof cat === 'object' && cat.Nombre) return cat.Nombre.toLowerCase().includes(searchLower);
+            return false;
+          });
+        
+        if (!(matchesName || matchesSKU || matchesMarca || matchesCategoria)) return false;
+      }
+      
+      // Aplicar filtro de categorías (si está seleccionado)
+      if (filters.categorias && filters.categorias.length > 0) {
+        if (producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS)) {
+          const hasCategory = producto.CATEGORIAS.some(cat => {
+            if (typeof cat === 'string') return filters.categorias.includes(cat);
+            if (typeof cat === 'object' && cat.CATID) return filters.categorias.includes(cat.CATID);
+            return false;
+          });
+          if (!hasCategory) return false;
+        } else {
+          return false;
+        }
+      }
+      
+      // Aplicar filtro de precio
+      if (filters.precioMin && producto.PRECIO < parseFloat(filters.precioMin)) return false;
+      if (filters.precioMax && producto.PRECIO > parseFloat(filters.precioMax)) return false;
+      
+      return true;
+    });
+    
+    // Extraer marcas únicas de estos productos filtrados
+    const marcasUnicas = [...new Set(
+      productosFiltrados
+        .filter(p => p.MARCA && p.MARCA.trim() !== '')
+        .map(p => p.MARCA.trim())
+    )];
+    
+    return marcasUnicas.map(marca => ({ 
+      id: marca.toUpperCase().replace(/\s+/g, '_'), 
+      name: marca,
+      productos: productosFiltrados.filter(p => p.MARCA === marca).length
+    }));
+  };
+
+  // OBTENER CATEGORÍAS DISPONIBLES BASADAS EN LA BÚSQUEDA Y FILTROS ACTUALES
+  const getAvailableCategorias = () => {
+    // Obtener los productos que pasan el filtro de búsqueda y otras restricciones
+    // PERO ignorando el filtro de categorías
+    const productosFiltrados = productos.filter(producto => {
+      if (!producto.ACTIVED || producto.DELETED) return false;
+      
+      // Aplicar filtro de búsqueda
+      if (searchTerm && searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesName = producto.PRODUCTNAME?.toLowerCase().includes(searchLower);
+        const matchesSKU = producto.SKUID?.toLowerCase().includes(searchLower);
+        const matchesMarca = producto.MARCA?.toLowerCase().includes(searchLower);
+        const matchesCategoria = producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS) && 
+          producto.CATEGORIAS.some(cat => {
+            if (typeof cat === 'string') return cat.toLowerCase().includes(searchLower);
+            if (typeof cat === 'object' && cat.Nombre) return cat.Nombre.toLowerCase().includes(searchLower);
+            return false;
+          });
+        
+        if (!(matchesName || matchesSKU || matchesMarca || matchesCategoria)) return false;
+      }
+      
+      // Aplicar filtro de marcas (si está seleccionado)
+      if (filters.marcas && filters.marcas.length > 0) {
+        if (!filters.marcas.includes(producto.MARCA?.trim())) return false;
+      }
+      
+      // Aplicar filtro de precio
+      if (filters.precioMin && producto.PRECIO < parseFloat(filters.precioMin)) return false;
+      if (filters.precioMax && producto.PRECIO > parseFloat(filters.precioMax)) return false;
+      
+      return true;
+    });
+    
+    // Extraer categorías únicas de estos productos filtrados
+    const categoriasMap = new Map();
+    
+    productosFiltrados.forEach(producto => {
+      if (producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS)) {
+        producto.CATEGORIAS.forEach(cat => {
+          if (typeof cat === 'string') {
+            // Si es string, buscar la categoría en el listado original
+            const catObj = categorias.find(c => c.CATID === cat);
+            if (catObj && !categoriasMap.has(cat)) {
+              categoriasMap.set(cat, { ...catObj, count: 0 });
+            }
+            if (categoriasMap.has(cat)) {
+              categoriasMap.get(cat).count += 1;
+            }
+          } else if (typeof cat === 'object' && cat.CATID) {
+            if (!categoriasMap.has(cat.CATID)) {
+              categoriasMap.set(cat.CATID, { ...cat, count: 0 });
+            }
+            categoriasMap.get(cat.CATID).count += 1;
+          }
+        });
+      }
+    });
+    
+    return Array.from(categoriasMap.values());
+  };
+
+  const handleMultiSelectChange = (filterKey, selectedItems) => {
+    const values = selectedItems.map(item => item.getAttribute('data-value'));
+    setFilters(prev => ({
+      ...prev,
+      [filterKey]: values
+    }));
+  };
+
   const handleFilterChange = (filterKey, value) => {
     setFilters(prev => ({
       ...prev,
       [filterKey]: value
     }));
-  };
-
-  const handleMultiSelectChange = (filterKey, selectedItems) => {
-    const values = selectedItems.map(item => item.getAttribute('data-value'));
-    handleFilterChange(filterKey, values);
   };
 
   const toggleMarcaFilter = (marca) => {
@@ -253,8 +572,6 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
       marcas: [],
       precioMin: '',
       precioMax: '',
-      fechaIngresoDesde: '',
-      fechaIngresoHasta: '',
     });
     setSearchTerm('');
     setSelectedProducts(new Set());
@@ -265,7 +582,6 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     if (filters.categorias.length > 0) count++;
     if (filters.marcas.length > 0) count++;
     if (filters.precioMin || filters.precioMax) count++;
-    if (filters.fechaIngresoDesde || filters.fechaIngresoHasta) count++;
     if (searchTerm) count++;
     return count;
   };
@@ -278,25 +594,51 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     hoy.setHours(0, 0, 0, 0);
     
     return productos.filter(producto => {
+      // FILTRO 1: Estado del producto
       if (!producto.ACTIVED || producto.DELETED) return false;
       
-      // Filtro de búsqueda por texto
-      if (searchTerm) {
+      // FILTRO 2: Búsqueda por texto
+      // Si hay término de búsqueda, DEBE cumplir este filtro
+      if (searchTerm && searchTerm.trim()) {
         const searchLower = searchTerm.toLowerCase();
-        const matchesSearch = 
-          producto.PRODUCTNAME?.toLowerCase().includes(searchLower) ||
-          producto.SKUID?.toLowerCase().includes(searchLower) ||
-          producto.MARCA?.toLowerCase().includes(searchLower);
         
+        // Buscar en nombre del producto
+        const matchesName = producto.PRODUCTNAME?.toLowerCase().includes(searchLower);
+        
+        // Buscar en SKU
+        const matchesSKU = producto.SKUID?.toLowerCase().includes(searchLower);
+        
+        // Buscar en marca
+        const matchesMarca = producto.MARCA?.toLowerCase().includes(searchLower);
+        
+        // Buscar en categorías
+        const matchesCategoria = producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS) && 
+          producto.CATEGORIAS.some(cat => {
+            if (typeof cat === 'string') {
+              return cat.toLowerCase().includes(searchLower);
+            }
+            if (typeof cat === 'object' && cat.Nombre) {
+              return cat.Nombre.toLowerCase().includes(searchLower);
+            }
+            return false;
+          });
+        
+        const matchesSearch = matchesName || matchesSKU || matchesMarca || matchesCategoria;
+        
+        // Si la búsqueda NO coincide, descartar el producto
         if (!matchesSearch) return false;
       }
       
-      // Filtro por marca - Compara con los nombres exactos de las marcas seleccionadas
+      // FILTRO 3: Por marca - SOLO si hay marcas seleccionadas
+      // Si hay marcas seleccionadas, el producto DEBE tener una de esas marcas
       if (filters.marcas && filters.marcas.length > 0) {
-        if (!filters.marcas.includes(producto.MARCA?.trim())) return false;
+        const productMarca = producto.MARCA?.trim();
+        const marcaMatches = filters.marcas.includes(productMarca);
+        if (!marcaMatches) return false;
       }
       
-      // Filtro por categoría - Compara DIRECTAMENTE con CATID
+      // FILTRO 4: Por categoría - SOLO si hay categorías seleccionadas
+      // Si hay categorías seleccionadas, el producto DEBE tener una de esas categorías
       if (filters.categorias && filters.categorias.length > 0) {
         if (producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS)) {
           // Comparar directamente los CATID de categoría
@@ -317,31 +659,80 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         }
       }
       
-      // Filtro por precio
+      // FILTRO 5: Por precio
       if (filters.precioMin && producto.PRECIO < parseFloat(filters.precioMin)) return false;
       if (filters.precioMax && producto.PRECIO > parseFloat(filters.precioMax)) return false;
       
-      // Filtro por fecha de ingreso - SOLO FILTRA si el producto tiene REGDATE
-      // Si el producto NO tiene REGDATE, se INCLUYE SIEMPRE (ignore este filtro)
-      if (filters.fechaIngresoDesde && producto.REGDATE) {
-        const fechaDesde = new Date(filters.fechaIngresoDesde);
-        fechaDesde.setHours(0, 0, 0, 0);
-        const fechaProducto = new Date(producto.REGDATE);
-        fechaProducto.setHours(0, 0, 0, 0);
-        // Solo excluir si la fecha es inválida Y es menor que la fecha desde
-        if (!isNaN(fechaProducto.getTime()) && fechaProducto < fechaDesde) return false;
-      }
-      
-      if (filters.fechaIngresoHasta && producto.REGDATE) {
-        const fechaHasta = new Date(filters.fechaIngresoHasta);
-        fechaHasta.setHours(23, 59, 59, 999);
-        const fechaProducto = new Date(producto.REGDATE);
-        fechaProducto.setHours(0, 0, 0, 0);
-        // Solo excluir si la fecha es válida Y es mayor que la fecha hasta
-        if (!isNaN(fechaProducto.getTime()) && fechaProducto > fechaHasta) return false;
-      }
-      
+      // Todos los filtros activos se cumplieron
       return true;
+    });
+  };
+
+  // Nueva función: Obtener productos para el buscador
+  // Si hay búsqueda: busca en TODOS los productos (sin restricciones de marca/categoría)
+  // Si NO hay búsqueda: aplica filtros de marca/categoría
+  const getProductosParaBuscador = () => {
+    if (productos.length === 0) return [];
+    
+    // Primero filtrar por estado
+    let resultado = productos.filter(producto => {
+      if (!producto.ACTIVED || producto.DELETED) return false;
+      return true;
+    });
+
+    // Si hay búsqueda, buscar en TODOS sin restricciones de marca/categoría
+    if (searchTerm && searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      
+      resultado = resultado.filter(producto => {
+        const matchesName = producto.PRODUCTNAME?.toLowerCase().includes(searchLower);
+        const matchesSKU = producto.SKUID?.toLowerCase().includes(searchLower);
+        const matchesMarca = producto.MARCA?.toLowerCase().includes(searchLower);
+        
+        const matchesCategoria = producto.CATEGORIAS && Array.isArray(producto.CATEGORIAS) && 
+          producto.CATEGORIAS.some(cat => {
+            if (typeof cat === 'string') {
+              return cat.toLowerCase().includes(searchLower);
+            }
+            if (typeof cat === 'object' && cat.Nombre) {
+              return cat.Nombre.toLowerCase().includes(searchLower);
+            }
+            return false;
+          });
+        
+        return matchesName || matchesSKU || matchesMarca || matchesCategoria;
+      });
+    } else {
+      // Si NO hay búsqueda, aplicar filtros de marca y categoría
+      if (filters.marcas && filters.marcas.length > 0) {
+        resultado = resultado.filter(producto => {
+          const productMarca = producto.MARCA?.trim();
+          return filters.marcas.includes(productMarca);
+        });
+      }
+      
+      if (filters.categorias && filters.categorias.length > 0) {
+        resultado = resultado.filter(producto => {
+          if (!producto.CATEGORIAS || !Array.isArray(producto.CATEGORIAS)) return false;
+          
+          return producto.CATEGORIAS.some(cat => {
+            if (typeof cat === 'string') {
+              return filters.categorias.includes(cat);
+            }
+            if (typeof cat === 'object' && cat.CATID) {
+              return filters.categorias.includes(cat.CATID);
+            }
+            return false;
+          });
+        });
+      }
+    }
+    
+    // Ordenar: seleccionados primero, luego no seleccionados
+    return resultado.sort((a, b) => {
+      const aSelected = selectedProducts.has(a.SKUID) ? 0 : 1;
+      const bSelected = selectedProducts.has(b.SKUID) ? 0 : 1;
+      return aSelected - bSelected;
     });
   };
 
@@ -512,14 +903,16 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
 
   // Función para obtener productos paginados
   const getPaginatedProducts = () => {
-    const filtered = getFilteredProducts();
+    // Usar getProductosParaBuscador para mostrar TODOS los productos sin restricciones de marcas/categorías
+    const filtered = getProductosParaBuscador();
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
     return filtered.slice(startIndex, endIndex);
   };
 
   const getTotalPages = () => {
-    return Math.ceil(getFilteredProducts().length / ITEMS_PER_PAGE);
+    // Usar getProductosParaBuscador para contar TODOS los productos
+    return Math.ceil(getProductosParaBuscador().length / ITEMS_PER_PAGE);
   };
 
   const handleNextPage = () => {
@@ -551,11 +944,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         onFiltersChange({
           selectedPresentaciones: [],
           selectedSKUs: selectedSKUs,
-          filteredProducts: getFilteredProducts(),
-          filterDates: {
-            fechaIngresoDesde: filters.fechaIngresoDesde,
-            fechaIngresoHasta: filters.fechaIngresoHasta
-          }
+          filteredProducts: getFilteredProducts()
         });
       }
     }
@@ -578,21 +967,23 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
         minHeight: 0,
         maxHeight: '100%',
         alignItems: 'stretch',
-        overflow: 'hidden'
+        overflow: window.innerWidth < 768 ? 'auto' : 'hidden',
+        flexDirection: window.innerWidth < 768 ? 'column' : 'row'
       }}>
         
         {/* COLUMNA IZQUIERDA - FILTROS */}
         <Card style={{ 
-          flex: '0 0 35%',
+          flex: window.innerWidth < 768 ? '0 0 100%' : '0 0 35%',
           minWidth: '320px',
-          height: '100%',
+          height: window.innerWidth < 768 ? 'auto' : '100%',
+          maxHeight: window.innerWidth < 768 ? 'auto' : '100%',
           borderRadius: '8px',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
           border: '1px solid #e0e6ed',
           background: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden'
+          overflow: window.innerWidth < 768 ? 'visible' : 'hidden'
         }}>
         <CardHeader
           titleText="Filtros Avanzados"
@@ -655,106 +1046,67 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
             {/* FILTROS POR MARCA */}
             <div style={{ marginBottom: '1rem' }}>
               <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Marcas de Productos:</Label>
-                {marcas.length > 0 ? (
-                  <>
-                    <MultiComboBox
-                      placeholder="Selecciona marcas..."
-                      style={{ width: '100%', marginTop: '0.25rem' }}
-                      onSelectionChange={(e) => handleMultiSelectChange('marcas', e.detail.items)}
-                    >
-                      {marcas.map(marca => (
-                        <ComboBoxItem 
-                          key={marca.id} 
-                          text={`${marca.name} (${marca.productos} productos)`}
-                          data-value={marca.name}
-                          selected={filters.marcas.includes(marca.name)}
-                        />
-                      ))}
-                    </MultiComboBox>
-                    
-                    {filters.marcas.length > 0 && (
-                      <FlexBox style={{ marginTop: '0.5rem', gap: '0.25rem', flexWrap: 'wrap' }}>
-                        {filters.marcas.map(marcaNombre => {
-                          const marca = marcas.find(m => m.name === marcaNombre);
-                          return marca ? (
-                            <ObjectStatus key={marcaNombre} state="Warning">
-                              {marca.name} ({marca.productos})
-                            </ObjectStatus>
-                          ) : null;
-                        })}
-                      </FlexBox>
-                    )}
-                  </>
-                ) : (
-                  <Text style={{ marginTop: '0.25rem', color: '#666' }}>
-                    {loading ? 'Cargando marcas...' : 'No hay marcas disponibles'}
-                  </Text>
-                )}
+              {marcas.length > 0 ? (
+                <MultiComboBox
+                  style={{ width: '100%' }}
+                  placeholder="Selecciona marcas..."
+                  showSecondaryValues
+                  onSelectionChange={(e) => {
+                    const selectedItems = e.detail.items;
+                    const selectedMarcas = selectedItems.map(item => item.getAttribute('data-value'));
+                    setFilters(prev => ({
+                      ...prev,
+                      marcas: selectedMarcas
+                    }));
+                  }}
+                >
+                  {getAvailableMarcas().map((marca) => (
+                    <MultiComboBoxItem
+                      key={marca.name}
+                      text={`${marca.name} (${marca.productos})`}
+                      data-value={marca.name}
+                      selected={filters.marcas.includes(marca.name)}
+                    />
+                  ))}
+                </MultiComboBox>
+              ) : (
+                <Text style={{ marginTop: '0.25rem', color: '#666' }}>
+                  {loading ? 'Cargando marcas...' : 'No hay marcas disponibles'}
+                </Text>
+              )}
             </div>
 
             {/* FILTROS POR CATEGORÍA */}
             <div style={{ marginBottom: '1rem' }}>
               <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>Categorías de Productos:</Label>
-                {categorias.length > 0 ? (
-                  <>
-                    <div style={{ 
-                      maxHeight: '300px',
-                      overflowY: 'auto',
-                      overflowX: 'hidden',
-                      paddingRight: '0.25rem',
-                      scrollbarWidth: 'thin',
-                      scrollbarColor: '#999 #f0f0f0'
-                    }}>
-                      <style>{`
-                        div[style*="maxHeight: 300px"]::-webkit-scrollbar {
-                          width: 6px;
-                        }
-                        div[style*="maxHeight: 300px"]::-webkit-scrollbar-track {
-                          background: #f0f0f0;
-                          borderRadius: 3px;
-                        }
-                        div[style*="maxHeight: 300px"]::-webkit-scrollbar-thumb {
-                          background: #999;
-                          borderRadius: 3px;
-                        }
-                        div[style*="maxHeight: 300px"]::-webkit-scrollbar-thumb:hover {
-                          background: #666;
-                        }
-                      `}</style>
-                      <MultiComboBox
-                        placeholder="Selecciona categorías..."
-                        style={{ width: '100%', marginTop: '0.25rem' }}
-                        onSelectionChange={(e) => handleMultiSelectChange('categorias', e.detail.items)}
-                      >
-                        {categorias.map(categoria => (
-                          <ComboBoxItem 
-                            key={categoria.CATID} 
-                            text={`${categoria.Nombre}`}
-                            data-value={categoria.CATID}
-                            selected={filters.categorias.includes(categoria.CATID)}
-                          />
-                        ))}
-                      </MultiComboBox>
-                    </div>
-                    
-                    {filters.categorias.length > 0 && (
-                      <FlexBox style={{ marginTop: '0.5rem', gap: '0.25rem', flexWrap: 'wrap' }}>
-                        {filters.categorias.map(catId => {
-                          const categoria = categorias.find(c => c.CATID === catId);
-                          return categoria ? (
-                            <ObjectStatus key={catId} state="Information">
-                              {categoria.Nombre}
-                            </ObjectStatus>
-                          ) : null;
-                        })}
-                      </FlexBox>
-                    )}
-                  </>
-                ) : (
-                  <Text style={{ marginTop: '0.25rem', color: '#666' }}>
-                    {loading ? 'Cargando categorías...' : 'No hay categorías disponibles'}
-                  </Text>
-                )}
+              {categorias.length > 0 ? (
+                <MultiComboBox
+                  style={{ width: '100%' }}
+                  placeholder="Selecciona categorías..."
+                  showSecondaryValues
+                  onSelectionChange={(e) => {
+                    const selectedItems = e.detail.items;
+                    const selectedCategorias = selectedItems.map(item => item.getAttribute('data-value'));
+                    setFilters(prev => ({
+                      ...prev,
+                      categorias: selectedCategorias
+                    }));
+                  }}
+                >
+                  {getAvailableCategorias().map((categoria) => (
+                    <MultiComboBoxItem
+                      key={categoria.CATID}
+                      text={`${categoria.Nombre}${categoria.count ? ` (${categoria.count})` : ''}`}
+                      data-value={categoria.CATID}
+                      selected={filters.categorias.includes(categoria.CATID)}
+                    />
+                  ))}
+                </MultiComboBox>
+              ) : (
+                <Text style={{ marginTop: '0.25rem', color: '#666' }}>
+                  {loading ? 'Cargando categorías...' : 'No hay categorías disponibles'}
+                </Text>
+              )}
             </div>
 
             {/* FILTROS POR RANGO DE PRECIOS */}
@@ -809,107 +1161,27 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
               )}
             </div>
 
-            {/* FILTROS POR FECHA DE INGRESO */}
-            <div style={{ marginBottom: '1rem' }}>
-              <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block', color: '#333' }}>
-                Fecha de Ingreso:
-              </Label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                <DatePicker
-                  placeholder="Desde"
-                  value={filters.fechaIngresoDesde}
-                  onChange={(e) => handleFilterChange('fechaIngresoDesde', e.target.value)}
-                  style={{ width: '100%' }}
-                />
-                <DatePicker
-                  placeholder="Hasta"
-                  value={filters.fechaIngresoHasta}
-                  onChange={(e) => handleFilterChange('fechaIngresoHasta', e.target.value)}
-                  style={{ width: '100%' }}
-                />
-              </div>
-            </div>
-
             {/* SEPARADOR */}
             <div style={{ borderTop: '2px solid #e0e6ed', marginTop: '0.75rem' }}></div>
-
-            {/* FILTROS POR TIPO GENERAL */}
-            <div style={{ marginBottom: '1rem' }}>
-              <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block', color: '#333' }}>
-                Tipo General de Lista:
-              </Label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingLeft: '0.5rem' }}>
-                {TIPOS_GENERALES.map(tipo => (
-                  <RadioButton
-                    key={tipo.id}
-                    name="tipoGeneral"
-                    text={tipo.name}
-                    checked={filters.tipoGeneral === tipo.id}
-                    onChange={() => handleFilterChange('tipoGeneral', tipo.id)}
-                    style={{ fontSize: '0.875rem' }}
-                  />
-                ))}
-                <RadioButton
-                  name="tipoGeneral"
-                  text="Todos"
-                  checked={filters.tipoGeneral === ''}
-                  onChange={() => handleFilterChange('tipoGeneral', '')}
-                  style={{ fontSize: '0.875rem' }}
-                />
-              </div>
-            </div>
 
             {/* FILTROS POR TIPO FÓRMULA */}
             <div style={{ marginBottom: '1rem' }}>
               <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block', color: '#333' }}>
                 Tipo de Fórmula:
               </Label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingLeft: '0.5rem' }}>
+              <Select
+                value={filters.tipoFormula || ''}
+                onChange={(e) => handleFilterChange('tipoFormula', e.target.value)}
+                style={{ width: '100%', fontSize: '0.875rem' }}
+              >
+                <Option value="">Todos</Option>
                 {TIPOS_FORMULA.map(tipo => (
-                  <RadioButton
-                    key={tipo.id}
-                    name="tipoFormula"
-                    text={tipo.name}
-                    checked={filters.tipoFormula === tipo.id}
-                    onChange={() => handleFilterChange('tipoFormula', tipo.id)}
-                    style={{ fontSize: '0.875rem' }}
-                  />
+                  <Option key={tipo.id} value={tipo.id}>{tipo.name}</Option>
                 ))}
-                <RadioButton
-                  name="tipoFormula"
-                  text="Todos"
-                  checked={filters.tipoFormula === ''}
-                  onChange={() => handleFilterChange('tipoFormula', '')}
-                  style={{ fontSize: '0.875rem' }}
-                />
-              </div>
+              </Select>
             </div>
 
-            {/* FILTROS POR ESTADO DE VIGENCIA */}
-            <div style={{ marginBottom: '1rem' }}>
-              <Label style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'block', color: '#333' }}>
-                Estado de Vigencia:
-              </Label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingLeft: '0.5rem' }}>
-                {ESTADO_VIGENCIA.map(estado => (
-                  <RadioButton
-                    key={estado.id}
-                    name="estadoVigencia"
-                    text={`${estado.name} - ${estado.label}`}
-                    checked={filters.estadoVigencia === estado.id}
-                    onChange={() => handleFilterChange('estadoVigencia', estado.id)}
-                    style={{ fontSize: '0.875rem' }}
-                  />
-                ))}
-                <RadioButton
-                  name="estadoVigencia"
-                  text="Todos"
-                  checked={filters.estadoVigencia === ''}
-                  onChange={() => handleFilterChange('estadoVigencia', '')}
-                  style={{ fontSize: '0.875rem' }}
-                />
-              </div>
-            </div>
+
 
           </FlexBox>
           </div>
@@ -918,26 +1190,27 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
 
         {/* COLUMNA DERECHA - PRODUCTOS ENCONTRADOS */}
         <Card style={{ 
-          flex: '1',
-          minWidth: '400px',
-          height: '100%',
+          flex: window.innerWidth < 768 ? '0 0 100%' : '1',
+          minWidth: window.innerWidth < 768 ? 'auto' : '400px',
+          height: window.innerWidth < 768 ? 'auto' : '100%',
+          maxHeight: window.innerWidth < 768 ? 'auto' : '100%',
           borderRadius: '8px',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
           border: '1px solid #e0e6ed',
           background: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden'
+          overflow: window.innerWidth < 768 ? 'visible' : 'hidden'
         }}>
 
           <div style={{ 
-            padding: '0.75rem',
-            paddingBottom: '1.5rem',
+            padding: window.innerWidth < 768 ? '0.5rem' : '0.75rem',
+            paddingBottom: window.innerWidth < 768 ? '1rem' : '1.5rem',
             flex: '1 1 auto',
             overflowY: 'auto',
             overflowX: 'hidden',
             minHeight: 0,
-            maxHeight: 'calc(100vh - 150px)'
+            maxHeight: window.innerHeight < 600 ? 'auto' : 'calc(100vh - 150px)'
           }}>
             {loading ? (
               <FlexBox justifyContent="Center" style={{ padding: '2rem' }}>
@@ -967,6 +1240,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                   <Input
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
                     placeholder="Buscar por nombre, SKU, marca o categoría..."
                     icon="search"
                     style={{ width: '100%' }}
@@ -974,7 +1248,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                   {searchTerm && (
                     <FlexBox alignItems="Center" justifyContent="SpaceBetween" style={{ marginTop: '0.5rem' }}>
                       <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-                        {getFilteredProducts().length} resultado{getFilteredProducts().length !== 1 ? 's' : ''} encontrado{getFilteredProducts().length !== 1 ? 's' : ''}
+                        {getProductosParaBuscador().length} resultado{getProductosParaBuscador().length !== 1 ? 's' : ''} encontrado{getProductosParaBuscador().length !== 1 ? 's' : ''}
                       </Text>
                       <Button 
                         design="Transparent"
@@ -998,10 +1272,10 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                 }}>
                   <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
                     <CheckBox 
-                      checked={getSelectedProductsCount() === getFilteredProducts().length && getFilteredProducts().length > 0}
-                      indeterminate={getSelectedProductsCount() > 0 && getSelectedProductsCount() < getFilteredProducts().length}
+                      checked={getSelectedProductsCount() === getProductosParaBuscador().length && getProductosParaBuscador().length > 0}
+                      indeterminate={getSelectedProductsCount() > 0 && getSelectedProductsCount() < getProductosParaBuscador().length}
                       onChange={(e) => e.target.checked ? selectAllProducts() : deselectAllProducts()}
-                      text={`Seleccionar todos (${getFilteredProducts().length})`}
+                      text={`Seleccionar todos (${getProductosParaBuscador().length})`}
                     />
                   </FlexBox>
                   <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
@@ -1024,8 +1298,30 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                 <FlexBox direction="Column" style={{ 
                   gap: '0.5rem'
                 }}>
-                  {getPaginatedProducts().map(producto => (
-                  <div key={producto.SKUID}>
+                  {getPaginatedProducts().length === 0 ? (
+                    <div style={{ 
+                      textAlign: 'center', 
+                      padding: '2rem 1rem',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '8px',
+                      border: '1px solid #e9ecef'
+                    }}>
+                      <Icon 
+                        name="search" 
+                        style={{ 
+                          fontSize: '2rem', 
+                          color: '#ccc', 
+                          marginBottom: '0.5rem',
+                          display: 'block'
+                        }} 
+                      />
+                      <Text style={{ color: '#999', fontSize: '0.95rem' }}>
+                        {searchTerm ? `No se encontraron productos para "${searchTerm}"` : 'No hay productos disponibles'}
+                      </Text>
+                    </div>
+                  ) : (
+                    getPaginatedProducts().map(producto => (
+                    <div key={producto.SKUID}>
                     <Card 
                       style={{ 
                         padding: '0.75rem',
@@ -1162,7 +1458,8 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                       </div>
                     )}
                   </div>
-                ))}
+                ))
+                  )}
                 </FlexBox>
 
                 {/* PAGINACIÓN - BOTONES ANTERIOR/SIGUIENTE */}

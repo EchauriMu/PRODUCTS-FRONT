@@ -21,8 +21,6 @@ import {
   Avatar,
   BusyIndicator,
   Icon,
-  MultiComboBox,
-  ComboBoxItem,
   TabContainer,
   Tab,
   Tag
@@ -58,8 +56,6 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   const [activeTab, setActiveTab] = useState('details');
 
   // Estados para gestión de productos y presentaciones
-  const [allProducts, setAllProducts] = useState([]);
-  const [selectedProducts, setSelectedProducts] = useState(new Set());
   const [selectedPresentaciones, setSelectedPresentaciones] = useState([]); // Array de presentaciones
   const [originalPresentaciones, setOriginalPresentaciones] = useState([]); // Presentaciones originales de la promo
   const [searchTerm, setSearchTerm] = useState('');
@@ -134,26 +130,15 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     try {
       const response = await productService.getAllProducts();
 
-      // Extraer productos de múltiples estructuras (igual que en AdvancedFilters)
-      let productosData = [];
-      if (response?.data?.[0]?.dataRes) {
-        productosData = response.data[0].dataRes;
-      } else if (response?.value?.[0]?.data?.[0]?.dataRes) {
-        productosData = response.value[0].data[0].dataRes;
-      } else if (Array.isArray(response?.data)) {
-        productosData = response.data;
-      } else if (Array.isArray(response)) {
-        productosData = response;
-      } else if (Array.isArray(response?.dataRes)) {
-        productosData = response.dataRes;
-      }
+      // Extraer productos con la misma estructura que AdvancedFilters
+      const productosData = response?.value?.[0]?.data?.[0]?.dataRes
+        ?? response?.data?.[0]?.dataRes
+        ?? [];
 
-      // Normalizar: solo activos y no eliminados si esos flags existen
-      const activos = Array.isArray(productosData)
+      // Normalizar: solo activos y no eliminados si esos flags existen (actualmente no se usa allProducts directamente)
+      const _activos = Array.isArray(productosData)
         ? productosData.filter(p => (p.ACTIVED !== false) && (p.DELETED !== true))
         : [];
-
-      setAllProducts(activos);
     } catch (err) {
       console.error('Error loading products:', err);
       setError('Error al cargar productos: ' + (err.message || 'desconocido'));
@@ -207,7 +192,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
           PrecioOriginal: presentacion.Precio || 0
         }));
 
-      console.log('📋 Presentaciones a enviar:', presentacionesAplicables);
+      console.log('Presentaciones a enviar:', presentacionesAplicables);
 
       // Preparar datos para la API - SOLO campos modificables
       // El campo ACTIVED se actualiza con updatePromotion (el switch controla esto)
@@ -230,17 +215,17 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         updateData.DescuentoPorcentaje = 0;
       }
 
-      console.log('📤 Enviando actualización:', updateData);
+      console.log('Enviando actualización:', updateData);
 
       // Llamar al servicio de actualización
       const response = await promoService.updatePromotion(promotion.IdPromoOK, updateData);
       
-      console.log('✅ Promoción actualizada:', response);
+      console.log('Promoción actualizada:', response);
 
       onSave && onSave({ ...promotion, ...updateData });
       onClose();
     } catch (err) {
-      console.error('❌ Error al guardar:', err);
+      console.error('Error al guardar:', err);
       setError(err.message || 'Error al guardar la promoción');
     } finally {
       setSaving(false);
@@ -262,12 +247,12 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
       // Llamar al servicio de eliminación física
       const response = await promoService.deletePromotionHard(promotion.IdPromoOK);
       
-      console.log('✅ Promoción eliminada permanentemente:', response);
+      console.log('Promoción eliminada permanentemente:', response);
       
       onDelete && onDelete(promotion);
       onClose();
     } catch (err) {
-      console.error('❌ Error al eliminar permanentemente:', err);
+      console.error('Error al eliminar permanentemente:', err);
       setError('Error al eliminar permanentemente la promoción: ' + err.message);
     } finally {
       setDeleting(false);
@@ -276,26 +261,13 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
 
 
 
-  // DEPRECATED: Ya no se usa, ahora trabajamos con presentaciones
-  // const toggleProductSelection = (productId) => {
-  //   setSelectedProducts(prev => {
-  //     const newSelection = new Set(prev);
-  //     if (newSelection.has(productId)) {
-  //       newSelection.delete(productId);
-  //     } else {
-  //       newSelection.add(productId);
-  //     }
-  //     return newSelection;
-  //   });
-  // };
-
   // Función para recibir presentaciones filtradas del componente AdvancedFilters
   const handleFiltersChange = (filteredPresentaciones) => {
-    console.log('📦 Presentaciones filtradas recibidas:', filteredPresentaciones);
+    console.log('Presentaciones filtradas recibidas:', filteredPresentaciones);
     if (Array.isArray(filteredPresentaciones)) {
       // Las presentaciones nuevas son las que vienen del filtro
       setFilteredProductsToAdd(filteredPresentaciones);
-      console.log('✨ Presentaciones a trabajar:', filteredPresentaciones.length);
+      console.log('Presentaciones a trabajar:', filteredPresentaciones.length);
     } else {
       setFilteredProductsToAdd([]);
     }
@@ -314,7 +286,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     
     const updatedPresentaciones = [...selectedPresentaciones, ...newPresentaciones];
     
-    console.log('🔄 Presentaciones actualizadas:', updatedPresentaciones);
+    console.log('Presentaciones actualizadas:', updatedPresentaciones);
     setSelectedPresentaciones(updatedPresentaciones);
     setOriginalPresentaciones(updatedPresentaciones); // Actualizar originales
     setShowAddProductsModal(false);

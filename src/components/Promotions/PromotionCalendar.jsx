@@ -14,13 +14,8 @@ import {
   MessageStrip,
   Avatar,
   BusyIndicator,
-  CheckBox,
-  Input,
-  TabContainer,
-  Tab,
-  Token
+  Input
 } from '@ui5/webcomponents-react';
-import productService from '../../api/productService';
 import promoService from '../../api/promoService';
 import CustomDialog from '../common/CustomDialog';
 import { useDialog } from '../../hooks/useDialog';
@@ -29,15 +24,11 @@ import PromotionEditModal from './PromotionEditModal';
 const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) => {
   const { dialogState, showAlert, showError, closeDialog } = useDialog();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState('month'); // 'month', 'year', 'timeline', 'agenda'
+  const [viewMode, setViewMode] = useState('month'); // 'month', 'agenda'
   const [selectedPromotion, setSelectedPromotion] = useState(null);
   const [showPromotionDetail, setShowPromotionDetail] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [allProducts, setAllProducts] = useState([]);
-  const [selectedProducts, setSelectedProducts] = useState([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingPromotions, setLoadingPromotions] = useState(false);
-  const [productSearchTerm, setProductSearchTerm] = useState('');
   const [apiPromotions, setApiPromotions] = useState([]);
   const [filters, setFilters] = useState({
     estado: 'all', // 'all', 'active', 'scheduled', 'finished'
@@ -266,106 +257,10 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
   // Manejar click en promoción - Abre modal informativo
   const handlePromotionClick = (promotion) => {
     setSelectedPromotion(promotion);
-    // Cargar los productos aplicables de la promoción
-    const productos = promotion.ProductosAplicables || [];
-    setSelectedProducts(productos);
     setShowPromotionDetail(true);
   };
 
-  // Cargar productos de la API
-  const loadAllProducts = async () => {
-    setLoadingProducts(true);
-    try {
-      const response = await productService.getAllProducts();
-      
-      // Estructura de tu API
-      let productsList = [];
-      
-      if (response && response.value && Array.isArray(response.value) && response.value.length > 0) {
-        const mainResponse = response.value[0];
-        if (mainResponse.data && Array.isArray(mainResponse.data) && mainResponse.data.length > 0) {
-          const dataResponse = mainResponse.data[0];
-          if (dataResponse.dataRes && Array.isArray(dataResponse.dataRes)) {
-            productsList = dataResponse.dataRes;
-          }
-        }
-      }
-      
-      console.log('Productos cargados:', productsList.length);
-      setAllProducts(productsList || []);
-    } catch (error) {
-      console.error('Error cargando productos:', error);
-      setAllProducts([]);
-    } finally {
-      setLoadingProducts(false);
-    }
-  };
 
-  // Cargar productos al abrir el modal
-  useEffect(() => {
-    if (showPromotionDetail && allProducts.length === 0) {
-      loadAllProducts();
-    }
-  }, [showPromotionDetail]);
-
-  // Manejar selección de productos
-  const handleProductToggle = (product) => {
-    setSelectedProducts(prev => {
-      const isSelected = prev.some(p => p.SKUID === product.SKUID);
-      if (isSelected) {
-        return prev.filter(p => p.SKUID !== product.SKUID);
-      } else {
-        // Agregar con el formato que espera la API
-        return [...prev, {
-          SKUID: product.SKUID,
-          NombreProducto: product.PRODUCTNAME,
-          PrecioOriginal: product.PRECIO || 0
-        }];
-      }
-    });
-  };
-
-  // Filtrar productos disponibles
-  const getFilteredAvailableProducts = () => {
-    if (!allProducts.length) return [];
-    
-    return allProducts.filter(product => {
-      const matchesSearch = !productSearchTerm || 
-        product.PRODUCTNAME?.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
-        product.MARCA?.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
-        product.SKUID?.toLowerCase().includes(productSearchTerm.toLowerCase());
-      
-      return matchesSearch;
-    });
-  };
-
-  // Guardar cambios en productos seleccionados
-  const handleSaveProductChanges = async () => {
-    try {
-      // Preparar los datos para actualizar
-      const updateData = {
-        ...selectedPromotion,
-        ProductosAplicables: selectedProducts
-      };
-      
-      // Llamar a la API para actualizar la promoción
-      await promoService.updatePromotion(selectedPromotion.IdPromoOK, updateData);
-      
-      console.log('Productos de promoción actualizados:', {
-        promocion: selectedPromotion.IdPromoOK,
-        productos: selectedProducts.length
-      });
-      
-      // Recargar promociones
-      await loadPromotions();
-      
-      // Cerrar modal
-      setShowPromotionDetail(false);
-    } catch (error) {
-      console.error('Error al actualizar productos:', error);
-      await showError('Error al guardar los cambios: ' + error.message, 'Error');
-    }
-  };
 
   // Navegación de meses
   const navigateMonth = (direction) => {

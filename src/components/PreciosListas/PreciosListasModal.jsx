@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Dialog,
-  Bar,
   Button,
   Input,
-  DatePicker,
   Label,
   Title,
   Text,
@@ -17,8 +14,7 @@ import {
   MessageBoxAction,
   Select,
   Option,
-  BusyIndicator,
-  Icon
+  BusyIndicator
 } from '@ui5/webcomponents-react';
 import AdvancedFiltersPreciosListas from './AdvancedFiltersPreciosListas';
 import preciosListasService from '../../api/preciosListasService';
@@ -26,20 +22,22 @@ import * as yup from 'yup';
 
 /**
  * ================================================================================
- * MODAL PARA CREAR/EDITAR LISTAS DE PRECIOS - PreciosListasModal.jsx
+ * MODAL FULLSCREEN PARA CREAR/EDITAR LISTAS DE PRECIOS - PreciosListasModal.jsx
  * ================================================================================
  * 
- * Este componente es un DIALOG modal que permite:
+ * Este componente es un modal FULLSCREEN que permite:
  * - CREAR una nueva lista de precios
  * - EDITAR una lista existente
  * 
  * CARACTERÍSTICAS:
+ * - Ocupa toda la pantalla como el Stepper de Productos
  * - Validación de formulario con Yup
  * - Dos pestañas (tabs):
- *   1. "Paso 2: Selección de Productos" - para seleccionar SKUs
- *   2. "Configuración" - para datos de la lista
+ *   1. "Paso 1: Selección de Productos" - para seleccionar SKUs
+ *   2. "Paso 2: Configuración" - para datos de la lista
  * - Soporte para filtros avanzados de productos
  * - Validaciones en tiempo real
+ * - Header, contenido central y footer fijo
  * 
  * ================================================================================
  */
@@ -266,7 +264,7 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
       // PASO 2: Preparar datos para enviar al servidor
       const dataToSave = {
         IDLISTAOK: formData.IDLISTAOK || `LIS-${Date.now()}`,
-        SKUSIDS: JSON.stringify(formData.SKUSIDS), // Convertir array a JSON string
+        SKUSIDS: Array.isArray(formData.SKUSIDS) ? formData.SKUSIDS : [], // Enviar como array, no stringificado
         IDINSTITUTOOK: formData.IDINSTITUTOOK,
         DESLISTA: formData.DESLISTA,
         FECHAEXPIRAINI: formData.FECHAEXPIRAINI || null,
@@ -277,9 +275,46 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
         ACTIVED: Boolean(formData.ACTIVED),
       };
 
+      // DEBUG: Log de lo que se va a guardar
+      console.log('📊 DEBUG - SKUSIDS antes de guardar:', {
+        formDataSKUSIDS: formData.SKUSIDS,
+        cantidad: formData.SKUSIDS?.length,
+        dataToSaveSKUSIDS: dataToSave.SKUSIDS
+      });
+
       // PASO 3: Llamar onSave que es handleSave() en PreciosListasActions
       // handleSave() determinará si es CREATE o UPDATE
-      onSave(dataToSave); //aqui se le da guardar
+      if (typeof onSave === 'function') {
+        // Modo modal en tabla: onSave es handleSave() de PreciosListasActions
+        onSave(dataToSave);
+      } else {
+        // Modo página: guardar directamente y mostrar feedback
+        try {
+          const isEditMode = lista && lista.IDLISTAOK;
+          if (isEditMode) {
+            // UPDATE
+            await preciosListasService.update(lista.IDLISTAOK, dataToSave);
+          } else {
+            // CREATE
+            await preciosListasService.create(dataToSave);
+          }
+          
+          // Mostrar feedback y cerrar
+          setValidationErrors(null);
+          // Mostrar mensaje de éxito brevemente antes de cerrar
+          setTimeout(() => {
+            onClose();
+          }, 500);
+        } catch (error) {
+          setValidationErrors(
+            <ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
+              <li style={{ marginBottom: '0.5rem', color: '#c00' }}>
+                {error.response?.data?.messageUSR || error.message || 'Error al guardar la lista'}
+              </li>
+            </ul>
+          );
+        }
+      }
     } catch (error) {
       // Si hay errores de validación
       if (error instanceof yup.ValidationError) {
@@ -310,50 +345,46 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
 
   const status = getStatus();
 
-  /**
-   * RENDER DEL MODAL
-   * 
-   * Estructura:
-   * - Dialog principal con footer (botones Cancelar/Guardar)
-   * - MessageBox para mostrar errores de validación
-   * - TabContainer con 2 pestañas:
-   *   1. "Paso 2: Selección de Productos" - para filtrar y seleccionar SKUs
-   *   2. "Configuración" - para datos de la lista (descripción, tipo, fechas, etc)
-   * 
-   * BOTONES:\n   * - Cancelar (design="Transparent"): Cierra el modal sin guardar
-   * - Guardar (design="Emphasized"): Ejecuta handleSaveClick() que valida y guarda
-   */
+  if (!open) return null;
+
   return (
-    <Dialog
-      open={open}
-      onAfterClose={onClose}
-      headerText={isEditMode ? 'Editar Lista de Precios' : 'Nueva Lista de Precios'}
-      footer={
-        <Bar
-          endContent={
-            <>
-              <Button 
-                design="Transparent" 
-                icon="decline" 
-                onClick={onClose}
-                disabled={isSaving}
-              >
-                Cancelar
-              </Button>
-              <Button
-                design="Emphasized"
-                icon="save"
-                onClick={handleSaveClick}
-                disabled={isSaving}
-              >
-                {isSaving ? <BusyIndicator active size="Small" /> : 'Guardar'}
-              </Button>
-            </>
-          }
-        />
-      }
-      style={{ width: '98vw', maxWidth: '2000px', height: '97vh', borderRadius: '12px' }}
-    >
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      width: '100%',
+      backgroundColor: '#f5f7fa',
+      overflow: 'hidden'
+    }}>
+      {/* HEADER FIJO */}
+      <div style={{
+        padding: '1.5rem 2rem',
+        backgroundColor: '#fff',
+        borderBottom: '1px solid #e0e0e0',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+        flexShrink: 0
+      }}>
+        <FlexBox justifyContent="SpaceBetween" alignItems="Center">
+          <FlexBox direction="Column">
+            <Title level="H2" style={{ margin: 0 }}>
+              {isEditMode ? 'Editar Lista de Precios' : 'Nueva Lista de Precios'}
+            </Title>
+            <Text style={{ color: '#666', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+              {isEditMode ? 'Modifica los detalles de la lista' : 'Crea una nueva lista de precios'}
+            </Text>
+          </FlexBox>
+          <Button
+            icon="decline"
+            design="Transparent"
+            onClick={onClose}
+            disabled={isSaving}
+          >
+            Cerrar
+          </Button>
+        </FlexBox>
+      </div>
+
+      {/* ERRORES DE VALIDACIÓN */}
       <MessageBox
         open={!!validationErrors}
         type="Error"
@@ -364,170 +395,364 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
         {validationErrors}
       </MessageBox>
 
-      <TabContainer 
-        collapsed={false} 
-        onTabSelect={(e) => setActiveTab(e.detail.tab.dataset.key)}
-        style={{ height: 'calc(97vh - 100px)', display: 'flex', flexDirection: 'column' }}
-      >
-        <Tab text="Paso 2: Selección de Productos" icon="filter" data-key="filtros">
-          <div style={{ height: 'calc(97vh - 150px)', display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '2rem', background: '#f5f7fa' }}>
-            <FlexBox direction="Column" style={{ marginBottom: '1rem', gap: '0.25rem' }}>
-              <Title level="H3" style={{ margin: 0, color: '#2c3e50' }}>Paso 2: Selección de Productos</Title>
-              <Text style={{ color: '#666', fontSize: '0.875rem' }}>Aplica filtros para definir el alcance • {formData.SKUSIDS?.length || 0} encontrados</Text>
-            </FlexBox>
-            <AdvancedFiltersPreciosListas 
-              onFiltersChange={handleFiltersChange}
-              initialFilters={{}}
-              preselectedProducts={filteredSKUs}
-            />
-            <div style={{ padding: '1rem', marginTop: 'auto', backgroundColor: '#fff', borderTop: '1px solid #e0e0e0', textAlign: 'right' }}>
-              <Text style={{ marginRight: '1rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                {formData.SKUSIDS?.length || 0} producto(s) seleccionado(s)
+      {/* CONTENIDO PRINCIPAL: Dos columnas */}
+      <div style={{
+        display: 'flex',
+        flex: 1,
+        overflow: 'hidden',
+        width: '100%'
+      }}>
+        {/* COLUMNA IZQUIERDA: Configuración General (380px fijo) */}
+        <div style={{
+          width: '380px',
+          backgroundColor: '#f7f8fa',
+          padding: '1.5rem',
+          overflowY: 'auto',
+          borderRight: '1px solid #e5e5e5',
+          flexShrink: 0
+        }}>
+          <FlexBox direction="Column" style={{ gap: '2rem' }}>
+            {/* Encabezado */}
+            <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
+              <Title level="H4" style={{ margin: 0, fontSize: '1.1rem' }}>
+                {isEditMode ? 'Editar Configuración' : 'Nueva Lista'}
+              </Title>
+              <Text style={{ color: '#666', fontSize: '0.875rem' }}>
+                {isEditMode ? 'Modifica los datos de la lista' : 'Completa los datos generales'}
               </Text>
-            </div>
-          </div>
-        </Tab>
-
-        <Tab text="Configuración (Paso 2)" icon="settings" data-key="config">
-          <div style={{ padding: '2rem', maxHeight: 'calc(97vh - 200px)', overflowY: 'auto', background: '#f5f7fa' }}>
-            <FlexBox direction="Column" style={{ gap: '1.25rem' }}>
-              <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '10px' }}>
-                <CardHeader titleText="Información General" />
-                <div style={{ padding: '1rem' }}>
-                  <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
-                    
-                    <div>
-                      <Label required>ID de la Lista</Label>
-                      <Input
-                        value={formData.IDLISTAOK || ''}
-                        readOnly
-                        placeholder="Auto-generado"
-                        style={{ width: '100%', marginTop: '0.5rem', backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
-                      />
-                      <Text style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.25rem' }}>
-                        Identificador único (generado automáticamente)
-                      </Text>
-                    </div>
-
-                    <div>
-                      <Label required>Descripción de la Lista</Label>
-                      <Input
-                        value={formData.DESLISTA || ''}
-                        onInput={(e) => handleInputChange('DESLISTA', e.target.value)}
-                        placeholder="Ej: Lista de Precios Verano 2024"
-                        style={{ width: '100%', marginTop: '0.5rem' }}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Productos Seleccionados</Label>
-                      <div style={{ padding: '0.75rem', backgroundColor: '#f9f9f9', borderRadius: '6px', marginTop: '0.5rem', minHeight: '50px', display: 'flex', alignItems: 'center' }}>
-                        <Text style={{ fontSize: '0.875rem', fontWeight: '500' }}>
-                          {(formData.SKUSIDS && formData.SKUSIDS.length > 0) || (filteredSKUs && filteredSKUs.size > 0)
-                            ? `${formData.SKUSIDS?.length || filteredSKUs.size} producto(s) seleccionado(s)` 
-                            : 'Sin productos seleccionados - ir a Filtros para agregar'}
-                        </Text>
-                      </div>
-                    </div>
-                  </FlexBox>
-                </div>
-              </Card>
-
-              <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '10px' }}>
-                <CardHeader titleText="Configuración de la Lista" />
-                <div style={{ padding: '1rem' }}>
-                  <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
-                    
-                    <div>
-                      <Label required>Instituto</Label>
-                      <Input
-                        value={formData.IDINSTITUTOOK || ''}
-                        onInput={(e) => handleInputChange('IDINSTITUTOOK', e.target.value)}
-                        placeholder="ID del Instituto"
-                        style={{ width: '100%', marginTop: '0.5rem' }}
-                      />
-                    </div>
-
-                    <FlexBox style={{ gap: '1rem' }}>
-                      <div style={{ flex: 1 }}>
-                        <Label required>Tipo de Lista</Label>
-                        <Select
-                          value={formData.IDTIPOLISTAOK || ''}
-                          onChange={(e) => handleInputChange('IDTIPOLISTAOK', e.target.value)}
-                          style={{ width: '100%', marginTop: '0.5rem' }}
-                        >
-                          <Option value="">Seleccionar tipo...</Option>
-                          <Option value="BASE">Lista Base</Option>
-                          <Option value="MAYORISTA">Lista Mayorista</Option>
-                          <Option value="MINORISTA">Lista Minorista</Option>
-                          <Option value="PROMOCIONAL">Lista Promocional</Option>
-                          <Option value="VIP">Lista VIP</Option>
-                          <Option value="ESTACIONAL">Lista Estacional</Option>
-                          <Option value="REGIONAL">Lista por Región</Option>
-                          <Option value="CANAL">Lista por Canal</Option>
-                          <Option value="COSTO">Lista de Costo</Option>
-                          <Option value="ESPECIAL">Lista Especial</Option>
-                        </Select>
-                      </div>
-
-                      <div style={{ flex: 1 }}>
-                        <Label>Tipo General</Label>
-                        <Select
-                          value={formData.IDTIPOGENERALISTAOK || ''}
-                          onChange={(e) => handleInputChange('IDTIPOGENERALISTAOK', e.target.value)}
-                          style={{ width: '100%', marginTop: '0.5rem' }}
-                        >
-                          <Option value="ESPECIFICA">Específica</Option>
-                          <Option value="GENERAL">General</Option>
-                        </Select>
-                      </div>
-
-                      <div style={{ flex: 1 }}>
-                        <Label required>Tipo Fórmula</Label>
-                        <Select
-                          value={formData.IDTIPOFORMULAOK || ''}
-                          onChange={(e) => handleInputChange('IDTIPOFORMULAOK', e.target.value)}
-                          style={{ width: '100%', marginTop: '0.5rem' }}
-                        >
-                          <Option value="">Seleccionar fórmula...</Option>
-                          <Option value="FIJO">Fijo</Option>
-                          <Option value="PORCENTAJE">Porcentaje</Option>
-                          <Option value="ESCALA">Escala</Option>
-                        </Select>
-                      </div>
-                    </FlexBox>
-                  </FlexBox>
-                </div>
-              </Card>
-
-              {(filterDates.fechaIngresoDesde || filterDates.fechaIngresoHasta) && (
-                <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '10px', backgroundColor: '#f0f7ff', borderLeft: '4px solid #0066cc' }}>
-                  <CardHeader titleText="Fechas de Filtro Aplicadas" />
-                  <div style={{ padding: '1rem' }}>
-                    <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
-                      {filterDates.fechaIngresoDesde && (
-                        <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
-                          <Text style={{ fontWeight: '600', color: '#0066cc', minWidth: '120px' }}>Desde:</Text>
-                          <Text style={{ color: '#333' }}>{filterDates.fechaIngresoDesde}</Text>
-                        </FlexBox>
-                      )}
-                      {filterDates.fechaIngresoHasta && (
-                        <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
-                          <Text style={{ fontWeight: '600', color: '#0066cc', minWidth: '120px' }}>Hasta:</Text>
-                          <Text style={{ color: '#333' }}>{filterDates.fechaIngresoHasta}</Text>
-                        </FlexBox>
-                      )}
-                    </FlexBox>
-                  </div>
-                </Card>
-              )}
-
             </FlexBox>
-          </div>
-        </Tab>
 
-      </TabContainer>
-    </Dialog>
+            {/* INFORMACIÓN GENERAL */}
+            <FlexBox direction="Column" style={{ gap: '1rem' }}>
+              <Title level="H5" style={{ borderTop: '1px solid #e0e0e0', paddingTop: '1rem', marginBottom: 0, fontSize: '0.95rem' }}>
+                Información General
+              </Title>
+
+              <FlexBox direction="Column">
+                <Label required style={{ fontSize: '0.85rem' }}>ID de la Lista</Label>
+                <Input
+                  value={formData.IDLISTAOK || ''}
+                  readOnly
+                  placeholder="Auto-generado"
+                  style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed', fontSize: '0.9rem' }}
+                />
+              </FlexBox>
+
+              <FlexBox direction="Column">
+                <Label required style={{ fontSize: '0.85rem' }}>Descripción</Label>
+                <Input
+                  value={formData.DESLISTA || ''}
+                  onInput={(e) => handleInputChange('DESLISTA', e.target.value)}
+                  placeholder="Ej: Lista de Precios Verano 2024"
+                  style={{ fontSize: '0.9rem' }}
+                />
+              </FlexBox>
+
+              <FlexBox direction="Column">
+                <Label required style={{ fontSize: '0.85rem' }}>Instituto</Label>
+                <Input
+                  value={formData.IDINSTITUTOOK || ''}
+                  onInput={(e) => handleInputChange('IDINSTITUTOOK', e.target.value)}
+                  placeholder="ID del Instituto"
+                  style={{ fontSize: '0.9rem' }}
+                />
+              </FlexBox>
+            </FlexBox>
+
+            {/* CONFIGURACIÓN */}
+            <FlexBox direction="Column" style={{ gap: '1rem' }}>
+              <Title level="H5" style={{ borderTop: '1px solid #e0e0e0', paddingTop: '1rem', marginBottom: 0, fontSize: '0.95rem' }}>
+                Configuración
+              </Title>
+
+              <FlexBox direction="Column">
+                <Label required style={{ fontSize: '0.85rem' }}>Tipo de Lista</Label>
+                <Select
+                  value={formData.IDTIPOLISTAOK || ''}
+                  onChange={(e) => handleInputChange('IDTIPOLISTAOK', e.target.value)}
+                  style={{ width: '100%', fontSize: '0.9rem' }}
+                >
+                  <Option value="">Seleccionar tipo...</Option>
+                  <Option value="BASE">Lista Base</Option>
+                  <Option value="MAYORISTA">Lista Mayorista</Option>
+                  <Option value="MINORISTA">Lista Minorista</Option>
+                  <Option value="PROMOCIONAL">Lista Promocional</Option>
+                  <Option value="VIP">Lista VIP</Option>
+                  <Option value="ESTACIONAL">Lista Estacional</Option>
+                  <Option value="REGIONAL">Lista por Región</Option>
+                  <Option value="CANAL">Lista por Canal</Option>
+                  <Option value="COSTO">Lista de Costo</Option>
+                  <Option value="ESPECIAL">Lista Especial</Option>
+                </Select>
+              </FlexBox>
+
+              <FlexBox direction="Column">
+                <Label style={{ fontSize: '0.85rem' }}>Tipo General</Label>
+                <Select
+                  value={formData.IDTIPOGENERALISTAOK || ''}
+                  onChange={(e) => handleInputChange('IDTIPOGENERALISTAOK', e.target.value)}
+                  style={{ width: '100%', fontSize: '0.9rem' }}
+                >
+                  <Option value="ESPECIFICA">Específica</Option>
+                  <Option value="GENERAL">General</Option>
+                </Select>
+              </FlexBox>
+
+              <FlexBox direction="Column">
+                <Label required style={{ fontSize: '0.85rem' }}>Tipo Fórmula</Label>
+                <Select
+                  value={formData.IDTIPOFORMULAOK || ''}
+                  onChange={(e) => handleInputChange('IDTIPOFORMULAOK', e.target.value)}
+                  style={{ width: '100%', fontSize: '0.9rem' }}
+                >
+                  <Option value="">Seleccionar fórmula...</Option>
+                  <Option value="FIJO">Fijo - Precio fijo directo</Option>
+                  <Option value="PORCENTAJE">Porcentaje - Incremento/Descuento %</Option>
+                  <Option value="DESCUENTO">Descuento - Monto fijo</Option>
+                  <Option value="MARGEN">Margen - Margen sobre costo</Option>
+                  <Option value="ESCALA">Escala - Según cantidad</Option>
+                </Select>
+              </FlexBox>
+            </FlexBox>
+
+            {/* FECHAS */}
+            <FlexBox direction="Column" style={{ gap: '1rem' }}>
+              <Title level="H5" style={{ borderTop: '1px solid #e0e0e0', paddingTop: '1rem', marginBottom: 0, fontSize: '0.95rem' }}>
+                Vigencia
+              </Title>
+
+              <FlexBox direction="Column">
+                <Label required style={{ fontSize: '0.85rem' }}>Fecha de Inicio</Label>
+                <Input
+                  type="date"
+                  value={formData.FECHAEXPIRAINI || ''}
+                  onInput={(e) => handleInputChange('FECHAEXPIRAINI', e.target.value)}
+                  style={{ fontSize: '0.9rem' }}
+                />
+              </FlexBox>
+
+              <FlexBox direction="Column">
+                <Label required style={{ fontSize: '0.85rem' }}>Fecha de Fin</Label>
+                <Input
+                  type="date"
+                  value={formData.FECHAEXPIRAFIN || ''}
+                  onInput={(e) => handleInputChange('FECHAEXPIRAFIN', e.target.value)}
+                  style={{ fontSize: '0.9rem' }}
+                />
+              </FlexBox>
+            </FlexBox>
+
+            {/* PRODUCTOS SELECCIONADOS */}
+            <FlexBox direction="Column" style={{ gap: '1rem' }}>
+              <Title level="H5" style={{ borderTop: '1px solid #e0e0e0', paddingTop: '1rem', marginBottom: 0, fontSize: '0.95rem' }}>
+                Productos
+              </Title>
+              <div style={{
+                padding: '1rem',
+                backgroundColor: '#f9f9f9',
+                borderRadius: '4px',
+                minHeight: '50px',
+                display: 'flex',
+                alignItems: 'center',
+                border: '1px solid #e0e0e0'
+              }}>
+                <Text style={{ fontSize: '0.85rem', fontWeight: '500', color: '#2c3e50' }}>
+                  {(formData.SKUSIDS && formData.SKUSIDS.length > 0)
+                    ? `✓ ${formData.SKUSIDS.length} producto(s)`
+                    : '⚠ Sin productos seleccionados'}
+                </Text>
+              </div>
+            </FlexBox>
+
+            {/* FILTROS APLICADOS */}
+            {(filterDates.fechaIngresoDesde || filterDates.fechaIngresoHasta) && (
+              <FlexBox direction="Column" style={{ gap: '1rem' }}>
+                <Title level="H5" style={{ borderTop: '1px solid #e0e0e0', paddingTop: '1rem', marginBottom: 0, fontSize: '0.95rem' }}>
+                  Filtros
+                </Title>
+                <div style={{
+                  padding: '1rem',
+                  backgroundColor: '#f0f7ff',
+                  borderRadius: '4px',
+                  borderLeft: '3px solid #0066cc'
+                }}>
+                  <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
+                    {filterDates.fechaIngresoDesde && (
+                      <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+                        <Text style={{ fontWeight: '600', color: '#0066cc', fontSize: '0.8rem', minWidth: '60px' }}>Desde:</Text>
+                        <Text style={{ color: '#333', fontSize: '0.8rem' }}>{filterDates.fechaIngresoDesde}</Text>
+                      </FlexBox>
+                    )}
+                    {filterDates.fechaIngresoHasta && (
+                      <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+                        <Text style={{ fontWeight: '600', color: '#0066cc', fontSize: '0.8rem', minWidth: '60px' }}>Hasta:</Text>
+                        <Text style={{ color: '#333', fontSize: '0.8rem' }}>{filterDates.fechaIngresoHasta}</Text>
+                      </FlexBox>
+                    )}
+                  </FlexBox>
+                </div>
+              </FlexBox>
+            )}
+          </FlexBox>
+        </div>
+
+        {/* COLUMNA DERECHA: Selección de Productos (flex: 1) */}
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          backgroundColor: '#f5f7fa'
+        }}>
+          <TabContainer
+            collapsed={false}
+            onTabSelect={(e) => setActiveTab(e.detail.tab.dataset.key)}
+            style={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+          >
+            {/* TAB: FILTROS Y SELECCIÓN */}
+            <Tab text="Paso 1: Selección de Productos" icon="filter" data-key="filtros">
+              <div style={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                overflowY: 'auto',
+                padding: '0',
+                background: '#f5f7fa',
+                gap: 0
+              }}>
+                <div style={{ padding: '1.5rem', paddingBottom: '0.5rem', flexShrink: 0 }}>
+                  <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
+                    <Title level="H4" style={{ margin: 0, fontSize: '1.2rem' }}>
+                      Selección de Productos
+                    </Title>
+                    <Text style={{ color: '#666', fontSize: '0.875rem' }}>
+                      Aplica filtros para definir los productos • {formData.SKUSIDS?.length || 0} seleccionados
+                    </Text>
+                  </FlexBox>
+                </div>
+                <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <AdvancedFiltersPreciosListas
+                    onFiltersChange={handleFiltersChange}
+                    initialFilters={{}}
+                    preselectedProducts={filteredSKUs}
+                  />
+                </div>
+                <div style={{ padding: '1rem 1.5rem', paddingTop: '0.5rem', backgroundColor: '#fff', borderTop: '1px solid #e0e0e0', textAlign: 'right', flexShrink: 0 }}>
+                  <Text style={{ fontSize: '0.875rem', fontWeight: '500', color: '#2c3e50' }}>
+                    ✓ {formData.SKUSIDS?.length || 0} producto(s) seleccionado(s)
+                  </Text>
+                </div>
+              </div>
+            </Tab>
+
+            {/* TAB: RESUMEN */}
+            <Tab text="Resumen" icon="overview" data-key="resumen">
+              <div style={{
+                padding: '1.5rem',
+                maxHeight: '100%',
+                overflowY: 'auto',
+                background: '#f5f7fa',
+                width: '100%'
+              }}>
+                <FlexBox direction="Column" style={{ gap: '1.5rem', maxWidth: '900px' }}>
+                  <Card style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)', borderRadius: '8px' }}>
+                    <CardHeader titleText="Resumen de la Lista" />
+                    <div style={{ padding: '1.5rem' }}>
+                      <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
+                        <FlexBox style={{ gap: '1.5rem', borderBottom: '1px solid #e5e5e5', paddingBottom: '1.5rem' }}>
+                          <div style={{ flex: 1 }}>
+                            <Label style={{ fontSize: '0.75rem', color: '#666', fontWeight: '600' }}>ID</Label>
+                            <Text style={{ fontWeight: '600', fontSize: '0.95rem', marginTop: '0.25rem' }}>{formData.IDLISTAOK || 'Auto-generado'}</Text>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <Label style={{ fontSize: '0.75rem', color: '#666', fontWeight: '600' }}>Descripción</Label>
+                            <Text style={{ fontWeight: '600', fontSize: '0.95rem', marginTop: '0.25rem' }}>{formData.DESLISTA || '-'}</Text>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <Label style={{ fontSize: '0.75rem', color: '#666', fontWeight: '600' }}>Instituto</Label>
+                            <Text style={{ fontWeight: '600', fontSize: '0.95rem', marginTop: '0.25rem' }}>{formData.IDINSTITUTOOK || '-'}</Text>
+                          </div>
+                        </FlexBox>
+
+                        <FlexBox style={{ gap: '1.5rem', borderBottom: '1px solid #e5e5e5', paddingBottom: '1.5rem' }}>
+                          <div style={{ flex: 1 }}>
+                            <Label style={{ fontSize: '0.75rem', color: '#666', fontWeight: '600' }}>Tipo de Lista</Label>
+                            <Text style={{ fontWeight: '600', fontSize: '0.95rem', marginTop: '0.25rem' }}>{formData.IDTIPOLISTAOK || '-'}</Text>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <Label style={{ fontSize: '0.75rem', color: '#666', fontWeight: '600' }}>Tipo General</Label>
+                            <Text style={{ fontWeight: '600', fontSize: '0.95rem', marginTop: '0.25rem' }}>{formData.IDTIPOGENERALISTAOK || '-'}</Text>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <Label style={{ fontSize: '0.75rem', color: '#666', fontWeight: '600' }}>Fórmula</Label>
+                            <Text style={{ fontWeight: '600', fontSize: '0.95rem', marginTop: '0.25rem' }}>{formData.IDTIPOFORMULAOK || '-'}</Text>
+                          </div>
+                        </FlexBox>
+
+                        <FlexBox style={{ gap: '1.5rem' }}>
+                          <div style={{ flex: 1 }}>
+                            <Label style={{ fontSize: '0.75rem', color: '#666', fontWeight: '600' }}>Vigencia Desde</Label>
+                            <Text style={{ fontWeight: '600', fontSize: '0.95rem', marginTop: '0.25rem' }}>{formData.FECHAEXPIRAINI ? new Date(formData.FECHAEXPIRAINI).toLocaleDateString('es-ES') : '-'}</Text>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <Label style={{ fontSize: '0.75rem', color: '#666', fontWeight: '600' }}>Vigencia Hasta</Label>
+                            <Text style={{ fontWeight: '600', fontSize: '0.95rem', marginTop: '0.25rem' }}>{formData.FECHAEXPIRAFIN ? new Date(formData.FECHAEXPIRAFIN).toLocaleDateString('es-ES') : '-'}</Text>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <Label style={{ fontSize: '0.75rem', color: '#666', fontWeight: '600' }}>Productos</Label>
+                            <Text style={{ fontWeight: '600', fontSize: '0.95rem', marginTop: '0.25rem', color: '#0066cc' }}>{formData.SKUSIDS?.length || 0}</Text>
+                          </div>
+                        </FlexBox>
+                      </FlexBox>
+                    </div>
+                  </Card>
+                </FlexBox>
+              </div>
+            </Tab>
+          </TabContainer>
+        </div>
+      </div>
+
+      {/* FOOTER FIJO */}
+      <div style={{
+        padding: '1rem 2rem',
+        backgroundColor: '#fff',
+        borderTop: '1px solid #e0e0e0',
+        boxShadow: '0 -2px 4px rgba(0,0,0,0.05)',
+        flexShrink: 0
+      }}>
+        <FlexBox justifyContent="End" style={{ gap: '1rem' }}>
+          <Button
+            design="Transparent"
+            icon="decline"
+            onClick={onClose}
+            disabled={isSaving}
+          >
+            Cancelar
+          </Button>
+          <Button
+            design="Emphasized"
+            icon="save"
+            onClick={handleSaveClick}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+                <BusyIndicator active size="Small" />
+                <span>Guardando...</span>
+              </FlexBox>
+            ) : (
+              'Guardar'
+            )}
+          </Button>
+        </FlexBox>
+      </div>
+    </div>
   );
 };
 

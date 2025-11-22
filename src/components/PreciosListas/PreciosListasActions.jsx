@@ -181,19 +181,19 @@ export const createActionHandlers = (setEditingLista, setIsModalOpen, setError, 
         if (typeof listaData.ACTIVED !== 'undefined' && setEditingLista.ACTIVED !== listaData.ACTIVED) {
           // El estado cambió
           if (listaData.ACTIVED) {
-            // Cambió de false a true: ACTIVAR ← ⭐ LÍNEA 61-62
+            // Cambió de false a true: ACTIVAR 
             await preciosListasService.activate(setEditingLista.IDLISTAOK);
           } else {
-            // Cambió de true a false: DESACTIVAR ← ⭐ LÍNEA 64-67
+            // Cambió de true a false: DESACTIVAR 
             await preciosListasService.deleteLogic(setEditingLista.IDLISTAOK);
           }
         } else {
-          // Estado NO cambió: ACTUALIZAR DATOS ← ⭐ LÍNEA 68
+          // Estado NO cambió: ACTUALIZAR DATOS 
           await preciosListasService.update(setEditingLista.IDLISTAOK, listaData);
         }
       } else {
         // 🆕 MODO CREACIÓN: Es una lista nueva
-        // Ejecutar create() ← ⭐ LÍNEA 70-71
+        // Ejecutar create() 
         await preciosListasService.create(listaData); //AQUI SE GUARDA
       }
       
@@ -250,7 +250,7 @@ export const createActionHandlers = (setEditingLista, setIsModalOpen, setError, 
    * 7. Se recarga tabla (fetchListas)
    * 8. Se limpian selecciones
    */
-  const handleToggleStatus = async () => {
+  const handleToggleStatus = async () => { //se activan o desactivan varias listas
     // Salir si no hay listas seleccionadas
     if (selectedListas.size === 0) return;
     
