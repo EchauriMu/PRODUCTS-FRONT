@@ -9,7 +9,7 @@ import {
   MessageStrip
 } from '@ui5/webcomponents-react';
 import preciosItemsService from '../../api/preciosItemsService';
-import AddPresentationPriceModalNuevo from './AddPresentationPriceModalNuevo'; 
+// ❌ IMPORTACIÓN ELIMINADA: Ya no se necesita AddPresentationPriceModalNuevo
 
 // --- HELPERS ---
 
@@ -57,10 +57,10 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [isAddingPrice, setIsAddingPrice] = useState(false); 
+  // ❌ ESTADO ELIMINADO: const [isAddingPrice, setIsAddingPrice] = useState(false); 
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // 1. Obtener el precio actual (Usa la función getPricesByIdPresentaOK que sí funciona)
+  // 1. Obtener el precio actual
   const fetchCurrentPrice = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -106,7 +106,6 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
       const newCalculatedPrice = calculateFormulaResult(CostoIni || 0, Formula || '');
       
       // Si el precio calculado es diferente al valor actual del Precio, actualiza el estado.
-      // Usamos una pequeña tolerancia para evitar problemas con números de punto flotante.
       if (Math.abs(editingValues.Precio - newCalculatedPrice) > 0.001) {
         setEditingValues(prev => ({ 
           ...prev, 
@@ -130,7 +129,7 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
 
   // Manejador para recargar (usado después de guardar/añadir)
   const handlePriceActionCompleted = () => {
-    setIsAddingPrice(false);
+    // ❌ Eliminada la llamada a setIsAddingPrice(false);
     setError(''); 
     setRefreshKey(prev => prev + 1); 
   };
@@ -146,7 +145,7 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
   const hasPrice = currentPrice && currentPrice.IdPrecioOK;
   
 
-  // --- Lógica de Guardar/Añadir ---
+  // --- Lógica de Guardar/Añadir (Unificada) ---
   const handleSave = async () => {
     const { CostoIni, Formula, Precio } = editingValues;
 
@@ -167,19 +166,23 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
         ? calculateFormulaResult(CostoIni, Formula) 
         : CostoIni; 
     
+    // Datos comunes para actualización/creación
+    const dataToSave = {
+        CostoIni: CostoIni,
+        Formula: Formula,
+        Precio: Precio, 
+        CostoFin: CostoFin, 
+        IdPresentaOK: idPresentaOK,
+        IdListaOK: idListaOK, 
+    };
+
     // 1. MODO EDITAR: Si ya existe un precio
     if (hasPrice) {
       try {
         const dataToUpdate = {
-          IdPrecioOK: currentPrice.IdPrecioOK,
-          CostoIni: CostoIni,
-          Formula: Formula,
-          // CRÍTICO: Guardamos el Precio calculado y el CostoFin
-          Precio: Precio, 
-          CostoFin: CostoFin, 
-          IdPresentaOK: idPresentaOK,
-          IdListaOK: idListaOK, 
-        };
+            ...dataToSave,
+            IdPrecioOK: currentPrice.IdPrecioOK,
+        }
         await preciosItemsService.updatePrice(currentPrice.IdPrecioOK, dataToUpdate);
         setError('✅ Precio actualizado correctamente.');
         setTimeout(() => handlePriceActionCompleted(), 1000);
@@ -190,11 +193,24 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
         setIsSaving(false);
       }
     } 
-    // 2. MODO AÑADIR: Si NO existe un precio
+    // 2. MODO AÑADIR (Directo, sin modal)
     else {
-      // Abrir el modal NUEVO de adición para manejar la creación completa
-      setIsSaving(false); 
-      setIsAddingPrice(true);
+      try {
+        // Llama a la función de creación del servicio con los datos del formulario
+        const newPrice = await preciosItemsService.createPrice(dataToSave);
+        
+        // Actualiza el estado para reflejar el nuevo precio guardado (ahora hasPrice será true)
+        setCurrentPrice(newPrice); 
+
+        setError('✅ Precio añadido correctamente.');
+        setTimeout(() => handlePriceActionCompleted(), 1000); 
+
+      } catch (err) {
+        // En caso de error, intenta extraer el mensaje de error de la respuesta
+        setError(`❌ Error al añadir precio: ${err.message || 'Error desconocido'}`);
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -280,7 +296,7 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
               <Button
                 design="Emphasized"
                 icon={hasPrice ? "edit" : "add"} 
-                onClick={handleSave}
+                onClick={handleSave} // Llama a la lógica unificada
                 title={hasPrice ? "Guardar Edición" : "Añadir Precio"}
                 disabled={isSaving}
               >
@@ -298,20 +314,7 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
             </>
           )}
         </FlexBox>
-      </FlexBox>
-
-      {/* ❌ ELIMINADO: Row de Costo Final Calculado */}
-
-      {/* Modal de Adición (Versión Nueva) */}
-      <AddPresentationPriceModalNuevo
-          open={isAddingPrice}
-          onClose={() => setIsAddingPrice(false)}
-          skuid={skuid}
-          idPresentaOK={idPresentaOK}
-          selectedListId={idListaOK}
-          initialValues={editingValues} 
-          onPriceActionCompleted={handlePriceActionCompleted}
-      />
+      </FlexBox>      
     </FlexBox>
   );
 };
