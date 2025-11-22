@@ -19,7 +19,8 @@ import {
 import productService from '../../api/productService';
 import preciosItemsService from '../../api/preciosItemsService';
 import productPresentacionesService from '../../api/productPresentacionesService';
-import PrecioListaPresentacionPrice from '../CRUDprecios/PrecioListaPresentacionPrice';
+//import PrecioListaPresentacionPrice from '../CRUDprecios/PrecioListaPresentacionPrice';
+import PrecioListaPresentacionActions from '../CRUDprecios/PrecioListaPresentacionActions';
 
 const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
   const [producto, setProducto] = useState(null);
@@ -509,6 +510,7 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                       name={expandedPresentaciones[presentacionKey] ? 'navigation-down-arrow' : 'navigation-right-arrow'}
                                       style={{ color: '#666', marginRight: '0.5rem', fontSize: '0.9rem' }}
                                     />
+                                    
                                     <div style={{ flex: 1, paddingLeft: '8px', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
                                       <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#333' }}>
                                         {presenta.IdPresentaOK}
@@ -517,10 +519,20 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                         <div style={{ fontSize: '0.8rem', color: '#666' }}>
                                           {presenta.Presentacion}
                                         </div>
+                                        
                                       )}
                                     </div>
+                                    {/* AÑADE AQUÍ EL NUEVO COMPONENTE DE ACCIONES */}
+                                    <FlexBox style={{ flex: 1, paddingTop: '1rem'}}>
+                                      <PrecioListaPresentacionActions
+                                        idPresentaOK={presenta.IdPresentaOK}
+                                        skuid={producto.SKUID} // Producto sí está definido en este scope (map de presentaciones anidado)
+                                        idListaOK={idListaOK}
+                                      />
+                                    </FlexBox>
                                   </div>
 
+                                  
                                   {/* Detalles de Presentación Expandidos */}
                                                                     {/* Detalles de Presentación Expandidos */}
                                   {expandedPresentaciones[presentacionKey] && (
@@ -537,6 +549,7 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                         gap: '0.75rem'
                                       }}
                                     >
+                                      
                                       {presenta.Descripcion && (
                                         <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
                                           <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
@@ -648,20 +661,18 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                               {presenta.ACTIVED ? '✓ Activo' : '✗ Inactivo'}
                                             </Text>
                                           </FlexBox>
+                                          
                                         )}
                                       </FlexBox>
 
-                                      {/* >>> NUEVO: bloque de precio de esta presentación en la lista <<< */}
-                                      <PrecioListaPresentacionPrice
-                                        idPresentaOK={presenta.IdPresentaOK}
-                                        skuid={producto.SKUID}
-                                        idListaOK={idListaOK}
-                                      />
+                  
                                     </FlexBox>
+                                    
                                   )}
 
                                     
                                 </FlexBox>
+                                
                               );
                             })}
                             {filterProductos(productosLista).length === 0 && searchSKU.trim() && (
@@ -670,8 +681,10 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                               </Text>
                             )}
                           </FlexBox>
+                          
                         </FlexBox>
                       )}
+                      
                     </FlexBox>
                   )}
                 </FlexBox>
