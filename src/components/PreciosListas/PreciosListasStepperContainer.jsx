@@ -76,6 +76,7 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
     fechaIngresoDesde: '',
     fechaIngresoHasta: ''
   });
+  const [isEditMode, setIsEditMode] = useState(false); // Rastrear si estamos editando
   const idSuffixRef = useRef(null); // Para almacenar el sufijo único del ID de lista
 
   /**
@@ -120,18 +121,26 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
   // === CARGAR DATOS AL MONTAR ===
   useEffect(() => {
     if (lista) {
-      // MODO EDICIÓN
-      setFormData({
-        ...initialState,
-        ...lista,
+      // MODO EDICIÓN - Asegurar que todos los campos se cargan correctamente
+      setIsEditMode(true);
+      const listaData = {
+        IDLISTAOK: lista.IDLISTAOK || '',
+        SKUSIDS: Array.isArray(lista.SKUSIDS) ? lista.SKUSIDS : (lista.SKUSIDS ? JSON.parse(lista.SKUSIDS) : []),
+        IDINSTITUTOOK: lista.IDINSTITUTOOK || '',
+        DESLISTA: lista.DESLISTA || '',
         FECHAEXPIRAINI: formatDateForPicker(lista.FECHAEXPIRAINI),
         FECHAEXPIRAFIN: formatDateForPicker(lista.FECHAEXPIRAFIN),
-        SKUSIDS: Array.isArray(lista.SKUSIDS) ? lista.SKUSIDS : (lista.SKUSIDS ? JSON.parse(lista.SKUSIDS) : []),
-      });
-      setFilteredSKUs(new Set(Array.isArray(lista.SKUSIDS) ? lista.SKUSIDS : []));
+        IDTIPOLISTAOK: lista.IDTIPOLISTAOK || '', // Preservar explícitamente
+        IDTIPOGENERALISTAOK: lista.IDTIPOGENERALISTAOK || 'ESPECIFICA', // Preservar explícitamente
+        IDTIPOFORMULAOK: lista.IDTIPOFORMULAOK || 'FIJO',
+        ACTIVED: lista.ACTIVED !== undefined ? lista.ACTIVED : true,
+      };
+      setFormData(listaData);
+      setFilteredSKUs(new Set(listaData.SKUSIDS));
       setCurrentStep(1); // Empezar en paso 1
     } else {
       // MODO CREACIÓN - inicializar con ID vacío, se autogenera con la descripción
+      setIsEditMode(false);
       setFormData({
         ...initialState,
         IDLISTAOK: '',
@@ -144,14 +153,18 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
 
   /**
    * Efecto para autogenerar el IDLISTAOK cuando DESLISTA cambia
+   * SOLO EN MODO CREACIÓN - en edición, el ID debe mantenerse igual
    * Similar al comportamiento del SKU en productos
    */
   useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      IDLISTAOK: generateListId(prev.DESLISTA)
-    }));
-  }, [formData.DESLISTA]);
+    // Solo regenerar ID si estamos en modo CREACIÓN
+    if (!isEditMode) {
+      setFormData(prev => ({
+        ...prev,
+        IDLISTAOK: generateListId(prev.DESLISTA)
+      }));
+    }
+  }, [formData.DESLISTA, isEditMode]);
 
   const handleInputChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -223,7 +236,7 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
         ACTIVED: Boolean(formData.ACTIVED),
       };
 
-      const isEditMode = lista && lista.IDLISTAOK;
+      // Usar el estado isEditMode en lugar de recalcular
       if (isEditMode) {
         await preciosListasService.update(lista.IDLISTAOK, dataToSave);
       } else {
@@ -260,7 +273,7 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
     }
   };
 
-  const isEditMode = lista && lista.IDLISTAOK;
+  // isEditMode ya está definido como estado arriba
 
   return (
     <div style={{
@@ -453,7 +466,8 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
             flex: 1,
             overflow: 'hidden',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            minHeight: 0
           }}>
             <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #e0e0e0', flexShrink: 0 }}>
               <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
@@ -467,7 +481,7 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
                 </FlexBox>
               </FlexBox>
             </div>
-            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '0 2rem' }}>
+            <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', padding: '1.5rem 2rem', minHeight: 0 }}>
               <AdvancedFiltersPreciosListas
                 onFiltersChange={handleFiltersChange}
                 initialFilters={{}}

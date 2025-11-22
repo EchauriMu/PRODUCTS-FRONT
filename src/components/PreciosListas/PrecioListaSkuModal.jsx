@@ -488,29 +488,29 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                               const presentacionKey = `${producto.SKUID}-${presenta.IdPresentaOK}`;
                               return (
                                 <FlexBox key={presentacionKey} direction="Column" style={{ gap: '0' }}>
-                                  {/* Presentación Hija - Expandible */}
+                                  {/* Presentación - Rectángulo con despliegue vacío */}
                                   <div
                                     onClick={() => togglePresentacionExpanded(presentacionKey)}
                                     style={{
                                       width: '100%',
-                                      padding: '0.75rem',
-                                      backgroundColor: '#f0f0f0',
+                                      padding: '0.5rem 0.8rem',
+                                      backgroundColor: '#fff',
                                       border: '1px solid #d0d0d0',
                                       borderRadius: '4px',
                                       marginBottom: expandedPresentaciones[presentacionKey] ? '0' : '0.5rem',
                                       borderBottomLeftRadius: expandedPresentaciones[presentacionKey] ? '0' : '4px',
                                       borderBottomRightRadius: expandedPresentaciones[presentacionKey] ? '0' : '4px',
-                                      cursor: 'pointer',
                                       display: 'flex',
-                                      gap: '0.75rem',
-                                      alignItems: 'center'
+                                      gap: '0.5rem',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer'
                                     }}
                                   >
                                     <Icon
                                       name={expandedPresentaciones[presentacionKey] ? 'navigation-down-arrow' : 'navigation-right-arrow'}
-                                      style={{ color: '#666', marginRight: '0.5rem', fontSize: '0.9rem' }}
+                                      style={{ color: '#666', fontSize: '0.8rem', flexShrink: 0 }}
                                     />
-                                    
                                     <div style={{ flex: 1, paddingLeft: '8px', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
                                       <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#333' }}>
                                         {presenta.IdPresentaOK}
@@ -519,9 +519,9 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                         <div style={{ fontSize: '0.8rem', color: '#666' }}>
                                           {presenta.Presentacion}
                                         </div>
-                                        
                                       )}
                                     </div>
+                                    
                                     {/* AÑADE AQUÍ EL NUEVO COMPONENTE DE ACCIONES */}
                                     <FlexBox style={{ flex: 1, paddingTop: '1rem'}}>
                                       <PrecioListaPresentacionActions
@@ -532,7 +532,6 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                     </FlexBox>
                                   </div>
 
-                                  
                                   {/* Detalles de Presentación Expandidos */}
                                                                     {/* Detalles de Presentación Expandidos */}
                                   {expandedPresentaciones[presentacionKey] && (
@@ -549,7 +548,6 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                         gap: '0.75rem'
                                       }}
                                     >
-                                      
                                       {presenta.Descripcion && (
                                         <FlexBox direction="Column" style={{ gap: '0.25rem' }}>
                                           <Label style={{ fontWeight: 'bold', fontSize: '0.75rem', color: '#666' }}>
@@ -661,18 +659,11 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
                                               {presenta.ACTIVED ? '✓ Activo' : '✗ Inactivo'}
                                             </Text>
                                           </FlexBox>
-                                          
                                         )}
                                       </FlexBox>
-
-                  
                                     </FlexBox>
-                                    
-                                  )}
-
-                                    
+                                  )}   
                                 </FlexBox>
-                                
                               );
                             })}
                             {filterProductos(productosLista).length === 0 && searchSKU.trim() && (

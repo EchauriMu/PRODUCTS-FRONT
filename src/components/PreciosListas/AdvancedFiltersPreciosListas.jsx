@@ -265,6 +265,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
   
   // Ref para rastrear la última notificación al padre
   const lastNotifiedSkusRef = useRef(null);
+  const prevPreselectedRef = useRef(null);
 
   // TIPOS DISPONIBLES (datos estáticos del backend)
   const TIPOS_GENERALES = [
@@ -574,7 +575,8 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
       precioMax: '',
     });
     setSearchTerm('');
-    setSelectedProducts(new Set());
+    // NO borramos selectedProducts aquí - deben mantenerse los productos seleccionados
+    // solo se limpian los filtros del lado izquierdo
   };
 
   const getActiveFiltersCount = () => {
@@ -954,9 +956,11 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
     <div style={{ 
       backgroundColor: '#f8f9fa', 
       height: '100%',
+      width: '100%',
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      minHeight: 0
     }}>
       <FlexBox style={{ 
         gap: '1rem', 
@@ -983,7 +987,8 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
           background: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
-          overflow: window.innerWidth < 768 ? 'visible' : 'hidden'
+          overflow: window.innerWidth < 768 ? 'visible' : 'hidden',
+          minHeight: 0
         }}>
         <CardHeader
           titleText="Filtros Avanzados"
@@ -1200,7 +1205,8 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
           background: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
-          overflow: window.innerWidth < 768 ? 'visible' : 'hidden'
+          overflow: window.innerWidth < 768 ? 'visible' : 'hidden',
+          minHeight: 0
         }}>
 
           <div style={{ 
@@ -1384,11 +1390,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                       <div style={{ 
                         marginLeft: '2rem', 
                         marginTop: '0.5rem',
-                        marginBottom: '0.5rem',
-                        padding: '0.5rem',
-                        backgroundColor: '#f8f9fa',
-                        borderRadius: '6px',
-                        border: '1px solid #e0e6ed'
+                        marginBottom: '0.5rem'
                       }}>
                         {loadingPresentaciones[producto.SKUID] ? (
                           <FlexBox justifyContent="Center" style={{ padding: '0.5rem' }}>
@@ -1402,7 +1404,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                                 No hay presentaciones disponibles
                               </MessageStrip>
                             ) : (
-                              <FlexBox direction="Column" style={{ gap: '0.35rem' }}>
+                              <FlexBox direction="Column" style={{ gap: '0.35rem', width: '200px' }}>
                                 {productPresentaciones[producto.SKUID]
                                   .filter(p => p.ACTIVED)
                                   .map(presentacion => (
@@ -1410,44 +1412,18 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
                                     padding: '0.5rem',
                                     backgroundColor: selectedPresentaciones.has(presentacion.IdPresentaOK) ? '#e8f5e9' : '#ffffff',
                                     border: selectedPresentaciones.has(presentacion.IdPresentaOK) ? '1px solid #4CAF50' : '1px solid #dee2e6',
-                                    borderRadius: '4px'
+                                    borderRadius: '4px',
+                                    width: '100%',
+                                    boxSizing: 'border-box'
                                   }}>
-                                    <FlexBox justifyContent="SpaceBetween" alignItems="Center">
-                                      <FlexBox alignItems="Center" style={{ gap: '0.5rem', flex: 1 }}>
-                                        <CheckBox 
-                                          checked={selectedPresentaciones.has(presentacion.IdPresentaOK)}
-                                          onChange={() => togglePresentacionSelection(presentacion.IdPresentaOK, producto.SKUID)}
-                                        />
-                                        <FlexBox direction="Column" style={{ flex: 1 }}>
-                                          <Text style={{ fontWeight: '600', fontSize: '0.875rem', color: '#2c3e50' }}>
-                                            {presentacion.NOMBREPRESENTACION || 'Sin nombre'}
-                                          </Text>
-                                          {presentacion.Descripcion && (
-                                            <Text style={{ fontSize: '0.75rem', color: '#666' }}>
-                                              {presentacion.Descripcion}
-                                            </Text>
-                                          )}
-                                        </FlexBox>
-                                      </FlexBox>
-                                      <FlexBox direction="Column" alignItems="End" style={{ gap: '0.25rem' }}>
-                                        {(() => {
-                                          const precio = getPrecioPresentacion(presentacion.IdPresentaOK);
-                                          return precio ? (
-                                            <ObjectStatus state="Success" style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>
-                                              ${precio?.toLocaleString()}
-                                            </ObjectStatus>
-                                          ) : (
-                                            <ObjectStatus state="Warning" style={{ fontSize: '0.75rem' }}>
-                                              Sin precio
-                                            </ObjectStatus>
-                                          );
-                                        })()}
-                                        {presentacion.CostoIni && (
-                                          <Text style={{ fontSize: '0.7rem', color: '#888', textDecoration: 'line-through' }}>
-                                            Costo: ${presentacion.CostoIni?.toLocaleString()}
-                                          </Text>
-                                        )}
-                                      </FlexBox>
+                                    <FlexBox alignItems="Center" style={{ gap: '0.5rem', width: '100%' }}>
+                                      <CheckBox 
+                                        checked={selectedPresentaciones.has(presentacion.IdPresentaOK)}
+                                        onChange={() => togglePresentacionSelection(presentacion.IdPresentaOK, producto.SKUID)}
+                                      />
+                                      <Text style={{ fontWeight: '600', fontSize: '0.875rem', color: '#2c3e50', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {presentacion.NOMBREPRESENTACION || 'Sin nombre'}
+                                      </Text>
                                     </FlexBox>
                                   </div>
                                 ))}
