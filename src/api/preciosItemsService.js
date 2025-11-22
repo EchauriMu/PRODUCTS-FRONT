@@ -139,8 +139,7 @@ const preciosItemsService = {
       console.log('➕ Creando nuevo precio:', priceData);
 
       const params = new URLSearchParams({
-        ProcessType: 'AddOne',
-        DBServer: 'MongoDB'
+        ProcessType: 'AddOne'
       }).toString();
 
       const res = await axiosInstance.post(

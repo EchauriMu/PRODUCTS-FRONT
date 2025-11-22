@@ -7,7 +7,6 @@ const categoryService = {
   
   // Parámetros comunes para todas las peticiones
   commonParams: {
-    DBServer: 'MongoDB',
     LoggedUser: 'EECHAURIM' // Usuario por defecto
   },
 

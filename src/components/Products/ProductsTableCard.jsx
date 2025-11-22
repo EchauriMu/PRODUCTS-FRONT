@@ -8,7 +8,7 @@ import {
   Text,
   Title,
   CheckBox,
-  Button, // No se usa en este componente, pero se mantiene por si acaso
+  Button, 
   BusyIndicator,
   MessageStrip,
   FlexBox,
@@ -268,43 +268,45 @@ const ProductsTableCard = () => {
             </FlexBox>
           ) : (
             /* Tabla de Productos */
-            <Table
-              noDataText="No hay productos para mostrar"
-              style={{ width: '100%' }}
-              headerRow={
-                <TableRow>
-                  {/* CheckBox para seleccionar todo */}
-                  <TableCell>
-                    <CheckBox
-                      checked={filteredProducts.length > 0 && selectedSKUIDs.length === filteredProducts.length}
-                      onChange={handleSelectAllChange}
-                    />
-                  </TableCell>
-                  <TableCell style={{ fontWeight: 'bold' }}>
-                    <Text>SKU ID</Text>
-                  </TableCell>
-                  <TableCell style={{ fontWeight: 'bold' }}>
-                    <Text>Producto</Text>
-                  </TableCell>
-                  <TableCell style={{ fontWeight: 'bold' }}>
-                    <Text>Marca</Text>
-                  </TableCell>
-                  <TableCell style={{ fontWeight: 'bold', }}>
-                    <Text>Categoría</Text>
-                  </TableCell>
-                  <TableCell style={{ fontWeight: 'bold' }}>
-                    <Text>Fecha Creación</Text>
-                  </TableCell>
-                  <TableCell style={{ fontWeight: 'bold' }}>
-                    <Text>Última Acción</Text>
-                  </TableCell>
-                  <TableCell style={{ fontWeight: 'bold' }}>
-                    <Text>Estado</Text>
-                  </TableCell>
-                </TableRow>
-              }
-            >
-              {filteredProducts.map((product, index) => {
+            <div style={{ maxHeight: 'calc(100vh - 250px)', overflowY: 'auto' }}>
+              <Table
+                stickyColumnHeader
+                noDataText="No hay productos para mostrar"
+                style={{ width: '100%' }}
+                headerRow={
+                  <TableRow>
+                    {/* CheckBox para seleccionar todo */}
+                    <TableCell>
+                      <CheckBox
+                        checked={filteredProducts.length > 0 && selectedSKUIDs.length === filteredProducts.length}
+                        onChange={handleSelectAllChange}
+                      />
+                    </TableCell>
+                    <TableCell style={{ fontWeight: 'bold' }}>
+                      <Text>SKU ID</Text>
+                    </TableCell>
+                    <TableCell style={{ fontWeight: 'bold' }}>
+                      <Text>Producto</Text>
+                    </TableCell>
+                    <TableCell style={{ fontWeight: 'bold' }}>
+                      <Text>Marca</Text>
+                    </TableCell>
+                    <TableCell style={{ fontWeight: 'bold', }}>
+                      <Text>Categoría</Text>
+                    </TableCell>
+                    <TableCell style={{ fontWeight: 'bold' }}>
+                      <Text>Fecha Creación</Text>
+                    </TableCell>
+                    <TableCell style={{ fontWeight: 'bold' }}>
+                      <Text>Última Acción</Text>
+                    </TableCell>
+                    <TableCell style={{ fontWeight: 'bold' }}>
+                      <Text>Estado</Text>
+                    </TableCell>
+                  </TableRow>
+                }
+              >
+                {filteredProducts.map((product, index) => {
                 const productStatus = getProductStatus(product);
                 const lastAction = getLastHistoryAction(product.HISTORY);
                 const isSelected = selectedSKUIDs.includes(product.SKUID);
@@ -406,8 +408,9 @@ const ProductsTableCard = () => {
                     </TableCell>
                   </TableRow>
                 );
-              })}
-            </Table>
+                })}
+              </Table>
+            </div>
           )}
 
           {/* Información adicional en el footer */}

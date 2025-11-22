@@ -7,9 +7,7 @@ import axiosInstance from './axiosInstance';
  */
 const categoriasService = {
   // Parámetros comunes para todas las peticiones
-  commonParams: {
-    DBServer: 'MongoDB',
-  },
+  commonParams: {},
 
   // 🔹 Limpieza de datos antes de enviarlos
 cleanPayload(data) {

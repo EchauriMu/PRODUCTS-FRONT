@@ -13,8 +13,7 @@ const promoService = {
   async getAllPromotions(loggedUser = null) {
     try {
       const params = {
-        ProcessType: 'GetAll',
-        DBServer: 'MongoDB'
+        ProcessType: 'GetAll'
       };
       
       // Solo añadir LoggedUser si se proporciona explícitamente y no hay uno en sessionStorage
@@ -56,8 +55,7 @@ const promoService = {
     try {
       const params = {
         ProcessType: 'GetOne',
-        IdPromoOK: idPromoOK,
-        DBServer: 'MongoDB'
+        IdPromoOK: idPromoOK
       };
       
       // Solo añadir LoggedUser si se proporciona explícitamente y no hay uno en sessionStorage
@@ -128,7 +126,6 @@ const promoService = {
       
       const params = {
         ProcessType: 'AddOne',
-        DBServer: 'MongoDB'
       };
       
       // Solo añadir LoggedUser si se proporciona explícitamente y no hay uno en sessionStorage
@@ -180,8 +177,7 @@ const promoService = {
       const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'UpdateOne',
-          IdPromoOK: idPromoOK,
-          DBServer: 'MongoDB'
+          IdPromoOK: idPromoOK
           // LoggedUser se añade automáticamente por el interceptor
         }), promoData);
       return response.data;
@@ -201,8 +197,7 @@ const promoService = {
       const response = await axiosInstance.post('/ztpromociones/crudPromociones?' + 
         new URLSearchParams({
           ProcessType: 'DeleteHard',
-          IdPromoOK: idPromoOK,
-          DBServer: 'MongoDB'
+          IdPromoOK: idPromoOK
           // LoggedUser se añade automáticamente por el interceptor
         }), {});
       return response.data;
