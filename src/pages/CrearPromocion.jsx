@@ -279,7 +279,20 @@ const CrearPromocion = () => {
       {/* Paso 2: Filtros y productos */}
       {step === 2 && (
         <Card>
-          <CardHeader titleText={`Paso 2: ${STEP_INFO[2].title}`} subtitleText={`${STEP_INFO[2].subtitle} • ${filteredProducts.length} encontrados`} />
+          <CardHeader 
+            titleText={`Paso 2: ${STEP_INFO[2].title}`} 
+            subtitleText={`${STEP_INFO[2].subtitle} • ${filteredProducts.length} encontrados`}
+            action={
+              <FlexBox style={{ gap: '0.5rem' }}>
+                <Button design="Transparent" onClick={() => setStep(1)}>
+                  ← Anterior
+                </Button>
+                <Button design="Emphasized" onClick={() => setStep(3)} disabled={filteredProducts.length === 0}>
+                  Siguiente →
+                </Button>
+              </FlexBox>
+            }
+          />
           <div style={{ padding: '0.5rem' }}>
             <AdvancedFilters onFiltersChange={handleFiltersChange} />
           </div>
@@ -431,35 +444,46 @@ const CrearPromocion = () => {
       )}
 
       {/* Pie de navegación al estilo del asistente */}
-      <div style={{ marginTop: '1rem' }}>
-        <Card>
+      <div style={{ 
+        position: 'sticky', 
+        bottom: 0, 
+        marginTop: '1rem',
+        zIndex: 100,
+        backgroundColor: '#f5f5f5',
+        paddingTop: '0.5rem'
+      }}>
+        <Card style={{ boxShadow: '0 -2px 8px rgba(0,0,0,0.1)' }}>
           <div style={{ padding: '0.75rem 1rem' }}>
             <FlexBox justifyContent="SpaceBetween" alignItems="Center">
-              <div>
-                <Button design="Transparent" onClick={() => navigate('/promociones')}>Cancelar</Button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <Button design="Negative" onClick={() => navigate('/promociones')}>Cancelar</Button>
                 {step > 1 && (
                   <Button design="Transparent" onClick={() => setStep(s => Math.max(1, s-1))}>
-                    Anterior
+                    ← Anterior
                   </Button>
                 )}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <Button design="Transparent" onClick={handleSaveDraft}>Guardar Borrador</Button>
+                <Text style={{ marginRight: '1rem', color: '#666', fontSize: '0.9rem' }}>
+                  Paso {step} de 4
+                </Text>
+                <Button design="Transparent" onClick={handleSaveDraft}>
+                  💾 Guardar Borrador
+                </Button>
                 {step < 4 && (
-                  <Button design="Emphasized" disabled={!canNext()} onClick={() => setStep(s => Math.min(4, s+1))}>Siguiente</Button>
+                  <Button design="Emphasized" disabled={!canNext()} onClick={() => setStep(s => Math.min(4, s+1))}>
+                    Siguiente →
+                  </Button>
                 )}
                 {step === 4 && (
                   <Button design="Emphasized" onClick={handleCreate} disabled={loading || filteredProducts.length===0}>
-                    {loading ? <BusyIndicator size="Small" active /> : 'Crear Promoción'}
+                    {loading ? <BusyIndicator size="Small" active /> : '✓ Crear Promoción'}
                   </Button>
                 )}
               </div>
             </FlexBox>
           </div>
         </Card>
-        <div style={{ textAlign: 'center', marginTop: '0.5rem', color: '#6b7280' }}>
-          Estado actual: Paso {step} de 4
-        </div>
       </div>
 
       {/* Diálogo personalizado */}
