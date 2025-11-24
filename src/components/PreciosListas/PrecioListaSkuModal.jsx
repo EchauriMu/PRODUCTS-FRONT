@@ -42,11 +42,40 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
   useEffect(() => {
     if (open && skusList && skusList.length > 0) {
       console.log('Modal abierta con skusList:', skusList);
-      loadProductosLista();
+      // Cargar PRIMERO los precios de esta lista específica
+      loadPreciosParaEstaLista();
     } else if (open) {
       console.warn('Modal abierta pero skusList está vacío o no definido:', skusList);
     }
-  }, [open, skusList]);
+  }, [open, skusList, idListaOK]);
+
+  const loadPreciosParaEstaLista = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      console.log('Cargando precios SOLO para esta lista:', idListaOK);
+      
+      if (!idListaOK) {
+        console.error('No se proporcionó idListaOK');
+        setError('ID de lista no válido');
+        setLoading(false);
+        return;
+      }
+      
+      // Cargar SOLO los precios de ESTA lista
+      const preciosDelista = await preciosItemsService.getPricesByIdListaOK(idListaOK);
+      console.log('Precios cargados para esta lista:', preciosDelista);
+      
+      // Ahora cargamos los productos
+      await loadProductosLista(preciosDelista);
+    } catch (err) {
+      console.error('Error al cargar precios para esta lista:', err);
+      // Continuar sin precios, pero cargar los productos de todas formas
+      console.log('Continuando sin precios de la API, cargando productos...');
+      setError('Error al cargar los precios');
+      await loadProductosLista([]);
+    }
+  };
 
   // Limpiar estado cuando se cierra el modal
   useEffect(() => {
@@ -76,7 +105,7 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
     }
   };
 
-  const loadProductosLista = async () => {
+  const loadProductosLista = async (preciosDelista) => {
     try {
       setLoading(true);
       setError('');
@@ -87,24 +116,19 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
       const archivosMap = {}; // Guardar archivos por SKU
       
       console.log('Iniciando carga de productos. skusList:', skusList);
-      console.log('IdListaOK:', idListaOK);
+      console.log('Precios SOLO de esta lista:', preciosDelista);
       
-      // Cargar todos los precios de la lista
-      try {
-        const response = await preciosItemsService.getPricesByIdListaOK(idListaOK);
-        console.log('Precios obtenidos:', response);
-        // Crear un mapa de SKUID -> Precio y SKUID -> IdPrecioOK
-        if (Array.isArray(response)) {
-          response.forEach(item => {
-            if (item.SKUID && item.Precio) {
-              preciosMap[item.SKUID] = item.Precio;
-              preciosIds[item.SKUID] = item.IdPrecioOK; // Guardar el ID
-            }
-          });
-        }
-      } catch (err) {
-        console.error(`Error al cargar precios para ${idListaOK}:`, err);
+      // USAR LOS PRECIOS DE ESTA LISTA (YA CARGADOS)
+      if (Array.isArray(preciosDelista)) {
+        preciosDelista.forEach(item => {
+          if (item.SKUID && item.Precio) {
+            preciosMap[item.SKUID] = item.Precio;
+            preciosIds[item.SKUID] = item.IdPrecioOK; // Guardar el ID
+          }
+        });
       }
+      
+      console.log('Mapa de precios para esta lista:', preciosMap);
       
       // Cargar información de cada producto y sus presentaciones
       for (const sku of skusList) {
@@ -119,7 +143,7 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
             if (dataWrapper.data && dataWrapper.data.length > 0) {
               const productData = dataWrapper.data[0].dataRes;
               if (productData) {
-                // Agregar el precio al producto
+                // Agregar el precio al producto (del mapa local, no de API)
                 productData.Precio = preciosMap[sku] || null;
                 productos.push(productData);
                 
