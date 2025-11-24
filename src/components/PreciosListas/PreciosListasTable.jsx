@@ -290,16 +290,20 @@ const PreciosListasTable = () => {
 
 
   return (
-    <div style={{ margin: '1rem' }}>
+    <div style={{ padding: '0', position: 'relative', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}>
       {/* === BARRA SUPERIOR: TÍTULO, BÚSQUEDA Y BOTONES === */}
       <FlexBox 
         alignItems="Center" 
         justifyContent="SpaceBetween" 
         direction={window.innerWidth < 768 ? 'Column' : 'Row'}
         style={{ 
+          zIndex: 100,
           marginBottom: '1rem', 
-          padding: '0.5rem 0', 
-          borderBottom: '1px solid #ccc',
+          padding: '1rem',
+          backgroundColor: '#fff',
+          borderRadius: '0.5rem',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          flexWrap: 'wrap',
           gap: window.innerWidth < 768 ? '0.75rem' : '0'
         }}
       >
@@ -308,50 +312,53 @@ const PreciosListasTable = () => {
           <Title level="H3" style={{ margin: '0' }}>Listas de Precios</Title>
           <Text style={{ color: '#666', fontSize: '0.875rem' }}>{filteredListas.length} listas encontradas</Text>
         </FlexBox>
+      </FlexBox>
 
-        {/* Acciones */}
+      {/* === BARRA STICKY DE FILTROS Y ACCIONES === */}
+      <FlexBox 
+        alignItems="Center" 
+        justifyContent="SpaceBetween" 
+        direction={window.innerWidth < 768 ? 'Column' : 'Row'}
+        style={{ 
+          position: 'sticky',
+          top: '0',
+          zIndex: 99,
+          marginBottom: '1rem', 
+          padding: '1rem',
+          backgroundColor: '#fff',
+          borderRadius: '0.5rem',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          gap: window.innerWidth < 768 ? '0.5rem' : '1rem',
+          flexWrap: 'wrap'
+        }}
+      >
+        {/* Búsqueda */}
+        <Input
+          icon={<Icon name="search" />}
+          placeholder="Buscar por descripción o SKU..."
+          onInput={(e) => setSearchTerm(e.target.value)}
+          style={{ 
+            flex: '1 1 200px',
+            minWidth: '150px',
+            maxWidth: '350px'
+          }}
+        />
+        
+        {/* Botones de acciones */}
         <FlexBox 
           alignItems="Center" 
           justifyContent="End" 
           direction={window.innerWidth < 768 ? 'Column' : 'Row'}
           style={{ 
-            gap: window.innerWidth < 768 ? '0.5rem' : '1rem',
-            width: window.innerWidth < 768 ? '100%' : 'auto'
+            gap: window.innerWidth < 768 ? '0.5rem' : '0.75rem',
+            width: window.innerWidth < 768 ? '100%' : 'auto',
+            flexWrap: 'wrap'
           }}
         >
-          {/* 🔍 Campo de búsqueda */}
-          <Input
-            icon={<Icon name="search" />}
-            placeholder="Buscar por descripción o SKU..."
-            onInput={(e) => setSearchTerm(e.target.value)}
-            style={{ 
-              width: window.innerWidth < 768 ? '100%' : window.innerWidth < 1024 ? '200px' : '300px',
-              minWidth: '150px'
-            }}
-          />
-          
-          {/* ➕ BOTÓN CREAR */}
-          {/* 
-            Cuando haces clic:
-            1. handleAdd() se ejecuta (línea 24-26 en Actions)
-            2. setEditingLista(null)
-            3. setIsModalOpen(true)
-            4. Se abre modal vacío para crear nueva lista
-          */}
           <Button design="Emphasized" icon="add" onClick={handleAdd}>
             Crear Lista
           </Button>
 
-          {/* ✏️ BOTÓN EDITAR */}
-          {/* 
-            Solo habilitado si hay exactamente 1 lista seleccionada
-            Cuando haces clic:
-            1. handleEditSelected() se ejecuta (línea 107-116)
-            2. Busca la lista seleccionada
-            3. setEditingLista(lista) para cargar datos
-            4. setIsModalOpen(true) para abrir modal
-            5. Modal se renderiza con datos cargados
-          */}
           <Button 
             icon="edit" 
             design="Transparent" 
@@ -361,21 +368,6 @@ const PreciosListasTable = () => {
             Editar
           </Button>
 
-          {/* ✅ BOTÓN ACTIVAR/DESACTIVAR */}
-          {/* 
-            Habilitado solo si hay listas seleccionadas
-            El botón cambia de nombre según el estado:
-            - Si hay INACTIVAS → botón dice "Activar"
-            - Si hay ACTIVAS → botón dice "Desactivar"
-            
-            Cuando haces clic:
-            1. handleToggleStatus() se ejecuta (línea 118-145 en Actions)
-            2. Calcula cuál acción ejecutar (activate o deleteLogic)
-            3. Llama:
-               - preciosListasService.activate() para activar ← ⭐ LÍNEA 93-95 EN ACTIONS
-               - preciosListasService.deleteLogic() para desactivar ← ⭐ LÍNEA 96-99 EN ACTIONS
-            4. Recarga tabla con fetchListas()
-          */}
           <Button 
             icon="accept" 
             design="Positive" 
@@ -392,14 +384,11 @@ const PreciosListasTable = () => {
               : 'Activar'}
           </Button>
 
-          {/* 🗑️ BOTÓN ELIMINAR */}
-          {
-}
           <Button 
             icon="delete" 
             design="Negative" 
             disabled={selectedListas.size === 0 || loading}
-            onClick={handleDeleteSelected} //se ejecuta el handle 
+            onClick={handleDeleteSelected}
           >
             Eliminar
           </Button>

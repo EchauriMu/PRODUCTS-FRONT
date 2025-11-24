@@ -1,16 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Label, Popover } from '@ui5/webcomponents-react';
 
 const SKUButton = ({ skuId, skusCount, skusList, onSkuClick }) => {
   const [openPopover, setOpenPopover] = useState(false);
   const [popoverRef, setPopoverRef] = useState(null);
+  const closeTimeoutRef = useRef(null);
 
   const handleMouseEnter = (e) => {
+    // Limpiar cualquier cierre pendiente
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
     setPopoverRef(e.currentTarget);
     setOpenPopover(true);
   };
 
   const handleMouseLeave = () => {
+    // Esperar un poco antes de cerrar, para permitir que el usuario entre al popover
+    closeTimeoutRef.current = setTimeout(() => {
+      setOpenPopover(false);
+    }, 200);
+  };
+
+  const handlePopoverMouseEnter = () => {
+    // Si el ratón entra al popover, limpiar el timeout de cierre
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  };
+
+  const handlePopoverMouseLeave = () => {
+    // Si el ratón sale del popover, cerrarlo
     setOpenPopover(false);
   };
 
@@ -46,8 +68,8 @@ const SKUButton = ({ skuId, skusCount, skusList, onSkuClick }) => {
           open={openPopover}
           opener={popoverRef}
           placement="Bottom"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
+          onMouseEnter={handlePopoverMouseEnter}
+          onMouseLeave={handlePopoverMouseLeave}
           style={{
             backgroundColor: '#fff',
             boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
@@ -62,16 +84,11 @@ const SKUButton = ({ skuId, skusCount, skusList, onSkuClick }) => {
             Productos registrados ({skusCount})
           </div>
           <div style={{ fontSize: '0.75rem', color: '#666' }}>
-            {Array.isArray(skusList) && skusList.slice(0, 10).map((sku, idx) => (
-              <div key={idx} style={{ padding: '0.25rem 0', borderBottom: idx < Math.min(10, skusList.length - 1) ? '1px solid #eee' : 'none' }}>
+            {Array.isArray(skusList) && skusList.map((sku, idx) => (
+              <div key={idx} style={{ padding: '0.25rem 0', borderBottom: idx < skusList.length - 1 ? '1px solid #eee' : 'none' }}>
                 • {sku}
               </div>
             ))}
-            {skusList.length > 10 && (
-              <div style={{ padding: '0.5rem 0', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #ddd', color: '#999', fontStyle: 'italic', textAlign: 'center' }}>
-                +{skusList.length - 10} más...
-              </div>
-            )}
           </div>
         </Popover>
       )}

@@ -178,11 +178,11 @@ const CrearPromocion = () => {
   );
 
   return (
-    <div style={{ padding: '1rem' }}>
+    <div style={{ padding: 'clamp(0.5rem, 2vw, 1rem)' }}>
       {/* Encabezado estilo asistente con barra de progreso */}
       <Card style={{ marginBottom: '1rem' }}>
         <div style={{ padding: '1rem' }}>
-          <FlexBox justifyContent="SpaceBetween" alignItems="Center" style={{ marginBottom: '0.5rem' }}>
+          <FlexBox justifyContent="SpaceBetween" alignItems="Center" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <Title level="H3">Añadir Promoción</Title>
             <Text> Paso {step}: {STEP_INFO[step].title} </Text>
           </FlexBox>
@@ -214,7 +214,7 @@ const CrearPromocion = () => {
               <Label>Plantillas Rápidas</Label>
             </div>
             <div style={{ padding: '1rem' }}>
-              <FlexBox style={{ gap: '0.75rem', flexWrap: 'wrap' }}>
+              <FlexBox style={{ gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                 {PLANTILLAS.map(p => (
                   <Button key={p.id} design={form.plantilla === p.id ? 'Emphasized' : 'Transparent'} onClick={() => handlePlantillaSelect(p)} style={{ minWidth: 140, height: 60, border: form.plantilla === p.id ? '2px solid #0f828f' : '1px solid #e0e0e0' }}>
                     <FlexBox direction="Column" alignItems="Center" style={{ gap: '0.25rem' }}>
@@ -251,7 +251,7 @@ const CrearPromocion = () => {
                   maxlength="500"
                 />
               </div>
-              <FlexBox style={{ gap: '1rem' }}>
+              <FlexBox style={{ gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex:1 }}>
                   <Label required tooltip="Fecha en que la promoción comenzará a estar activa">Fecha de Inicio</Label>
                   <DatePicker 
@@ -279,7 +279,20 @@ const CrearPromocion = () => {
       {/* Paso 2: Filtros y productos */}
       {step === 2 && (
         <Card>
-          <CardHeader titleText={`Paso 2: ${STEP_INFO[2].title}`} subtitleText={`${STEP_INFO[2].subtitle} • ${filteredProducts.length} encontrados`} />
+          <CardHeader 
+            titleText={`Paso 2: ${STEP_INFO[2].title}`} 
+            subtitleText={`${STEP_INFO[2].subtitle} • ${filteredProducts.length} encontrados`}
+            action={
+              <FlexBox style={{ gap: '0.5rem' }}>
+                <Button design="Transparent" onClick={() => setStep(1)}>
+                  ← Anterior
+                </Button>
+                <Button design="Emphasized" onClick={() => setStep(3)} disabled={filteredProducts.length === 0}>
+                  Siguiente →
+                </Button>
+              </FlexBox>
+            }
+          />
           <div style={{ padding: '0.5rem' }}>
             <AdvancedFilters onFiltersChange={handleFiltersChange} />
           </div>
@@ -431,35 +444,43 @@ const CrearPromocion = () => {
       )}
 
       {/* Pie de navegación al estilo del asistente */}
-      <div style={{ marginTop: '1rem' }}>
-        <Card>
+      <div style={{ 
+        position: 'sticky', 
+        bottom: 0, 
+        marginTop: '1rem',
+        zIndex: 100,
+        backgroundColor: '#f5f5f5',
+        paddingTop: '0.5rem'
+      }}>
+        <Card style={{ boxShadow: '0 -2px 8px rgba(0,0,0,0.1)' }}>
           <div style={{ padding: '0.75rem 1rem' }}>
             <FlexBox justifyContent="SpaceBetween" alignItems="Center">
-              <div>
-                <Button design="Transparent" onClick={() => navigate('/promociones')}>Cancelar</Button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <Button design="Negative" onClick={() => navigate('/promociones')}>Cancelar</Button>
                 {step > 1 && (
                   <Button design="Transparent" onClick={() => setStep(s => Math.max(1, s-1))}>
-                    Anterior
+                    ← Anterior
                   </Button>
                 )}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <Button design="Transparent" onClick={handleSaveDraft}>Guardar Borrador</Button>
+                <Text style={{ marginRight: '1rem', color: '#666', fontSize: '0.9rem' }}>
+                  Paso {step} de 4
+                </Text>
                 {step < 4 && (
-                  <Button design="Emphasized" disabled={!canNext()} onClick={() => setStep(s => Math.min(4, s+1))}>Siguiente</Button>
+                  <Button design="Emphasized" disabled={!canNext()} onClick={() => setStep(s => Math.min(4, s+1))}>
+                    Siguiente →
+                  </Button>
                 )}
                 {step === 4 && (
                   <Button design="Emphasized" onClick={handleCreate} disabled={loading || filteredProducts.length===0}>
-                    {loading ? <BusyIndicator size="Small" active /> : 'Crear Promoción'}
+                    {loading ? <BusyIndicator size="Small" active /> : '✓ Crear Promoción'}
                   </Button>
                 )}
               </div>
             </FlexBox>
           </div>
         </Card>
-        <div style={{ textAlign: 'center', marginTop: '0.5rem', color: '#6b7280' }}>
-          Estado actual: Paso {step} de 4
-        </div>
       </div>
 
       {/* Diálogo personalizado */}
