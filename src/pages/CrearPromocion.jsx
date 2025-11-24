@@ -178,11 +178,11 @@ const CrearPromocion = () => {
   );
 
   return (
-    <div style={{ padding: '1rem' }}>
+    <div style={{ padding: 'clamp(0.5rem, 2vw, 1rem)' }}>
       {/* Encabezado estilo asistente con barra de progreso */}
       <Card style={{ marginBottom: '1rem' }}>
         <div style={{ padding: '1rem' }}>
-          <FlexBox justifyContent="SpaceBetween" alignItems="Center" style={{ marginBottom: '0.5rem' }}>
+          <FlexBox justifyContent="SpaceBetween" alignItems="Center" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
             <Title level="H3">Añadir Promoción</Title>
             <Text> Paso {step}: {STEP_INFO[step].title} </Text>
           </FlexBox>
@@ -214,7 +214,7 @@ const CrearPromocion = () => {
               <Label>Plantillas Rápidas</Label>
             </div>
             <div style={{ padding: '1rem' }}>
-              <FlexBox style={{ gap: '0.75rem', flexWrap: 'wrap' }}>
+              <FlexBox style={{ gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                 {PLANTILLAS.map(p => (
                   <Button key={p.id} design={form.plantilla === p.id ? 'Emphasized' : 'Transparent'} onClick={() => handlePlantillaSelect(p)} style={{ minWidth: 140, height: 60, border: form.plantilla === p.id ? '2px solid #0f828f' : '1px solid #e0e0e0' }}>
                     <FlexBox direction="Column" alignItems="Center" style={{ gap: '0.25rem' }}>
@@ -251,7 +251,7 @@ const CrearPromocion = () => {
                   maxlength="500"
                 />
               </div>
-              <FlexBox style={{ gap: '1rem' }}>
+              <FlexBox style={{ gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex:1 }}>
                   <Label required tooltip="Fecha en que la promoción comenzará a estar activa">Fecha de Inicio</Label>
                   <DatePicker 
@@ -467,9 +467,6 @@ const CrearPromocion = () => {
                 <Text style={{ marginRight: '1rem', color: '#666', fontSize: '0.9rem' }}>
                   Paso {step} de 4
                 </Text>
-                <Button design="Transparent" onClick={handleSaveDraft}>
-                  💾 Guardar Borrador
-                </Button>
                 {step < 4 && (
                   <Button design="Emphasized" disabled={!canNext()} onClick={() => setStep(s => Math.min(4, s+1))}>
                     Siguiente →

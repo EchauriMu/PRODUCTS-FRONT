@@ -499,7 +499,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     <Dialog
       open={open}
       headerText={`Editar Promoción: ${promotion.IdPromoOK}`}
-      style={{ width: '98vw', maxWidth: '1400px', height: '96vh' }}
+      style={{ width: 'min(95vw, 1400px)', maxWidth: '100%' }}
       footer={
         <Bar
           endContent={
@@ -547,7 +547,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         />
       }
     >
-  <div style={{ padding: '0.5rem', height: 'calc(96vh - 140px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+  <div style={{ padding: '0rem' }}>
         
         {error && (
           <MessageStrip 
@@ -561,11 +561,10 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
 
         {/* Header con información básica */}
         {/* Encabezado compacto para ahorrar espacio */}
-        <Card style={{ marginBottom: '0.25rem', flexShrink: 0 }}>
+        <Card style={{ marginBottom: '0rem', flexShrink: 0 }}>
           <CardHeader 
             titleText={`Promoción ${promotion.IdPromoOK}`}
             subtitleText={`Creada por ${promotion.REGUSER || 'N/A'} el ${new Date(promotion.REGDATE).toLocaleDateString()}`}
-            style={{ padding: '0.15rem 0.5rem' }}
             action={
               <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
                 <Tag design={status.design}>
@@ -586,14 +585,6 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         {/* Tabs de navegación */}
         <TabContainer
           onTabSelect={(e) => setActiveTab(e.detail.tab.dataset.key)}
-          style={{ 
-            '--_ui5_tc_header_height': '44px', 
-            '--_ui5_tc_item_height': '40px',
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}
         >
           <Tab 
             text="Detalles" 
@@ -602,63 +593,63 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
           >
             <div style={{ 
               padding: '0.5rem', 
-              height: '100%',
-              overflowY: 'auto', 
-              overflowX: 'hidden'
+              maxHeight: '65vh',
+              overflowY: 'auto'
             }}>
-              <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
+              <FlexBox style={{ gap: '0.5rem', alignItems: 'stretch', flexWrap: 'wrap' }}>
                 
                 {/* Información básica */}
-                <Card>
-                  <CardHeader titleText="Información Básica" style={{ padding: '' }} />
-                  <div style={{ padding: '0.5rem', display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr', alignItems: 'start' }}>
-                    
-                    <div>
-                      <Label required>Título:</Label>
-                      <Input
-                        value={editData.titulo}
-                        onChange={(e) => setEditData(prev => ({ ...prev, titulo: e.target.value }))}
-                        placeholder="Título de la promoción"
-                        style={{ width: '100%', marginTop: '0.1rem' }}
-                      />
-                    </div>
+                <Card style={{ flex: '1 1 300px', minWidth: '300px' }}>
+                  <CardHeader titleText="Información Básica" />
+                  <div style={{ padding: '0.5rem' }}>
+                    <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
+                      
+                      <div>
+                        <Label required>Título:</Label>
+                        <Input
+                          value={editData.titulo}
+                          onChange={(e) => setEditData(prev => ({ ...prev, titulo: e.target.value }))}
+                          placeholder="Título de la promoción"
+                          style={{ width: '100%', marginTop: '0.15rem' }}
+                        />
+                      </div>
 
-                    <div>
-                      <Label>Descripción:</Label>
-                      <TextArea
-                        value={editData.descripcion}
-                        onChange={(e) => setEditData(prev => ({ ...prev, descripcion: e.target.value }))}
-                        placeholder="Descripción de la promoción"
-                        rows={3}
-                        style={{ width: '100%', marginTop: '0.1rem' }}
-                      />
-                    </div>
+                      <div>
+                        <Label>Descripción:</Label>
+                        <TextArea
+                          value={editData.descripcion}
+                          onChange={(e) => setEditData(prev => ({ ...prev, descripcion: e.target.value }))}
+                          placeholder="Descripción de la promoción"
+                          rows={3}
+                          style={{ width: '100%', marginTop: '0.15rem' }}
+                        />
+                      </div>
 
-                    <FlexBox style={{ gap: '0.5rem' }}>
-                      <div style={{ flex: 1 }}>
+                      <div>
                         <Label required>Fecha de Inicio:</Label>
                         <DatePicker
                           value={editData.fechaInicio}
                           onChange={(e) => setEditData(prev => ({ ...prev, fechaInicio: e.target.value }))}
-                          style={{ width: '100%', marginTop: '0.1rem' }}
+                          style={{ width: '100%', marginTop: '0.15rem' }}
                         />
                       </div>
-                      <div style={{ flex: 1 }}>
+                      
+                      <div>
                         <Label required>Fecha de Fin:</Label>
                         <DatePicker
                           value={editData.fechaFin}
                           onChange={(e) => setEditData(prev => ({ ...prev, fechaFin: e.target.value }))}
-                          style={{ width: '100%', marginTop: '0.1rem' }}
+                          style={{ width: '100%', marginTop: '0.15rem' }}
                         />
                       </div>
-                    </FlexBox>
 
+                    </FlexBox>
                   </div>
                 </Card>
 
                 {/* Configuración de descuento */}
-                <Card>
-                  <CardHeader titleText="Configuración de Descuento" style={{ padding: '' }} />
+                <Card style={{ flex: '1 1 300px', minWidth: '300px' }}>
+                  <CardHeader titleText="Configuración de Descuento" />
                   <div style={{ padding: '0.5rem' }}>
                     <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
                       
@@ -667,7 +658,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                         <Select
                           value={editData.tipoDescuento}
                           onChange={(e) => setEditData(prev => ({ ...prev, tipoDescuento: e.target.value }))}
-                          style={{ width: '100%', marginTop: '0.1rem' }}
+                          style={{ width: '100%', marginTop: '0.15rem' }}
                         >
                           <Option value="PORCENTAJE">Porcentaje (%)</Option>
                           <Option value="MONTO_FIJO">Monto Fijo ($)</Option>
@@ -687,7 +678,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                             min="0"
                             max="100"
                             step="0.1"
-                            style={{ width: '200px', marginTop: '0.1rem' }}
+                            style={{ width: '100%', marginTop: '0.15rem' }}
                           />
                         </div>
                       ) : (
@@ -702,7 +693,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
                             }))}
                             min="0"
                             step="0.01"
-                            style={{ width: '200px', marginTop: '0.1rem' }}
+                            style={{ width: '100%', marginTop: '0.15rem' }}
                           />
                         </div>
                       )}
@@ -721,11 +712,9 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
             selected={activeTab === 'products'}
           >
             <div style={{ 
-              padding: '0.4rem',
-              height: 'calc(96vh - 200px)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'auto'
+              padding: '0rem',
+              maxHeight: '65vh',
+              overflowY: 'auto'
             }}>
               <Card style={{ 
                 display: 'flex',
@@ -1008,7 +997,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        flex: 1
+        height: '100%'
       }}
       footer={
         <Bar
@@ -1035,10 +1024,12 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         />
       }
     >
-      <AdvancedFilters 
-        onFiltersChange={handleFiltersChange} 
-        preselectedPresentaciones={selectedPresentaciones}
-      />
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <AdvancedFilters 
+          onFiltersChange={handleFiltersChange} 
+          preselectedPresentaciones={selectedPresentaciones}
+        />
+      </div>
     </Dialog>
 
     {/* Diálogo personalizado */}

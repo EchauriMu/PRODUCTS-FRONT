@@ -24,7 +24,7 @@ import promoService from '../../api/promoService';
 import CustomDialog from '../common/CustomDialog';
 import { useDialog } from '../../hooks/useDialog';
 
-const PromotionsTableCard = ({ onPromotionClick }) => {
+const PromotionsTableCard = ({ onPromotionClick, onCreateClick, activeView = 'promotions', onViewChange }) => {
   const { dialogState, showConfirm, showWarning, closeDialog } = useDialog();
   const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -34,6 +34,8 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
   const [search, setSearch] = useState('');
   const [info, setInfo] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'scheduled', 'finished'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Cargar promociones al montar el componente
   useEffect(() => {
@@ -112,6 +114,19 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
     return filtered;
   }, [promotions, search, statusFilter]);
 
+  // Paginación
+  const paginatedPromotions = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredPromotions.slice(start, end);
+  }, [filteredPromotions, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredPromotions.length / pageSize);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, pageSize]);
+
   const toggleSelect = (id) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -121,7 +136,7 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
   };
 
   const selectAll = (checked) => {
-    if (checked) setSelectedIds(new Set(filteredPromotions.map(p => p.IdPromoOK)));
+    if (checked) setSelectedIds(new Set(paginatedPromotions.map(p => p.IdPromoOK)));
     else setSelectedIds(new Set());
   };
 
@@ -300,104 +315,168 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
   }, [onPromotionClick]);
 
   return (
-    <Card
-      header={
-        <CardHeader 
-          titleText="Lista de Promociones"
-          subtitleText={`${filteredPromotions.length} promociones encontradas`}
-          action={
-            <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
-              <Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                style={{ minWidth: '150px' }}
-              >
-                <Option value="all">Todas</Option>
-                <Option value="active">Activas</Option>
-                <Option value="scheduled">Programadas</Option>
-                <Option value="finished">Finalizadas</Option>
-              </Select>
-              <Input
-                placeholder="Buscar por producto, SKU, marca..."
-                value={search}
-                onInput={(e) => setSearch(e.target.value)}
-                style={{ width: '360px' }}
-                icon={<Icon name="search" />}
-              />
+    <div style={{ padding: '0', position: 'relative', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}>
+      <FlexBox 
+        justifyContent="SpaceBetween" 
+        alignItems="Center"
+        style={{ 
+          zIndex: 100,
+          marginBottom: '1rem',
+          padding: '1rem',
+          backgroundColor: '#fff',
+          borderRadius: '0.5rem',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          flexWrap: 'wrap',
+          gap: '1rem'
+        }}
+      >
+        <FlexBox alignItems="Center" style={{ gap: '1rem', flexWrap: 'wrap' }}>
+          <Title level="H3">Lista de Promociones</Title>
+          {/* Botones de vista */}
+          {onViewChange && (
+            <FlexBox style={{ gap: '0.5rem' }}>
               <Button
-                icon="edit"
-                onClick={handleEditSelected}
-                disabled={selectedIds.size !== 1}
-                style={{ 
-                  backgroundColor: '#E3F2FD',
-                  color: '#1976D2',
-                  border: 'none'
-                }}
+                design={activeView === 'promotions' ? 'Emphasized' : 'Transparent'}
+                onClick={() => onViewChange('promotions')}
               >
-                Editar
+                Promociones
               </Button>
               <Button
-                icon="decline"
-                onClick={handleDeactivateSelected}
-                disabled={selectedIds.size === 0}
-                style={{ 
-                  backgroundColor: '#FFF3E0',
-                  color: '#E65100',
-                  border: 'none'
-                }}
-                tooltip="Desactivar (reversible con Activar)"
+                design={activeView === 'calendar' ? 'Emphasized' : 'Transparent'}
+                onClick={() => onViewChange('calendar')}
               >
-                Desactivar
+                Calendario
               </Button>
-              <Button
-                icon="delete"
-                onClick={handleDeleteHardSelected}
-                disabled={selectedIds.size === 0}
-                style={{ 
-                  backgroundColor: '#FCE4EC',
-                  color: '#C2185B',
-                  border: 'none'
-                }}
-                tooltip="Eliminar permanentemente (NO reversible)"
-              >
-                Eliminar
-              </Button>
-              {loading && <BusyIndicator active size="Small" />}
             </FlexBox>
-          }
-        />
-      }
-      style={{ margin: '1rem', maxWidth: '100%' }}
-    >
-      <div style={{ padding: '1rem' }}>
-        {info && (
-          <MessageStrip type="Positive" style={{ marginBottom: '0.5rem' }} onClose={() => setInfo('')}>
-            {info}
-          </MessageStrip>
-        )}
-        {error && (
-          <MessageStrip 
-            type="Negative" 
-            style={{ marginBottom: '1rem' }}
-            onClose={() => setError('')}
-          >
-            {error}
-          </MessageStrip>
-        )}
+          )}
+        </FlexBox>
+        <Text style={{ color: '#666', fontSize: '0.875rem' }}>
+          {filteredPromotions.length} promociones encontradas
+        </Text>
+      </FlexBox>
 
-        {loading && promotions.length === 0 ? (
-          <FlexBox 
-            justifyContent="Center" 
-            alignItems="Center" 
-            style={{ height: '200px', flexDirection: 'column' }}
+      {/* Barra de filtros y acciones - STICKY */}
+      <FlexBox 
+        justifyContent="SpaceBetween" 
+        alignItems="Center"
+        style={{ 
+          position: 'sticky',
+          top: '0',
+          zIndex: 99,
+          marginBottom: '1rem',
+          padding: '1rem',
+          backgroundColor: '#fff',
+          borderRadius: '0.5rem',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          gap: '1rem',
+          flexWrap: 'wrap'
+        }}
+      >
+        <FlexBox alignItems="Center" style={{ gap: '0.5rem', flex: '1 1 300px', minWidth: '250px', flexWrap: 'wrap' }}>
+          <Select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ minWidth: '150px' }}
           >
-            <BusyIndicator active />
-            <Text style={{ marginTop: '1rem' }}>Cargando promociones...</Text>
-          </FlexBox>
-        ) : promotions.length === 0 && !loading ? (
-          <FlexBox 
-            justifyContent="Center" 
-            alignItems="Center" 
+            <Option value="all">Todas</Option>
+            <Option value="active">Activas</Option>
+            <Option value="scheduled">Programadas</Option>
+            <Option value="finished">Finalizadas</Option>
+          </Select>
+          <Input
+            placeholder="Buscar por producto, SKU, marca..."
+            value={search}
+            onInput={(e) => setSearch(e.target.value)}
+            style={{ flex: '1 1 200px', minWidth: '150px', maxWidth: '400px' }}
+            icon={<Icon name="search" />}
+          />
+        </FlexBox>
+        
+        <FlexBox alignItems="Center" style={{ gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {onCreateClick && (
+            <Button
+              design="Emphasized"
+              icon="add"
+              onClick={onCreateClick}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              Nueva Promoción
+            </Button>
+          )}
+          <Button
+            icon="edit"
+            onClick={handleEditSelected}
+            disabled={selectedIds.size !== 1}
+            style={{ 
+              backgroundColor: '#E3F2FD',
+              color: '#1976D2',
+              border: 'none'
+            }}
+          >
+            Editar
+          </Button>
+          <Button
+            icon="decline"
+            onClick={handleDeactivateSelected}
+            disabled={selectedIds.size === 0}
+            style={{ 
+              backgroundColor: '#FFF3E0',
+              color: '#E65100',
+              border: 'none'
+            }}
+            tooltip="Desactivar (reversible con Activar)"
+          >
+            Desactivar
+          </Button>
+          <Button
+            icon="delete"
+            onClick={handleDeleteHardSelected}
+            disabled={selectedIds.size === 0}
+            style={{ 
+              backgroundColor: '#FCE4EC',
+              color: '#C2185B',
+              border: 'none'
+            }}
+            tooltip="Eliminar permanentemente (NO reversible)"
+          >
+            Eliminar
+          </Button>
+          {loading && <BusyIndicator active size="Small" />}
+        </FlexBox>
+      </FlexBox>
+
+      {/* Mensajes */}
+      {info && (
+        <MessageStrip type="Positive" style={{ marginBottom: '0.5rem' }} onClose={() => setInfo('')}>
+          {info}
+        </MessageStrip>
+      )}
+      {error && (
+        <MessageStrip 
+          type="Negative" 
+          style={{ marginBottom: '1rem' }}
+          onClose={() => setError('')}
+        >
+          {error}
+        </MessageStrip>
+      )}
+
+      {/* Contenedor de la tabla */}
+      <Card style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflowX: 'auto' }}>
+        <div style={{ padding: '0', minWidth: '800px' }}>
+          {loading && promotions.length === 0 ? (
+            <FlexBox 
+              justifyContent="Center" 
+              alignItems="Center" 
+              style={{ height: '200px', flexDirection: 'column' }}
+            >
+              <BusyIndicator active />
+              <Text style={{ marginTop: '1rem' }}>Cargando promociones...</Text>
+            </FlexBox>
+          ) : promotions.length === 0 && !loading ? (
+            <FlexBox 
+              justifyContent="Center" 
+              alignItems="Center" 
             style={{ height: '200px', flexDirection: 'column' }}
           >
             <Title level="H4" style={{ color: '#666', marginBottom: '0.5rem' }}>
@@ -412,8 +491,8 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
               <TableRow>
                 <TableCell style={{ width: '60px', minWidth: '60px' }}>
                   <CheckBox
-                    checked={selectedIds.size > 0 && selectedIds.size === filteredPromotions.length && filteredPromotions.length > 0}
-                    indeterminate={selectedIds.size > 0 && selectedIds.size < filteredPromotions.length}
+                    checked={selectedIds.size > 0 && selectedIds.size === paginatedPromotions.length && paginatedPromotions.length > 0}
+                    indeterminate={selectedIds.size > 0 && selectedIds.size < paginatedPromotions.length}
                     onChange={(e) => selectAll(e.target.checked)}
                   />
                 </TableCell>
@@ -441,8 +520,8 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
               </TableRow>
             }
             style={{ width: '100%' }}
-          >
-            {filteredPromotions.map((promotion, index) => {
+            >
+            {paginatedPromotions.map((promotion, index) => {
               const promotionStatus = getPromotionStatus(promotion);
               const discountInfo = getDiscountInfo(promotion);
               const isActive = isPromotionActive(promotion);
@@ -555,7 +634,7 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
           </Table>
         )}
 
-        {/* Información adicional en el footer */}
+        {/* Información adicional y paginación en el footer */}
         {promotions.length > 0 && (
           <FlexBox 
             justifyContent="SpaceBetween" 
@@ -563,12 +642,49 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
             style={{ 
               marginTop: '1rem', 
               padding: '0.5rem 0',
-              borderTop: '1px solid #e0e0e0' 
+              borderTop: '1px solid #e0e0e0',
+              gap: '1rem',
+              flexWrap: 'wrap'
             }}
           >
-            <Text style={{ fontSize: '0.875rem', color: '#666' }}>
-              Mostrando {filteredPromotions.length} promociones
-            </Text>
+            <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+              <Text style={{ fontSize: '0.875rem', color: '#666' }}>
+                Mostrando {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, filteredPromotions.length)} de {filteredPromotions.length}
+              </Text>
+              <Select
+                value={pageSize.toString()}
+                onChange={(e) => setPageSize(Number(e.detail.selectedOption.value))}
+                style={{ width: '80px' }}
+              >
+                <Option value="5">5</Option>
+                <Option value="10">10</Option>
+                <Option value="25">25</Option>
+                <Option value="50">50</Option>
+                <Option value="100">100</Option>
+              </Select>
+              <Text style={{ fontSize: '0.875rem', color: '#666' }}>por página</Text>
+            </FlexBox>
+            
+            {totalPages > 1 && (
+              <FlexBox alignItems="Center" style={{ gap: '0.5rem' }}>
+                <Button
+                  icon="navigation-left-arrow"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => prev - 1)}
+                  design="Transparent"
+                />
+                <Text style={{ fontSize: '0.875rem', fontWeight: '500' }}>
+                  Página {currentPage} de {totalPages}
+                </Text>
+                <Button
+                  icon="navigation-right-arrow"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  design="Transparent"
+                />
+              </FlexBox>
+            )}
+            
             <FlexBox style={{ gap: '1rem' }}>
               <Text style={{ fontSize: '0.875rem', color: '#666' }}>
                 Activas: {filteredPromotions.filter(p => isPromotionActive(p)).length}
@@ -585,7 +701,8 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
             </FlexBox>
           </FlexBox>
         )}
-      </div>
+        </div>
+      </Card>
 
       {/* Diálogo personalizado */}
       <CustomDialog
@@ -600,7 +717,7 @@ const PromotionsTableCard = ({ onPromotionClick }) => {
         cancelText={dialogState.cancelText}
         confirmDesign={dialogState.confirmDesign}
       />
-    </Card>
+    </div>
   );
 };
 

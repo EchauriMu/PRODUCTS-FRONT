@@ -48,45 +48,13 @@ const Promociones = () => {
 
   return (
     <div style={{ padding: '1rem' }}>
-      {/* Header con título y acciones */}
-      <FlexBox 
-        justifyContent="SpaceBetween" 
-        alignItems="Center"
-        style={{ marginBottom: '1rem' }}
-      >
-        <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
-          <Title level="H2">Gestión de Promociones</Title>
-          {/* Tabs de navegación */}
-          <FlexBox style={{ gap: '0.5rem' }}>
-            <Button
-              design={activeTab === 'promotions' ? 'Emphasized' : 'Transparent'}
-              onClick={() => setActiveTab('promotions')}
-            >
-              Promociones
-            </Button>
-            <Button
-              design={activeTab === 'calendar' ? 'Emphasized' : 'Transparent'}
-              onClick={() => setActiveTab('calendar')}
-            >
-              Calendario
-            </Button>
-          </FlexBox>
-        </FlexBox>
-        <FlexBox style={{ gap: '0.5rem' }}>
-          <Button 
-            design="Emphasized"
-            icon="add"
-            onClick={handleCreatePromotion}
-          >
-            Nueva Promoción
-          </Button>
-        </FlexBox>
-      </FlexBox>
-
       {/* Contenido según pestaña */}
       {activeTab === 'promotions' && (
         <PromotionsTableCard 
           onPromotionClick={handlePromotionClick}
+          onCreateClick={handleCreatePromotion}
+          activeView={activeTab}
+          onViewChange={setActiveTab}
           key={refreshTable}
         />
       )}
@@ -99,10 +67,11 @@ const Promociones = () => {
           onDateChange={(date) => {
             console.log('Fecha cambiada:', date);
           }}
+          activeView={activeTab}
+          onViewChange={setActiveTab}
         />
       )}
 
-      {/* Wizard removido: creación se movió a /promociones/crear */}
 
       {/* Modal de Edición de Promociones */}
       <PromotionEditModal

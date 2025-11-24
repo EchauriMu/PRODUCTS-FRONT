@@ -18,8 +18,8 @@ import {
   ObjectStatus,
   BusyIndicator,
   Icon,
-  Tag,
-  Switch
+  Switch,
+  Toast
 } from '@ui5/webcomponents-react';
 import productService from '../../api/productService';
 import categoryService from '../../api/categoryService';
@@ -107,6 +107,10 @@ const AdvancedFilters = ({
   
   // ===== ESTADOS DE VALIDACIÓN =====
   const [priceError, setPriceError] = useState('');
+  
+  // ===== ESTADO PARA TOAST =====
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   //  CARGAR DATOS REALES AL MONTAR COMPONENTE
   useEffect(() => {
@@ -392,7 +396,7 @@ const AdvancedFilters = ({
         fechaIngresoHasta: ''
       }));
     } else if (filterKey === 'busqueda') {
-      clearSearch();
+      setSearchTerm('');
     }
   };
 
@@ -735,14 +739,18 @@ const AdvancedFilters = ({
       return newGlobal;
     });
     
+    // Guardar el conteo antes de limpiar
+    const count = selectedPresentaciones.size;
+    
     // Limpiar selección temporal
     setSelectedProducts(new Set());
     setSelectedPresentaciones(new Set());
     
-    showSuccess(
-      'Productos agregados',
-      `Se agregaron ${selectedPresentaciones.size} presentación(es) a la promoción`
-    );
+    // Mostrar toast de éxito
+    const message = `Se agregaron ${count} presentación${count !== 1 ? 'es' : ''}`;
+    setToastMessage(message);
+    setToastOpen(false); // Cerrar primero si estaba abierto
+    setTimeout(() => setToastOpen(true), 10); // Abrir después de un pequeño delay
   };
 
   // ===== REMOVER PRODUCTO DE LA SELECCIÓN GLOBAL =====
@@ -771,8 +779,6 @@ const AdvancedFilters = ({
       });
       return newGlobal;
     });
-
-    showSuccess('Producto removido', 'El producto fue removido de la selección');
   };
 
   // ===== REMOVER PRESENTACIÓN DE LA SELECCIÓN GLOBAL =====
@@ -805,8 +811,6 @@ const AdvancedFilters = ({
         return newGlobal;
       });
     }
-
-    showSuccess('Presentación removida', 'La presentación fue removida de la selección');
   };
 
   // ===== FUNCIONES PARA GESTIÓN DE ELIMINACIÓN EN LOTE =====
@@ -948,11 +952,11 @@ const AdvancedFilters = ({
     clearRemoveSelection();
     setIsManagingSelection(false);
     
-    const message = productsToRemove.size > 0 
-      ? `Se eliminaron ${productsToRemove.size} producto(s)`
-      : `Se eliminaron ${presentacionesToRemove.size} presentación(es)`;
-    
-    showSuccess('Eliminación exitosa', message);
+    // Mostrar toast de éxito
+    const message = `Se eliminaron ${removedCount} presentación${removedCount !== 1 ? 'es' : ''}`;
+    setToastMessage(message);
+    setToastOpen(false); // Cerrar primero si estaba abierto
+    setTimeout(() => setToastOpen(true), 10); // Abrir después de un pequeño delay
   };
 
   // FUNCIONES PARA MANEJAR PRESENTACIONES
@@ -1159,25 +1163,28 @@ const AdvancedFilters = ({
   return (
     <div style={{ 
       backgroundColor: '#f8f9fa', 
-      minHeight: '100vh',
+      height: '100%',
+      minHeight: 0,
       display: 'flex',
       flexDirection: 'column',
+      overflow: 'hidden'
     }}>
       <FlexBox style={{ 
         gap: '1rem', 
         margin: '0',
         padding: '0.5rem',
         width: '100%',
-        flex: 1, 
-        minHeight: 0,
+        height: '100%',
         alignItems: 'stretch',
-        // overflow: 'hidden'
+        overflow: 'hidden',
+        flexWrap: 'wrap'
       }}>
         
         {/* COLUMNA IZQUIERDA - FILTROS */}
         <Card style={{ 
-          flex: '0 0 35%',
-          minWidth: '320px',
+          flex: '1 1 320px',
+          minWidth: '280px',
+          height: '100%',
           borderRadius: '8px',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
           border: '1px solid #e0e6ed',
@@ -1225,12 +1232,49 @@ const AdvancedFilters = ({
 
         <div style={{ 
           padding: '0.5rem',
-          flex: '1',
           overflowY: 'auto',
           overflowX: 'hidden',
+          flex: 1,
           minHeight: 0
         }}>
           <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
+            
+            {/* ===== CHIPS DE FILTROS ACTIVOS ===== */}
+            {getActiveFiltersChips().length > 0 && (
+              <div style={{ 
+                marginBottom: '0.5rem', 
+                padding: '0.4rem',
+                backgroundColor: '#e3f2fd',
+                borderRadius: '4px',
+                border: '1px solid #90caf9'
+              }}>
+                <Label style={{ fontWeight: '600', marginBottom: '0.2rem', display: 'block', color: '#1976d2', fontSize: '0.75rem' }}>
+                  Filtros aplicados:
+                </Label>
+                <FlexBox style={{ gap: '0.2rem', flexWrap: 'wrap' }}>
+                  {getActiveFiltersChips().map(chip => (
+                    <div
+                      key={chip.key}
+                      style={{ 
+                        cursor: 'pointer', 
+                        backgroundColor: '#2196f3', 
+                        color: 'white',
+                        padding: '0.15rem 0.4rem',
+                        borderRadius: '0.2rem',
+                        fontSize: '0.75rem',
+                        fontWeight: '500',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.2rem'
+                      }}
+                      onClick={() => removeFilter(chip.filterKey, chip.value)}
+                    >
+                      {chip.label} ✕
+                    </div>
+                  ))}
+                </FlexBox>
+              </div>
+            )}
             
             {/* FILTROS POR CATEGORÍA */}
             <div style={{ marginBottom: '0.25rem' }}>
@@ -1251,19 +1295,6 @@ const AdvancedFilters = ({
                         />
                       ))}
                     </MultiComboBox>
-                    
-                    {filters.categorias.length > 0 && (
-                      <FlexBox style={{ marginTop: '0.5rem', gap: '0.25rem', flexWrap: 'wrap' }}>
-                        {filters.categorias.map(catId => {
-                          const categoria = categorias.find(c => c.CATID === catId);
-                          return categoria ? (
-                            <ObjectStatus key={catId} state="Information">
-                              {categoria.Nombre}
-                            </ObjectStatus>
-                          ) : null;
-                        })}
-                      </FlexBox>
-                    )}
                   </>
                 ) : (
                   <Text style={{ marginTop: '0.25rem', color: '#666' }}>
@@ -1291,19 +1322,6 @@ const AdvancedFilters = ({
                         />
                       ))}
                     </MultiComboBox>
-                    
-                    {filters.marcas.length > 0 && (
-                      <FlexBox style={{ marginTop: '0.5rem', gap: '0.25rem', flexWrap: 'wrap' }}>
-                        {filters.marcas.map(marcaNombre => {
-                          const marca = marcas.find(m => m.name === marcaNombre);
-                          return marca ? (
-                            <ObjectStatus key={marcaNombre} state="Warning">
-                              {marca.name} ({marca.productos})
-                            </ObjectStatus>
-                          ) : null;
-                        })}
-                      </FlexBox>
-                    )}
                   </>
                 ) : (
                   <Text style={{ marginTop: '0.25rem', color: '#666' }}>
@@ -1408,33 +1426,6 @@ const AdvancedFilters = ({
                 ))}
               </FlexBox>
             </div>
-            
-            {/* ===== CHIPS DE FILTROS ACTIVOS ===== */}
-            {getActiveFiltersChips().length > 0 && (
-              <div style={{ 
-                marginTop: '0.5rem', 
-                padding: '0.5rem',
-                backgroundColor: '#f0f4ff',
-                borderRadius: '6px',
-                border: '1px solid #d0e0ff'
-              }}>
-                <Label style={{ fontWeight: '600', marginBottom: '0.25rem', display: 'block', color: '#333', fontSize: '0.8rem' }}>
-                  Filtros aplicados:
-                </Label>
-                <FlexBox style={{ gap: '0.25rem', flexWrap: 'wrap' }}>
-                  {getActiveFiltersChips().map(chip => (
-                    <Tag
-                      key={chip.key}
-                      design="Set2"
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => removeFilter(chip.filterKey, chip.value)}
-                    >
-                      {chip.label} ✕
-                    </Tag>
-                  ))}
-                </FlexBox>
-              </div>
-            )}
 
           </FlexBox>
         </div>
@@ -1442,8 +1433,9 @@ const AdvancedFilters = ({
 
         {/* COLUMNA DERECHA - PRODUCTOS ENCONTRADOS */}
         <Card style={{ 
-          flex: '1',
-          minWidth: '400px',
+          flex: '2 1 400px',
+          minWidth: '300px',
+          height: '100%',
           borderRadius: '8px',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
           border: '1px solid #e0e6ed',
@@ -1455,10 +1447,10 @@ const AdvancedFilters = ({
 
           <div style={{ 
             padding: '0.5rem',
-            flex: '1',
             overflowY: 'auto',
             overflowX: 'hidden',
-            minHeight: 0,
+            flex: 1,
+            minHeight: 0
           }}>
             {loading ? (
               <FlexBox justifyContent="Center" style={{ padding: '2rem' }}>
@@ -1492,7 +1484,7 @@ const AdvancedFilters = ({
                       <Button 
                         design="Transparent"
                         icon="decline"
-                        onClick={clearSearch}
+                        onClick={() => setSearchTerm('')}
                         style={{ color: '#666', padding: '0.25rem' }}
                       >
                         Limpiar
@@ -1652,7 +1644,7 @@ const AdvancedFilters = ({
                         <Button 
                           design="Emphasized"
                           icon="search"
-                          onClick={clearSearch}
+                          onClick={() => setSearchTerm('')}
                         >
                           Limpiar búsqueda
                         </Button>
@@ -1786,8 +1778,8 @@ const AdvancedFilters = ({
                         cursor: isDisabled ? 'not-allowed' : 'default'
                       }}
                     >
-                      <FlexBox justifyContent="SpaceBetween" alignItems="Center">
-                        <FlexBox alignItems="Center" style={{ gap: '0.75rem', flex: 1 }}>
+                      <FlexBox justifyContent="SpaceBetween" alignItems="Center" style={{ gap: '0.5rem' }}>
+                        <FlexBox alignItems="Center" style={{ gap: '0.75rem', flex: 1, minWidth: 0 }}>
                           <CheckBox 
                             checked={isManagingSelection ? isMarkedForRemoval : (isSelected || isInGlobal || isLocked)}
                             disabled={isDisabled}
@@ -1814,12 +1806,12 @@ const AdvancedFilters = ({
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
-                                flex: 1,
+                                maxWidth: '100%'
                               }}>
                                 {highlightMatch(producto.PRODUCTNAME || `Producto ${producto.SKUID}` || 'Producto sin nombre', searchTerm)}
                               </Title>
                               {(isInGlobal || isLocked) && (
-                                <ObjectStatus state="Information" style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem' }}>
+                                <ObjectStatus state="Information" style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem', flexShrink: 0 }}>
                                   Ya agregado
                                 </ObjectStatus>
                               )}
@@ -1833,8 +1825,9 @@ const AdvancedFilters = ({
                             </Text>
                           )}
                         </FlexBox>
-                        <FlexBox direction="Column" alignItems="End" style={{ gap: '0.15rem', marginLeft: '0.5rem' }}>
-                          <Text style={{ fontSize: '0.7rem', color: '#666' }}>
+                        </FlexBox>
+                        <FlexBox direction="Column" alignItems="End" style={{ gap: '0.15rem', flexShrink: 0 }}>
+                          <Text style={{ fontSize: '0.7rem', color: '#666', whiteSpace: 'nowrap' }}>
                             {new Date(producto.REGDATE).toLocaleDateString()}
                           </Text>
                         </FlexBox>
@@ -1842,10 +1835,9 @@ const AdvancedFilters = ({
                           icon={expandedProducts.has(producto.SKUID) ? "navigation-up-arrow" : "navigation-down-arrow"}
                           design="Transparent"
                           onClick={() => toggleProductExpansion(producto.SKUID)}
-                          style={{ marginLeft: '0.5rem' }}
+                          style={{ flexShrink: 0 }}
                           tooltip={expandedProducts.has(producto.SKUID) ? "Ocultar presentaciones" : "Ver presentaciones"}
                         />
-                        </FlexBox>
                       </FlexBox>
                     </Card>
 
@@ -2021,6 +2013,14 @@ const AdvancedFilters = ({
         cancelText={dialogState.cancelText}
         confirmDesign={dialogState.confirmDesign}
       />
+      
+      {/* Toast para notificaciones */}
+      <Toast 
+        open={toastOpen}
+        onAfterClose={() => setToastOpen(false)}
+      >
+        {toastMessage}
+      </Toast>
     </div>
   );
 };

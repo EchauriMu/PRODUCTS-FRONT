@@ -21,7 +21,7 @@ import CustomDialog from '../common/CustomDialog';
 import { useDialog } from '../../hooks/useDialog';
 import PromotionEditModal from './PromotionEditModal';
 
-const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) => {
+const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange, activeView = 'calendar', onViewChange }) => {
   const { dialogState, showAlert, showError, closeDialog } = useDialog();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month'); // 'month', 'agenda'
@@ -273,11 +273,32 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
     <div>
       {/* Header con controles */}
       <Card style={{ marginBottom: '1rem' }}>
-        <CardHeader
-          titleText="Calendario Promocional"
-          subtitleText={`${getFilteredPromotions().length} promociones encontradas`}
-          action={
-            <FlexBox style={{ gap: '0.5rem' }}>
+        <div style={{ padding: '1rem', paddingBottom: '0.5rem' }}>
+          <FlexBox justifyContent="SpaceBetween" alignItems="Center" style={{ flexWrap: 'wrap', gap: '1rem', marginBottom: '0.5rem' }}>
+            <FlexBox alignItems="Center" style={{ gap: '1rem', flexWrap: 'wrap' }}>
+              <Title level="H3">Calendario Promocional</Title>
+              {/* Botones de vista */}
+              {onViewChange && (
+                <FlexBox style={{ gap: '0.5rem' }}>
+                  <Button
+                    design={activeView === 'promotions' ? 'Emphasized' : 'Transparent'}
+                    onClick={() => onViewChange('promotions')}
+                  >
+                    Promociones
+                  </Button>
+                  <Button
+                    design={activeView === 'calendar' ? 'Emphasized' : 'Transparent'}
+                    onClick={() => onViewChange('calendar')}
+                  >
+                    Calendario
+                  </Button>
+                </FlexBox>
+              )}
+            </FlexBox>
+            <FlexBox style={{ gap: '0.5rem', alignItems: 'center' }}>
+              <Text style={{ color: '#666', fontSize: '0.875rem' }}>
+                {getFilteredPromotions().length} promociones encontradas
+              </Text>
               <Select
                 value={viewMode}
                 onChange={(e) => setViewMode(e.target.value)}
@@ -286,8 +307,8 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange }) 
                 <Option value="agenda">Vista Agenda</Option>
               </Select>
             </FlexBox>
-          }
-        />
+          </FlexBox>
+        </div>
         
         {/* Filtros */}
         <div style={{ padding: '1rem', borderTop: '1px solid #e0e0e0' }}>
