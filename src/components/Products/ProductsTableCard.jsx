@@ -12,12 +12,14 @@ import {
   BusyIndicator,
   MessageStrip,
   FlexBox,
+  Icon,
   Label,
   // ObjectStatus no se usa directamente en este archivo, se puede omitir o mantener
 } from '@ui5/webcomponents-react';
 import { Tag } from '@ui5/webcomponents-react';
 import productService from '../../api/productService';
 import ProductDetailModal from './ProductDetailModal';
+import "@ui5/webcomponents-icons/dist/synchronize.js";
 import ProductSearch from './ProductSearch'; 
 import "@ui5/webcomponents-fiori/dist/illustrations/NoData.js"; 
 import ProductTableActions from './ProductTableActions';
@@ -141,10 +143,17 @@ const ProductsTableCard = () => {
 
   const handleCloseModal = useCallback(() => setSelectedProduct(null), []);
 
-  const handleProductUpdate = useCallback(() => {
-    handleCloseModal();
-    loadProducts();
-  }, [handleCloseModal]);
+  const handleProductUpdate = useCallback((updatedProduct) => {
+    // Actualiza la lista de productos localmente para reflejar el cambio
+    // sin necesidad de volver a llamar a la API.
+    setProducts(prevProducts =>
+      prevProducts.map(p =>
+        p.SKUID === updatedProduct.SKUID ? { ...p, ...updatedProduct } : p
+      )
+    );
+    // No cerramos el modal y no llamamos a la apis get de nuevo EECHWURIM
+    // handleCloseModal();
+  }, []);
 
   // --- Lógica de Selección (sin cambios) ---
 
@@ -192,12 +201,23 @@ const ProductsTableCard = () => {
         </FlexBox>
 
         {/* Acciones */}
-        <FlexBox alignItems="Center" justifyContent="End" style={{ gap: '1rem' }}>
+        <FlexBox alignItems="Center" justifyContent="End" style={{ gap: '1rem', flexWrap: 'wrap'   }}>
           {/* Búsqueda */}
           <ProductSearch 
             loading={loading}
             onSearch={setSearchTerm}
           />
+          {/* Botón de Refrescar */}
+          <Button 
+            design="Transparent" 
+            disabled={loading} 
+            onClick={loadProducts}
+            icon={loading ? "synchronize" : "refresh"}
+            icon-end={loading ? "true" : "false"}
+            className={loading ? 'refresh-button-loading' : ''}
+          >
+            Refrescar
+          </Button>
           {/* Botones de Acción (Editar, Eliminar, Activar, Crear) */}
           <ProductTableActions
             selectedSKUIDs={selectedSKUIDs}
@@ -205,14 +225,36 @@ const ProductsTableCard = () => {
             loading={loading}
             onEdit={handleEdit}
             onActionStart={() => { setLoading(true); setError(''); setSuccessMessage(''); }}
-            onActionSuccess={(message) => { 
+            onActionSuccess={(message, actionInfo) => {
               setSuccessMessage(message);
-              loadProducts(); 
-              setSelectedSKUIDs([]); 
-              setTimeout(() => setSuccessMessage(''), 5000); 
+              
+              // Actualizar el estado localmente en lugar de llamar a loadProducts()
+              const { type, skus } = actionInfo;
+              
+              setProducts(prevProducts => {
+                switch (type) {
+                  case 'delete':
+                    return prevProducts.filter(p => !skus.includes(p.SKUID));
+                  case 'activate':
+                    return prevProducts.map(p => 
+                      skus.includes(p.SKUID) ? { ...p, ACTIVED: true, DELETED: false } : p
+                    );
+                  case 'deactivate':
+                    return prevProducts.map(p => 
+                      skus.includes(p.SKUID) ? { ...p, ACTIVED: false, DELETED: false } : p
+                    );
+                  default:
+                    return prevProducts;
+                }
+              });
+
+              setSelectedSKUIDs([]);
+              setLoading(false);
+              setTimeout(() => setSuccessMessage(''), 5000);
             }}
             onActionError={(message) => { 
               setError(message); 
+              setSuccessMessage('');
               setLoading(false); 
             }}
           />
@@ -246,16 +288,16 @@ const ProductsTableCard = () => {
           )}
 
           {/* Indicador de Carga / No Data */}
-          {loading && products.length === 0 ? (
+          {loading ? (
             <FlexBox 
               justifyContent="Center" 
               alignItems="Center" 
               style={{ height: '200px', flexDirection: 'column' }}
             >
               <BusyIndicator active />
-              <Text style={{ marginTop: '1rem' }}>Cargando productos...</Text>
+              <Text style={{ marginTop: '1rem' }}>{products.length > 0 ? 'Refrescando productos...' : 'Cargando productos...'}</Text>
             </FlexBox>
-          ) : filteredProducts.length === 0 && !loading ? (
+          ) : filteredProducts.length === 0 ? (
             <FlexBox 
               justifyContent="Center" 
               alignItems="Center" 
@@ -450,6 +492,21 @@ const ProductsTableCard = () => {
           onProductUpdate={handleProductUpdate}
         />
 
+      {/* Estilos para la animación del botón de refrescar */}
+      <style>{`
+        .refresh-button-loading ui5-icon {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
       </Card>
     </div>
   );

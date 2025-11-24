@@ -108,8 +108,8 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
 
   const handleProductStatusChange = (updatedProduct) => {
     setLocalProduct(updatedProduct);
-    // Notificamos al componente padre (la tabla) que debe recargar los datos
-    // para que la vista principal se mantenga sincronizada.
+    // Notificamos al componente padre (la tabla) para que actualice su estado local
+    // y la vista principal se mantenga sincronizada sin una nueva llamada a la API.
     if (onProductUpdate) {
       onProductUpdate(updatedProduct);
     }
@@ -150,14 +150,18 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
 
   // Callbacks para el botón de guardar
   const handleSaveSuccess = (updatedDataFromAPI) => {
-    // Actualizamos el estado local con la respuesta de la API
-    setLocalProduct(prev => ({ ...prev, ...updatedDataFromAPI }));
-    setIsEditing(false);
-    // Notificamos al componente padre (la tabla) que debe recargar los datos
-    if (onProductUpdate) {
-      onProductUpdate(updatedDataFromAPI);
-    }
+    // 1. Creamos el objeto de producto completamente actualizado
+    const fullyUpdatedProduct = { ...localProduct, ...editedProduct, ...updatedDataFromAPI };
+    
+    // 2. Actualizamos el estado local del modal con la respuesta de la API
+    setLocalProduct(fullyUpdatedProduct);
     setEditedProduct(null);
+    setIsEditing(false);
+
+    // 3. Notificamos al componente padre (la tabla) para que actualice su lista localmente
+    if (onProductUpdate) {
+      onProductUpdate(fullyUpdatedProduct);
+    }
   };
 
   const handleSaveError = (errorMessage) => {

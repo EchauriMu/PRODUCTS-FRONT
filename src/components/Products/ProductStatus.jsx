@@ -37,8 +37,10 @@ const ProductStatus = ({ product, onStatusChange, onEditClick }) => {
       }
       setIsActive(updatedProduct?.value?.[0]?.data?.[0]?.dataRes?.ACTIVED ?? newStatus);
       if (onStatusChange) {
-        // Extraemos la data real de la respuesta anidada de la API
-        const finalUpdatedProduct = updatedProduct?.value?.[0]?.data?.[0]?.dataRes || { ...product, ACTIVED: newStatus, DELETED: !newStatus };
+        // Extraemos la data real de la respuesta anidada de la API.
+        // Hacemos un merge con el producto actual para asegurar que todos los campos estén presentes.
+        const apiProductData = updatedProduct?.value?.[0]?.data?.[0]?.dataRes || {};
+        const finalUpdatedProduct = { ...product, ...apiProductData, ACTIVED: newStatus, DELETED: !newStatus };
         // Notificamos al padre con el producto completamente actualizado desde el backend
         onStatusChange(finalUpdatedProduct);
         setFeedbackMessage({ text: 'Estado actualizado con éxito.', type: 'Success' });

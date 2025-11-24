@@ -29,8 +29,11 @@ const ProductTableActions = ({
     if (window.confirm(`¿Estás seguro de que deseas eliminar permanentemente ${selectedSKUIDs.length} producto(s)? Esta acción no se puede deshacer.`)) {
       onActionStart();
       try {
-        await productService.deleteProducts(selectedSKUIDs);
-        onActionSuccess(`${selectedSKUIDs.length} producto(s) eliminado(s) permanentemente.`);
+        const response = await productService.deleteProducts(selectedSKUIDs);
+        onActionSuccess(
+          `${selectedSKUIDs.length} producto(s) eliminado(s) permanentemente.`,
+          { type: 'delete', skus: selectedSKUIDs, response }
+        );
       } catch (error) {
         onActionError(`Error al eliminar productos: ${error.message}`);
       }
@@ -59,11 +62,17 @@ const ProductTableActions = ({
       onActionStart();
       try {
         if (canActivate) {
-          await productService.activateProducts(selectedSKUIDs);
-          onActionSuccess(`${selectedSKUIDs.length} producto(s) activado(s) exitosamente.`);
+          const response = await productService.activateProducts(selectedSKUIDs);
+          onActionSuccess(
+            `${selectedSKUIDs.length} producto(s) activado(s) exitosamente.`,
+            { type: 'activate', skus: selectedSKUIDs, response }
+          );
         } else {
-          await productService.deactivateProducts(selectedSKUIDs);
-          onActionSuccess(`${selectedSKUIDs.length} producto(s) desactivado(s) exitosamente.`);
+          const response = await productService.deactivateProducts(selectedSKUIDs);
+          onActionSuccess(
+            `${selectedSKUIDs.length} producto(s) desactivado(s) exitosamente.`,
+            { type: 'deactivate', skus: selectedSKUIDs, response }
+          );
         }
       } catch (error) {
         onActionError(`Error al ${actionText} productos: ${error.message}`);
