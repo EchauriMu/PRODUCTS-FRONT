@@ -24,22 +24,6 @@ import * as yup from 'yup';
  * ================================================================================
  * MODAL FULLSCREEN PARA CREAR/EDITAR LISTAS DE PRECIOS - PreciosListasModal.jsx
  * ================================================================================
- * 
- * Este componente es un modal FULLSCREEN que permite:
- * - CREAR una nueva lista de precios
- * - EDITAR una lista existente
- * 
- * CARACTERÍSTICAS:
- * - Ocupa toda la pantalla como el Stepper de Productos
- * - Validación de formulario con Yup
- * - Dos pestañas (tabs):
- *   1. "Paso 1: Selección de Productos" - para seleccionar SKUs
- *   2. "Paso 2: Configuración" - para datos de la lista
- * - Soporte para filtros avanzados de productos
- * - Validaciones en tiempo real
- * - Header, contenido central y footer fijo
- * 
- * ================================================================================
  */
 
 const formatDateForPicker = (date) => {
@@ -52,16 +36,7 @@ const formatDateForPicker = (date) => {
 };
 
 /**
- * ✅ ESQUEMA DE VALIDACIÓN CON YUP
- * 
- * Define qué campos son obligatorios y sus validaciones:
- * - DESLISTA: Obligatorio, mínimo 3 caracteres
- * - SKUSIDS: Mínimo 1 producto seleccionado
- * - IDINSTITUTOOK: Obligatorio
- * - IDTIPOLISTAOK: Obligatorio
- * - IDTIPOFORMULAOK: Obligatorio
- * - FECHAEXPIRAINI: Obligatorio
- * - FECHAEXPIRAFIN: Obligatorio y mayor a fecha inicio
+ *VALIDACIÓN CON YUP
  */
 const preciosListasValidationSchema = yup.object().shape({
   IDLISTAOK: yup.string(),
@@ -117,30 +92,8 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
   const nextIdRef = useRef(0); // Contador para generar IDs secuenciales
 
   /**
-   * 🔹 CARGAR DATOS AL ABRIR MODAL
-   * 
-   * ¿QUÉ SUCEDE?
-   * - Si se abre con una lista existente (EDITAR):
-   *   Carga todos los datos de esa lista en el formulario
-   * - Si se abre sin lista (CREAR):
-   *   Establece valores por defecto (initialState)
-   * 
-   * FLUJO CREAR:\n   * 1. Usuario hace clic en "Crear Lista"
-   * 2. PreciosListasTable llama handleAdd() (línea 24-26 en Actions)
-   * 3. handleAdd() establece editingLista=null
-   * 4. Modal abre con open=true, lista=null
-   * 5. Este useEffect se ejecuta
-   * 6. Detecta que open=true pero lista=null (línea 112)
-   * 7. Carga initialState con generador de ID (línea 119-123)
-   * 8. Setea activeTab='filtros' para que el usuario comience selectando productos\n   * FLUJO EDITAR:\n   * 1. Usuario selecciona una lista y hace clic "Editar"
-   * 2. PreciosListasTable llama handleEditSelected() 
-   * 3. setEditingLista(lista) + setIsModalOpen(true)
-   * 4. Modal abre con open=true, lista={...datos...}
-   * 5. Este useEffect se ejecuta
-   * 6. Detecta que open=true Y lista existe (línea 111)
-   * 7. Spread los datos de la lista en el formulario (línea 112-116)
-   * 8. Convierte SKUSIDS si está en JSON (línea 117-119)
-   * 9. Setea activeTab='config' para que el usuario edite la configuración\n   */
+   * CARGAR DATOS AL ABRIR MODAL
+\n   */
   useEffect(() => {
     if (open && lista) {
       // MODO EDICIÓN: cargar datos de la lista existente
@@ -169,34 +122,14 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
   }, [open, lista]);
   
   /**
-   * 🔹 MANEJAR CAMBIO EN CAMPO DE INPUT
-   * 
-   * ¿QUÉ SUCEDE?
-   * - Actualiza el estado formData cuando el usuario digita en un campo
-   * - Campos de texto, selects, checkboxes, etc.
-   * 
-   * PARÁMETROS:
-   * - name: Nombre del campo (DESLISTA, IDINSTITUTOOK, etc)
-   * - value: Nuevo valor del campo
+   * MANEJAR CAMBIO EN CAMPO DE INPUT
    */
   const handleInputChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   /**
-   * 🔹 MANEJAR CAMBIO EN FILTROS DE PRODUCTOS
-   * 
-   * ¿QUÉ SUCEDE?
-   * - El usuario aplica filtros en la pestaña "Paso 2: Selección de Productos"
-   * - Se actualizan los SKUs seleccionados
-   * - Se guardan las fechas del filtro (si se usaron)
-   * 
-   * PARÁMETROS:
-   * - filterData: Objeto con datos del filtro
-   *   {
-   *     selectedSKUs: [] (array de SKUs seleccionados),
-   *     filterDates: { fechaIngresoDesde, fechaIngresoHasta }
-   *   }
+   * MANEJAR CAMBIO EN FILTROS DE PRODUCTOS
    */
   const handleFiltersChange = useCallback((filterData) => {
     if (filterData?.selectedSKUs && filterData.selectedSKUs.length > 0) {
@@ -224,35 +157,8 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
   }, []);
 
   /**
-   * 🔹💾 MANEJAR CLICK EN BOTÓN GUARDAR
-   * 
-   * ¿QUÉ SUCEDE?
-   * 1. Activa indicador de guardado (isSaving=true)
-   * 2. Valida todos los datos con el schema Yup
-   * 3. Si hay errores, muestra MessageBox con los errores ❌
-   * 4. Si no hay errores, prepara los datos para enviar:
-   *    - Convierte SKUSIDS a JSON string
-   *    - Asegura que ACTIVED sea booleano
-   *    - Genera ID si es nueva lista
-   * 5. Llama onSave(dataToSave) que es handleSave() en Actions
-   * 6. handleSave() envía a preciosListasService.create() o .update()
-   * 7. Backend recibe y guarda en BD
-   * 
-   * FLUJO COMPLETO:\n   * CREAR:\n   * 1. Usuario en modal vacío completa formulario
-   * 2. Hace clic en "Guardar"
-   * 3. handleSaveClick() ejecuta (línea 170-210)
-   * 4. Valida con Yup (línea 173)
-   * 5. Prepara dataToSave (línea 175-187)
-   * 6. Llama onSave(dataToSave) → handleSave() en Actions (línea 188)
-   * 7. handleSave() detecta que NO hay editingLista.IDLISTAOK
-   * 8. Llama preciosListasService.create(dataToSave) → ⭐ LÍNEA 70-71 EN ACTIONS\n   * ACTUALIZAR:\n   * 1. Usuario en modal con datos cargados edita valores
-   * 2. Hace clic en "Guardar"
-   * 3. handleSaveClick() ejecuta (línea 170-210)
-   * 4. Valida con Yup (línea 173)
-   * 5. Prepara dataToSave (línea 175-187)
-   * 6. Llama onSave(dataToSave) → handleSave() en Actions (línea 188)
-   * 7. handleSave() detecta que SÍ hay editingLista.IDLISTAOK
-   * 8. Si NO cambió ACTIVED, llama preciosListasService.update() → ⭐ LÍNEA 68 EN ACTIONS\n   */
+   *MANEJAR CLICK EN BOTÓN GUARDAR
+   \n   */
   const handleSaveClick = async () => {
     setIsSaving(true);
     setValidationErrors(null);

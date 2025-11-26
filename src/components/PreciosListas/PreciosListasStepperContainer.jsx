@@ -81,12 +81,6 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
 
   /**
    * Genera un ID autogenerado para la lista de precios
-   * Formato corto: [3-PRIMERAS-LETRAS]-[4-NUMEROS-ALEATORIOS]
-   * 
-   * Ejemplo:
-   * - "Lista de Precios" → "LIS-4872"
-   * - "Precios Mayorista" → "PRE-9215"
-   * - "Promoción de Verano" → "PRO-5643"
    * 
    * @param {string} description - Descripción de la lista
    * @returns {string} ID generado
@@ -154,7 +148,6 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
   /**
    * Efecto para autogenerar el IDLISTAOK cuando DESLISTA cambia
    * SOLO EN MODO CREACIÓN - en edición, el ID debe mantenerse igual
-   * Similar al comportamiento del SKU en productos
    */
   useEffect(() => {
     // Solo regenerar ID si estamos en modo CREACIÓN

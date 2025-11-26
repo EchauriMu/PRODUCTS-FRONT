@@ -29,24 +29,6 @@ import { createActionHandlers } from './PreciosListasActions';
  * ================================================================================
  * TABLA DE LISTAS DE PRECIOS - PreciosListasTable.jsx
  * ================================================================================
- * 
- * Este es el componente PRINCIPAL que:
- * 1. Obtiene todas las listas de precios del servidor
- * 2. Muestra una tabla con todas las listas
- * 3. Permite buscar, filtrar y seleccionar listas
- * 4. Abre modal para crear/editar listas
- * 5. Maneja acciones como activar, desactivar y eliminar
- * 6. Muestra detalles de productos (SKUs) asociados a cada lista
- * 
- * FLUJO PRINCIPAL:\n * 1. Se monta el componente (useEffect línea 39)
- * 2. Se ejecuta fetchListas() que llama a preciosListasService.getAllListas()
- * 3. Se cargan todas las listas en el estado
- * 4. Se renderiza la tabla con las listas
- * 5. Usuario puede hacer clic en botones para crear, editar, activar, etc
- * 6. Las acciones se manejan en PreciosListasActions
- * 7. Se recargan los datos después de cada operación
- * 
- * ================================================================================
  */
 
 const PreciosListasTable = () => {
@@ -62,29 +44,14 @@ const PreciosListasTable = () => {
   const [selectedSKU, setSelectedSKU] = useState(null); // Modal de precios del SKU: { skuId, skusList }
 
   /**
-   * 🔹 CARGAR LISTAS AL MONTAR EL COMPONENTE
-   * 
-   * ¿QUÉ SUCEDE?\n   * - Se ejecuta una sola vez cuando se monta el componente
-   * - Llama fetchListas() que trae todas las listas del servidor
-   * - Usa preciosListasService.getAllListas() ← ⭐ ESTA LÍNEA\n   */
+   *CARGAR LISTAS AL MONTAR EL COMPONENTE
+\n   */
   useEffect(() => {
     fetchListas(); 
   }, []);
 
   /**
-   * 🔹 OBTENER LISTAS DEL SERVIDOR
-   * 
-   * ¿QUÉ SUCEDE?\n   * - Establece loading=true para mostrar indicador
-   * - Llama preciosListasService.getAllListas()
-   *   URL: POST /ztprecios-listas/preciosListasCRUD?ProcessType=GetAll&ShowInactive=true
-   * - Obtiene array de todas las listas
-   * - Actualiza el estado listas
-   * - Si hay error, muestra mensaje
-   * 
-   * LLAMADO DESDE:\n   * - useEffect al montar (línea 39-42)
-   * - handleSave() después de crear/actualizar/activar/desactivar (Actions línea 73)
-   * - handleToggleStatus() después de cambiar estados (Actions línea 99)
-   * - handleDeleteSelected() después de eliminar (Actions línea 113)
+   * OBTENER LISTAS DEL SERVIDOR
    */
   const fetchListas = async () => {
     setLoading(true);
@@ -149,15 +116,7 @@ const PreciosListasTable = () => {
   );
 
   /**
-   * 🔹 ABRIR MODAL DE PRECIOS DEL SKU
-   * 
-   * ¿QUÉ SUCEDE?\n   * - Cuando haces clic en un SKU en la tabla
-   * - Se abre un modal mostrando los precios de ese SKU en esa lista
-   * 
-   * PARÁMETROS:
-   * - skuId: ID del SKU (producto)
-   * - skusList: Array con todos los SKUs de la lista
-   * - idListaOK: ID de la lista
+   * ABRIR MODAL DE PRECIOS DEL SKU
    */
   const handleSKUClick = (skuId, skusList, idListaOK) => {
     setSelectedSKU({ skuId, skusList, idListaOK });
@@ -172,13 +131,7 @@ const PreciosListasTable = () => {
   };
 
   /**
-   * 🔹 SELECCIONAR TODAS LAS LISTAS
-   * 
-   * ¿QUÉ SUCEDE?\n   * - Cuando haces clic en el checkbox del encabezado de la tabla
-   * - Selecciona o deselecciona todas las listas visibles
-   * 
-   * PARÁMETRO:
-   * - e.target.checked: boolean, si está marcado el checkbox
+   * SELECCIONAR TODAS LAS LISTAS
    */
   const handleSelectAll = (e) => {
     if (e.target.checked) {
@@ -191,13 +144,7 @@ const PreciosListasTable = () => {
   };
 
   /**
-   * 🔹 SELECCIONAR UNA LISTA INDIVIDUAL
-   * 
-   * ¿QUÉ SUCEDE?\n   * - Cuando haces clic en un checkbox de una fila
-   * - Agrega o quita esa lista del Set de seleccionadas
-   * 
-   * PARÁMETRO:
-   * - listaId: ID de la lista a seleccionar/deseleccionar
+   * SELECCIONAR UNA LISTA INDIVIDUAL
    */
   const handleSelectLista = (listaId) => {
     setSelectedListas(prev => {
@@ -212,10 +159,7 @@ const PreciosListasTable = () => {
   };
 
   /**
-   * 🔹 EDITAR LA LISTA SELECCIONADA
-   * 
-   * ¿QUÉ SUCEDE?\n   * - Si hay exactamente 1 lista seleccionada
-   * - Navega a la página de edición
+   * EDITAR LA LISTA SELECCIONADA
    */
   const handleEditSelected = () => {
     if (selectedListas.size !== 1) return;
@@ -228,7 +172,7 @@ const PreciosListasTable = () => {
   };
 
   /**
-   * 🔹 UTILIDADES PARA FORMATO Y ESTADO
+   *UTILIDADES PARA FORMATO Y ESTADO
    */
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -270,11 +214,7 @@ const PreciosListasTable = () => {
   };
 
   /**
-   * 🔹 FILTRAR LISTAS POR BÚSQUEDA
-   * 
-   * ¿QUÉ SUCEDE?\n   * - Filtra las listas según el término de búsqueda
-   * - Busca en descripción (DESLISTA) y en SKUs
-   * - En tiempo real mientras escribes en el campo de búsqueda
+   *FILTRAR LISTAS POR BÚSQUEDA
    */
   const filteredListas = listas.filter((lista) => {
   const term = searchTerm.toLowerCase();
