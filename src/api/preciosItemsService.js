@@ -50,7 +50,7 @@ const preciosItemsService = {
     try {
       const params = new URLSearchParams({
         ProcessType: 'GetByIdListaOK',
-        idListaOK
+        IdListaOK: idListaOK
       }).toString();
 
       const res = await axiosInstance.post(

@@ -105,88 +105,81 @@ const PrecioSkuModal = ({ skuId, skusList, idListaOK, open, onClose }) => {
     }
   };
 
-  const loadProductosLista = async (preciosDelista) => {
+  const loadProductosLista = async (preciosDeLaLista) => {
     try {
       setLoading(true);
       setError('');
-      const productos = [];
-      let preciosMap = {};
-      let preciosIds = {}; // Guardar IdPrecioOK para cada SKUID
-      const presentacionesMap = {};
-      const archivosMap = {}; // Guardar archivos por SKU
-      
-      console.log('Iniciando carga de productos. skusList:', skusList);
-      console.log('Precios SOLO de esta lista:', preciosDelista);
-      
-      // USAR LOS PRECIOS DE ESTA LISTA (YA CARGADOS)
-      if (Array.isArray(preciosDelista)) {
-        preciosDelista.forEach(item => {
+  
+      // 1. Cargar todos los productos y todas las presentaciones en paralelo
+      const [allProductsResponse, allPresentaciones] = await Promise.all([
+        productService.getAllProducts(),
+        productPresentacionesService.getAllPresentaciones()
+      ]);
+  
+      // Extraer datos de la respuesta de productos
+      const allProducts = allProductsResponse?.value?.[0]?.data?.[0]?.dataRes ?? allProductsResponse?.dataRes ?? allProductsResponse?.data ?? [];
+  
+      // 2. Crear mapas para búsqueda local eficiente
+      const allProductsMap = new Map(allProducts.map(p => [p.SKUID, p]));
+      const allPresentacionesMap = new Map();
+      for (const pres of allPresentaciones) {
+        if (!allPresentacionesMap.has(pres.SKUID)) {
+          allPresentacionesMap.set(pres.SKUID, []);
+        }
+        allPresentacionesMap.get(pres.SKUID).push(pres);
+      }
+  
+      // 3. Procesar los datos para este modal
+      const productosFinales = [];
+      const presentacionesPorSkuFinal = {};
+      const archivosPorSkuFinal = {};
+      const preciosMap = {};
+      const preciosIds = {};
+  
+      // Mapear precios de la lista actual
+      if (Array.isArray(preciosDeLaLista)) {
+        preciosDeLaLista.forEach(item => {
           if (item.SKUID && item.Precio) {
             preciosMap[item.SKUID] = item.Precio;
-            preciosIds[item.SKUID] = item.IdPrecioOK; // Guardar el ID
+            preciosIds[item.SKUID] = item.IdPrecioOK;
           }
         });
       }
-      
-      console.log('Mapa de precios para esta lista:', preciosMap);
-      
-      // Cargar información de cada producto y sus presentaciones
+  
+      // 4. Filtrar y organizar los productos y presentaciones para los SKUs de esta lista
       for (const sku of skusList) {
-        try {
-          console.log(`Cargando SKU: ${sku}`);
-          const response = await productService.getProductById(sku);
-          console.log(`Respuesta para ${sku}:`, response);
-          
-          // Extraer el producto de la estructura: response.value[0].data[0].dataRes
-          if (response && response.value && response.value.length > 0) {
-            const dataWrapper = response.value[0];
-            if (dataWrapper.data && dataWrapper.data.length > 0) {
-              const productData = dataWrapper.data[0].dataRes;
-              if (productData) {
-                // Agregar el precio al producto (del mapa local, no de API)
-                productData.Precio = preciosMap[sku] || null;
-                productos.push(productData);
-                
-                // Cargar presentaciones para este SKU (incluye archivos)
-                try {
-                  const presentaciones = await productPresentacionesService.getPresentacionesBySKUID(sku);
-                  presentacionesMap[sku] = presentaciones || [];
-                  
-                  // Extraer archivos de las presentaciones
-                  let archivosDelSKU = [];
-                  if (Array.isArray(presentaciones)) {
-                    presentaciones.forEach(presenta => {
-                      if (presenta.files && Array.isArray(presenta.files)) {
-                        archivosDelSKU = archivosDelSKU.concat(presenta.files);
-                      }
-                    });
-                  }
-                  archivosMap[sku] = archivosDelSKU;
-                  console.log(`Presentaciones para ${sku}:`, presentaciones);
-                  console.log(`Archivos para ${sku}:`, archivosDelSKU);
-                } catch (err) {
-                  console.error(`Error al cargar presentaciones para ${sku}:`, err);
-                  presentacionesMap[sku] = [];
-                  archivosMap[sku] = [];
-                }
+        const producto = allProductsMap.get(sku);
+        if (producto) {
+          // Agregar el precio al producto
+          producto.Precio = preciosMap[sku] || null;
+          productosFinales.push(producto);
+  
+          // Obtener presentaciones para este SKU del mapa
+          const presentaciones = allPresentacionesMap.get(sku) || [];
+          presentacionesPorSkuFinal[sku] = presentaciones;
+  
+          // Extraer archivos de las presentaciones
+          let archivosDelSKU = [];
+          if (Array.isArray(presentaciones)) {
+            presentaciones.forEach(presenta => {
+              if (presenta.files && Array.isArray(presenta.files)) {
+                archivosDelSKU = archivosDelSKU.concat(presenta.files);
               }
-            }
+            });
           }
-        } catch (err) {
-          console.error(`Error al cargar SKU ${sku}:`, err);
+          archivosPorSkuFinal[sku] = archivosDelSKU;
         }
       }
-      console.log('Productos cargados con precios:', productos);
-      console.log('Presentaciones por SKU:', presentacionesMap);
-      console.log('Archivos por SKU:', archivosMap);
-      setProductosLista(productos);
-      setPresentacionesPorSKU(presentacionesMap);
-      setArchivosPorSKU(archivosMap);
-      setPreciosIdMap(preciosIds); // Guardar los IDs de precios
-      
+  
+      // 5. Actualizar el estado del componente
+      setProductosLista(productosFinales);
+      setPresentacionesPorSKU(presentacionesPorSkuFinal);
+      setArchivosPorSKU(archivosPorSkuFinal);
+      setPreciosIdMap(preciosIds);
+  
       // Inicializar preciosEditados con los precios actuales
       const preciosIniciales = {};
-      productos.forEach(prod => {
+      productosFinales.forEach(prod => {
         preciosIniciales[prod.SKUID] = prod.Precio || '';
       });
       setPreciosEditados(preciosIniciales);

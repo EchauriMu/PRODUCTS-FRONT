@@ -44,7 +44,6 @@ const Sidebar = ({ isOpen, onClose, isMobile }) => {
   const menuItems = [
     { key: 'productos', text: 'Productos', path: '/' },
     { key: 'precios-listas', text: 'Precios Listas', path: '/precios-listas' },
-    { key: 'precios-items', text: 'Precios Items', path: '/precios-items' },
     { key: 'promociones', text: 'Promociones', path: '/promociones' },
     { key: 'categorias', text: 'Categorías', path: '/categorias' },
   ];

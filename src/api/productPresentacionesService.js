@@ -25,6 +25,40 @@ const BASE_FILES   = '/ztproducts-files/productsFilesCRUD';
 
 const productPresentacionesService = {
   /**
+   * Obtener TODAS las presentaciones y sus archivos.
+   * Ideal para cargar todos los datos una vez y filtrar en el cliente.
+   */
+  async getAllPresentaciones() {
+    // 1. Obtener todas las presentaciones
+    const presParams = qs({ ProcessType: 'GetAll' });
+    const presRes = await axiosInstance.post(`${BASE_PRESENT}?${presParams}`);
+    const presentaciones = unwrapCAP(presRes);
+
+    if (!Array.isArray(presentaciones) || presentaciones.length === 0) {
+      return [];
+    }
+
+    // 2. Obtener todos los archivos
+    const filesParams = qs({ ProcessType: 'GetAll' });
+    const filesRes = await axiosInstance.post(`${BASE_FILES}?${filesParams}`);
+    const allFiles = unwrapCAP(filesRes);
+
+    // 3. Agrupar archivos por IdPresentaOK para un merge eficiente
+    const filesByPresenta = new Map();
+    if (Array.isArray(allFiles)) {
+      for (const file of allFiles) {
+        if (!filesByPresenta.has(file.IdPresentaOK)) {
+          filesByPresenta.set(file.IdPresentaOK, []);
+        }
+        filesByPresenta.get(file.IdPresentaOK).push(file);
+      }
+    }
+
+    // 4. Unir presentaciones con sus archivos
+    return presentaciones.map(p => ({ ...p, files: filesByPresenta.get(p.IdPresentaOK) || [] }));
+  },
+
+  /**
    * Obtener presentaciones por SKUID (ProcessType=GetBySKUID) + merge de archivos
    */
   async getPresentacionesBySKUID(skuid) {
