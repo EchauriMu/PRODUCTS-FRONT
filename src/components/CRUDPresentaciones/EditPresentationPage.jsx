@@ -151,9 +151,15 @@ const EditPresentationPage = () => {
         MODUSER: 'EECHAURIM' // Usuario que modifica
       };
 
-      await productPresentacionesService.updatePresentacion(presentaId, updatedData);
+      const response = await productPresentacionesService.updatePresentacion(presentaId, updatedData);
       
-      navigate(`/products/${skuid}/presentations/select-edit`); // Volver a la lista de selección
+      // Preparamos el objeto actualizado para devolverlo a la página anterior
+      const updatedPresentationForState = {
+        ...updatedData,
+        IdPresentaOK: presentaId, // Aseguramos que el ID esté presente
+        Files: processedFiles, // Usamos los archivos procesados
+      };
+      navigate(`/products/${skuid}/presentations/select-edit`, { state: { updatedPresentation: updatedPresentationForState } });
 
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Error al actualizar la presentación';

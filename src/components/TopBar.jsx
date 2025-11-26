@@ -36,7 +36,12 @@ const TopBar = ({ onMenuClick }) => {
         />
      <Text style={{ fontWeight: '600' }}>{breadcrumb}</Text>
       </FlexBox>
-
+      
+      <FlexBox alignItems="Center" style={{ gap: '12px', flexWrap: 'wrap' }}>
+        <Icon name="bell" style={{ cursor: 'pointer' }} />
+        <Icon name="calendar" style={{ cursor: 'pointer' }} className="hide-mobile" />
+        <Icon name="user-settings" style={{ cursor: 'pointer' }} />
+      </FlexBox>
     </div>
   );
 };

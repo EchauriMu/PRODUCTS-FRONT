@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Button,
   Card,
@@ -16,10 +16,12 @@ import {
 } from '@ui5/webcomponents-react';
 
 import productPresentacionesService from '../../api/productPresentacionesService';
+import PresentationStatus from './PresentationStatus'; // Importamos PresentationStatus
 
 const SelectPresentationToEditPage = () => {
   const navigate = useNavigate();
   const { skuid } = useParams();
+  const location = useLocation(); // Hook para acceder al state de la navegación
 
   const [presentaciones, setPresentaciones] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +44,19 @@ const SelectPresentationToEditPage = () => {
     setError('');
     (async () => {
       try {
-        const list = await productPresentacionesService.getBySKUID(skuid); // alias OK
+        // Si venimos de la página de edición con datos actualizados, los usamos.
+        if (location.state?.updatedPresentation) {
+          if (mounted) {
+            setPresentaciones(prev =>
+              prev.map(p =>
+                p.IdPresentaOK === location.state.updatedPresentation.IdPresentaOK
+                  ? location.state.updatedPresentation
+                  : p
+              )
+            );
+          }
+        }
+        const list = await productPresentacionesService.getBySKUID(skuid);
         if (mounted) setPresentaciones(Array.isArray(list) ? list : []);
       } catch (err) {
         if (mounted) setError(err?.message || 'Error al cargar presentaciones');
@@ -51,7 +65,20 @@ const SelectPresentationToEditPage = () => {
       }
     })();
     return () => { mounted = false; };
-  }, [skuid]);
+  }, [skuid, location.state?.updatedPresentation]);
+
+  // Callback para actualizar una presentación en el estado local
+  const handlePresentationUpdate = (updatedPresentation) => {
+    setPresentaciones(prev =>
+      prev.map(p =>
+        p.IdPresentaOK === updatedPresentation.IdPresentaOK
+          ? { ...p, ...updatedPresentation }
+          : p
+      )
+    );
+    // Opcional: mostrar un mensaje de éxito
+  };
+
 
   // ===== helpers =====
   const nothingSelected = useMemo(() => selectedIds.size === 0, [selectedIds]);
@@ -143,6 +170,7 @@ const SelectPresentationToEditPage = () => {
   const CardItem = ({ p }) => {
     const src = getThumbSrc(p);
     const checked = selectedIds.has(p.IdPresentaOK);
+    const isClickable = !multiMode;
 
     return (
       <Card
@@ -153,7 +181,7 @@ const SelectPresentationToEditPage = () => {
             justifyContent="SpaceBetween"
             alignItems="Center"
             style={{ padding: '0.5rem 0.75rem', gap: 8 }}
-          >
+          > 
             {/* IZQUIERDA: checkbox (solo en multi) + título con elipsis */}
             <FlexBox alignItems="Center" style={{ gap: 8, minWidth: 0 }}>
               {multiMode && (
@@ -161,7 +189,7 @@ const SelectPresentationToEditPage = () => {
                   checked={checked}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) => { e.stopPropagation(); toggleOne(p.IdPresentaOK); }}
-                />
+                /> 
               )}
               <Title
                 level="H6"
@@ -219,6 +247,13 @@ const SelectPresentationToEditPage = () => {
             {p.NOMBREPRESENTACION || p.IdPresentaOK}
           </Title>
           {p.Descripcion && <Text style={{ color: '#5f6a7d' }}>{p.Descripcion}</Text>}
+          {/* Componente de estado para actualización local */}
+          <div onClick={(e) => e.stopPropagation()} style={{ marginTop: '0.75rem', borderTop: '1px solid #eee', paddingTop: '0.75rem' }}>
+            <PresentationStatus
+              presentation={p}
+              onStatusChange={handlePresentationUpdate}
+            />
+          </div>
         </div>
       </Card>
     );
