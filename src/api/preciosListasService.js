@@ -5,24 +5,7 @@ import axiosInstance from './axiosInstance';
  * ================================================================================
  * SERVICIO DE LISTAS DE PRECIOS - preciosListasService
  * ================================================================================
- * 
- * Este servicio maneja todas las operaciones CRUD para las Listas de Precios
- * Realiza peticiones HTTP POST al endpoint: /ztprecios-listas/preciosListasCRUD
- * 
- * Operaciones disponibles:
- * - create() : Crear una nueva lista (ProcessType=AddOne)
- * - update() : Actualizar una lista existente (ProcessType=UpdateOne)
- * - getListaById() : Obtener una lista por ID (ProcessType=GetOne)
- * - getAllListas() : Obtener todas las listas (ProcessType=GetAll)
- * - delete() : Eliminar permanentemente una lista (ProcessType=DeleteHard)
- * - deleteLogic() : Desactivar lógicamente una lista (ProcessType=DeleteLogic)
- * - activate() : Activar una lista (ProcessType=ActivateOne)
- * - getListasBySKUID() : Obtener listas que contienen un SKU específico
- * 
- * ================================================================================
  */
-
-/** Helper para desenvolver posibles respuestas CAP/OData */
 function unwrapCAP(res) {
   return (
     res?.data?.value?.[0]?.data?.[0]?.dataRes ??

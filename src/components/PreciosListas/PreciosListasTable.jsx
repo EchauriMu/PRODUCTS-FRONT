@@ -355,6 +355,16 @@ const PreciosListasTable = () => {
             flexWrap: 'wrap'
           }}
         >
+          <Button 
+            icon="refresh" 
+            design="Transparent" 
+            disabled={loading}
+            onClick={fetchListas}
+            title="Refrescar tabla"
+          >
+            Refresh
+          </Button>
+
           <Button design="Emphasized" icon="add" onClick={handleAdd}>
             Crear Lista
           </Button>
