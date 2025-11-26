@@ -52,7 +52,7 @@ const ProductDetailModal = ({ product, open, onClose, onProductUpdate }) => {
     }
 
     if (open && product?.SKUID) {
-      setLoadingPresentaciones(true);
+      setLoadingPresentaciones(true); 
       setErrorPresentaciones(null);
       productPresentacionesService
         .getPresentacionesBySKUID(product.SKUID)

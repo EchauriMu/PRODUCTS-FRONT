@@ -1,4 +1,3 @@
-// src/components/CRUDPresentaciones/AddPresentationPage.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
@@ -22,12 +21,10 @@ import productPresentacionesService from '../../api/productPresentacionesService
 import * as yup from 'yup';
 
 export default function AddPresentationPage() {
-  // Esquema de validación con Yup
   const presentationValidationSchema = yup.object().shape({
     IdPresentaOK: yup.string().required('El ID de la presentación es obligatorio.'),
     NOMBREPRESENTACION: yup.string().required('El nombre de la presentación es obligatorio.').min(3, 'El nombre debe tener al menos 3 caracteres.'),
     Descripcion: yup.string().required('La descripción es obligatoria.'),
-    // No validamos PropiedadesExtras o files aquí, ya que su estructura es más compleja y se maneja en la UI.
   });
 
   const navigate = useNavigate();
@@ -41,7 +38,6 @@ export default function AddPresentationPage() {
   const [descripcion, setDescripcion] = useState('');
   const [activo, setActivo] = useState(true);
 
-  // Nuevos estados para propiedades y archivos, como en ComponenteDos
   const [propiedadesExtras, setPropiedadesExtras] = useState({});
   const [files, setFiles] = useState([]);
   const [propKey, setPropKey] = useState('');
@@ -53,24 +49,20 @@ export default function AddPresentationPage() {
   const [validationErrors, setValidationErrors] = useState(null);
   
   useEffect(() => {
-    // Lógica inspirada en ComponenteDos.jsx para autogenerar el IdPresentaOK
     if (nombrePresentacion && skuid) {
-      // Crea un "slug" a partir del nombre de la presentación
       const presentationSlug = nombrePresentacion
         .trim()
         .toUpperCase()
-        .replace(/\s+/g, '-') // Reemplaza espacios con guiones
-        .replace(/[^A-Z0-9-]/g, ''); // Elimina caracteres no alfanuméricos excepto guiones
+        .replace(/\s+/g, '-')
+        .replace(/[^A-Z0-9-]/g, '');
 
       const generatedId = `${skuid}-${presentationSlug}`;
       setIdPresentaOK(generatedId);
     } else {
-      // Si no hay nombre, se limpia el ID
       setIdPresentaOK('');
     }
   }, [nombrePresentacion, skuid]);
 
-  // Funciones para manejar propiedades y archivos
   const handleAddProperty = () => {
     if (propKey) {
       setPropiedadesExtras(prev => ({ ...prev, [propKey]: propValue }));
@@ -84,14 +76,13 @@ export default function AddPresentationPage() {
     selectedFiles.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        // El API espera el string completo con el prefijo data:
         const base64String = reader.result;
         const newFile = {
           fileBase64: base64String,
           FILETYPE: file.type.startsWith('image/') ? 'IMG' : file.type === 'application/pdf' ? 'PDF' : 'OTHER',
           originalname: file.name,
           mimetype: file.type,
-          PRINCIPAL: files.length === 0, // El primero es el principal
+          PRINCIPAL: files.length === 0,
           INFOAD: `Archivo ${file.name}`
         };
         setFiles(prev => [...prev, newFile]);
@@ -126,28 +117,25 @@ export default function AddPresentationPage() {
       NOMBREPRESENTACION: nombrePresentacion.trim(),
       Descripcion: descripcionSafe,
       ACTIVED: !!activo,
-      PropiedadesExtras: JSON.stringify(propiedadesExtras), // Convertido a string JSON
+      PropiedadesExtras: JSON.stringify(propiedadesExtras),
       files: files
     };
 
     try {
-      // 1. Validar los datos antes de enviar
       await presentationValidationSchema.validate({
         IdPresentaOK: payload.IdPresentaOK,
         NOMBREPRESENTACION: payload.NOMBREPRESENTACION,
         Descripcion: payload.Descripcion
       }, { abortEarly: false });
 
-      // 2. Si la validación es exitosa, llamar a la API
       await productPresentacionesService.addPresentacion(payload);
       setOkMsg('Presentación creada correctamente.');
       setTimeout(() => navigate(-1), 400);
     } catch (err) {
       if (err instanceof yup.ValidationError) {
-        // Capturar errores de validación de Yup
         const errorMessages = <ul>{err.inner.map((e, i) => <li key={i}>{e.message}</li>)}</ul>;
         setValidationErrors(errorMessages);
-        return; // No continuar si hay errores de validación
+        return;
       }
       const apiMsg =
         err?.response?.data?.messageDEV ||
@@ -155,7 +143,6 @@ export default function AddPresentationPage() {
         err?.response?.data?.error?.message ||
         err?.message ||
         'Request failed';
-      console.error('AddPresentacion error:', err?.response?.data || err);
       setErrorMsg(apiMsg);
     } finally {
       setIsSubmitting(false);
@@ -177,7 +164,6 @@ export default function AddPresentationPage() {
               {okMsg}
             </MessageStrip>
           )}
-          {/* MessageBox para errores de validación */}
           <MessageBox
             open={!!validationErrors}
             type="Error"
@@ -229,7 +215,6 @@ export default function AddPresentationPage() {
               />
             </div>
 
-            {/* Sección de Propiedades Extras */}
             <Title level="H5" style={{ marginTop: '1rem' }}>Propiedades Extras</Title>
             <FlexBox style={{ gap: '0.5rem', alignItems: 'flex-end' }}>
               <FlexBox direction="Column" style={{ flex: 2 }}><Label>Propiedad</Label><Input value={propKey} onInput={(e) => setPropKey(e.target.value)} placeholder="Ej: Color" /></FlexBox>
@@ -245,7 +230,6 @@ export default function AddPresentationPage() {
               ))}
             </FlexBox>
 
-            {/* Sección de Archivos */}
             <Title level="H5" style={{ marginTop: '1rem' }}>Archivos</Title>
             <FileUploader multiple onChange={handleFileChange}>
               <Button icon="upload">Subir Archivos</Button>

@@ -27,7 +27,6 @@ const EditPresentationPage = () => {
   const [descripcion, setDescripcion] = useState('');
   const [activo, setActivo] = useState(true);
   
-  // Estados para propiedades y archivos
   const [propiedadesExtras, setPropiedadesExtras] = useState({});
   const [files, setFiles] = useState([]);
   const [propKey, setPropKey] = useState('');
@@ -42,8 +41,6 @@ const EditPresentationPage = () => {
       setIsLoading(true);
       setError('');
       try {
-        // SOLUCIÓN: La función del servicio necesita el usuario para evitar un error 400.
-        // Se pasa explícitamente el usuario, igual que en otras partes de la aplicación.
         const presentationToEdit = await productPresentacionesService.getPresentacionById(presentaId, 'EECHAURIM');
 
         if (presentationToEdit) {
@@ -51,23 +48,20 @@ const EditPresentationPage = () => {
           setDescripcion(presentationToEdit.Descripcion || '');
           setActivo(presentationToEdit.ACTIVED);
 
-          // Cargar propiedades extras, asegurando que sea un string antes de parsear
           if (typeof presentationToEdit.PropiedadesExtras === 'string') {
             try {
               const props = JSON.parse(presentationToEdit.PropiedadesExtras);
               setPropiedadesExtras(props);
             } catch {
-              setPropiedadesExtras({}); // Si el JSON es inválido
+              setPropiedadesExtras({});
             }
           }
 
-          // Los archivos ya deberían venir en la respuesta de getPresentacionById
           setFiles(presentationToEdit.Files || []);
         } else {
           setError('No se encontró la presentación para editar.');
         }
       } catch (err) {
-        console.error("Error detallado en fetchFullPresentationData:", err);
         setError('Error al cargar los datos de la presentación.');
       } finally {
         setIsLoading(false);
@@ -77,7 +71,6 @@ const EditPresentationPage = () => {
     fetchFullPresentationData();
   }, [presentaId, skuid]);
 
-  // Funciones para manejar propiedades y archivos (copiadas de AddPresentationPage)
   const handleAddProperty = () => {
     if (propKey) {
       setPropiedadesExtras(prev => ({ ...prev, [propKey]: propValue }));
@@ -127,16 +120,9 @@ const EditPresentationPage = () => {
     setIsSubmitting(true);
     setError('');
     try {
-      // Procesar archivos para el payload:
-      // - Los archivos nuevos tienen 'fileBase64'.
-      // - Los archivos existentes (que vienen del backend) no lo tienen.
-      // El backend espera que los archivos existentes no se envíen con la propiedad 'fileBase64'.
       const processedFiles = files.map(f => {
-        // Si es un archivo existente (tiene FILEID) y no es un archivo nuevo (no tiene fileBase64),
-        // lo enviamos tal cual. Si es un archivo nuevo, también.
-        // Si es un archivo existente que por alguna razón tiene fileBase64 (no debería), lo limpiamos.
         if (f.FILEID && f.fileBase64) {
-          const { fileBase64, ...rest } = f; // Quitamos fileBase64 para no reenviarlo
+          const { fileBase64, ...rest } = f;
           return rest;
         }
         return f;
@@ -148,16 +134,15 @@ const EditPresentationPage = () => {
         ACTIVED: activo,
         PropiedadesExtras: JSON.stringify(propiedadesExtras),
         files: processedFiles,
-        MODUSER: 'EECHAURIM' // Usuario que modifica
+        MODUSER: 'EECHAURIM'
       };
 
       const response = await productPresentacionesService.updatePresentacion(presentaId, updatedData);
       
-      // Preparamos el objeto actualizado para devolverlo a la página anterior
       const updatedPresentationForState = {
         ...updatedData,
-        IdPresentaOK: presentaId, // Aseguramos que el ID esté presente
-        Files: processedFiles, // Usamos los archivos procesados
+        IdPresentaOK: presentaId,
+        Files: processedFiles,
       };
       navigate(`/products/${skuid}/presentations/select-edit`, { state: { updatedPresentation: updatedPresentationForState } });
 
@@ -199,7 +184,6 @@ const EditPresentationPage = () => {
               <TextArea value={descripcion} onInput={(e) => setDescripcion(e.target.value)} style={{ width: '100%', marginTop: '0.25rem', minHeight: '60px' }} placeholder="Breve descripción de la presentación" />
             </div>
 
-            {/* Sección de Propiedades Extras */}
             <Title level="H5" style={{ marginTop: '1rem' }}>Propiedades Extras</Title>
             <FlexBox style={{ gap: '0.5rem', alignItems: 'flex-end' }}>
               <FlexBox direction="Column" style={{ flex: 2 }}><Label>Propiedad</Label><Input value={propKey} onInput={(e) => setPropKey(e.target.value)} placeholder="Ej: Color" /></FlexBox>
@@ -215,7 +199,6 @@ const EditPresentationPage = () => {
               ))}
             </FlexBox>
 
-            {/* Sección de Archivos */}
             <Title level="H5" style={{ marginTop: '1rem' }}>Archivos</Title>
             <FileUploader multiple onChange={handleFileChange}>
               <Button icon="upload">Subir Nuevos Archivos</Button>
