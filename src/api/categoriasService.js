@@ -34,8 +34,6 @@ cleanPayload(data) {
    */
   async GetAllZTCategorias() {
     try {
-      console.log('📦 Solicitando todas las categorías...');
-
       const response = await axiosInstance.post(
         '/ztcategorias/categoriasCRUD',
         {},
@@ -44,8 +42,6 @@ cleanPayload(data) {
           headers: { 'Content-Type': 'application/json' },
         }
       );
-
-      console.log('✅ Categorías obtenidas correctamente:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ Error GetAllZTCategorias:', {
@@ -87,8 +83,6 @@ cleanPayload(data) {
   async AddOneZTCategoria(payload) {
     try {
       const cleanData = this.cleanPayload(payload);
-      console.log('🆕 Creando categoría (payload limpio):', cleanData);
-
       const response = await axiosInstance.post(
         '/ztcategorias/categoriasCRUD',
         cleanData,
@@ -97,8 +91,6 @@ cleanPayload(data) {
           headers: { 'Content-Type': 'application/json' },
         }
       );
-
-      console.log('✅ Categoría creada correctamente:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ Error AddOneZTCategoria:', {
@@ -119,8 +111,6 @@ cleanPayload(data) {
   async UpdateOneZTCategoria(catid, cambios) {
     try {
       const cleanData = this.cleanPayload(cambios);
-      console.log('✏️ Actualizando categoría:', catid, cleanData);
-
       const response = await axiosInstance.post(
         // El backend usa el `catid` del query param para buscar,
         // y el `cleanData` del body para aplicar los cambios (incluyendo el nuevo CATID).
@@ -132,8 +122,6 @@ cleanPayload(data) {
           headers: { 'Content-Type': 'application/json' },
         }
       );
-
-      console.log('✅ Categoría actualizada:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ Error UpdateOneZTCategoria:', error);
@@ -156,7 +144,6 @@ cleanPayload(data) {
           headers: { 'Content-Type': 'application/json' },
         }
       );
-      console.log('🗑️ Categoría eliminada (lógica):', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ Error DeleteLogicZTCategoria:', error);
@@ -179,7 +166,6 @@ cleanPayload(data) {
           headers: { 'Content-Type': 'application/json' },
         }
       );
-      console.log('🧨 Categoría eliminada definitivamente:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ Error DeleteHardZTCategoria:', error);
@@ -202,7 +188,6 @@ cleanPayload(data) {
           headers: { 'Content-Type': 'application/json' },
         }
       );
-      console.log('✅ Categoría activada:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ Error ActivateZTCategoria:', error);

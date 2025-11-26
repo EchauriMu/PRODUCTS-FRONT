@@ -99,7 +99,6 @@ const CategoriasTableCard = () => {
     setError('');
     try {
       const resp = await categoriasService.GetAllZTCategorias();
-      console.log('API Response:', resp);
       let list = [];
 
       // Tu backend devuelve: { data: [ { dataRes: [...] } ] }
@@ -110,8 +109,6 @@ const CategoriasTableCard = () => {
       } else if (Array.isArray(resp)) {
         list = resp;
       }
-
-setCategories(list);
 
       setCategories(list);
     } catch (err) {
