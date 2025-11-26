@@ -38,7 +38,6 @@ const TopBar = ({ onMenuClick }) => {
       </FlexBox>
       
       <FlexBox alignItems="Center" style={{ gap: '12px', flexWrap: 'wrap' }}>
-        <Button icon="premium" design="Transparent" className="hide-mobile-text">Boton sap wow</Button>
         <Icon name="bell" style={{ cursor: 'pointer' }} />
         <Icon name="calendar" style={{ cursor: 'pointer' }} className="hide-mobile" />
         <Icon name="user-settings" style={{ cursor: 'pointer' }} />
