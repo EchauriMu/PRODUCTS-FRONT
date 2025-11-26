@@ -189,39 +189,58 @@ setCategories(list);
   });
 
   return (
-    <div style={{ margin: '1rem' }}>
-      {/* 1. BARRA SUPERIOR (Fuera de Card) */}
+    <div style={{ padding: '0', position: 'relative', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}>
       <FlexBox 
-        alignItems="Center" 
         justifyContent="SpaceBetween" 
+        alignItems="Center"
         style={{ 
-          marginBottom: '1rem', 
-          padding: '0.5rem 0', 
-          borderBottom: '1px solid #ccc' 
+          zIndex: 100,
+          marginBottom: '1rem',
+          padding: '1rem',
+          backgroundColor: '#fff',
+          borderRadius: '0.5rem',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          flexWrap: 'wrap',
+          gap: '1rem'
         }}
       >
-        {/* Título y Subtítulo */}
-        <FlexBox direction="Column">
+        <FlexBox alignItems="Center" style={{ gap: '1rem', flexWrap: 'wrap' }}>
           <Title level="H3">Categorías</Title>
-          <Text style={{ color: '#666' }}>{filteredCategories.length} categorías encontradas</Text>
         </FlexBox>
+        <Text style={{ color: '#666', fontSize: '0.875rem' }}>{filteredCategories.length} categorías encontradas</Text>
+      </FlexBox>
 
-        {/* Acciones */}
-        <FlexBox alignItems="Center" justifyContent="End" style={{ gap: '1rem' }}>
-          {/* Búsqueda */}
+      {/* Barra de filtros y acciones - STICKY */}
+      <FlexBox 
+        justifyContent="SpaceBetween" 
+        alignItems="Center"
+        style={{ 
+          position: 'sticky',
+          top: '0',
+          zIndex: 99,
+          marginBottom: '1rem',
+          padding: '1rem',
+          backgroundColor: '#fff',
+          borderRadius: '0.5rem',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          gap: '1rem',
+          flexWrap: 'wrap'
+        }}
+      >
+        <FlexBox alignItems="Center" style={{ gap: '0.5rem', flex: '1 1 300px', minWidth: '250px', flexWrap: 'wrap' }}>
           <Input
             icon={<Icon name="search" />}
             placeholder="Buscar por nombre o ID..."
             value={searchTerm}
             onInput={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '260px' }}
+            style={{ flex: '1 1 200px', minWidth: '150px', maxWidth: '400px' }}
           />
-          
-          {/* Botones de Acción */}
-          <Button icon="add" design="Emphasized" onClick={() => setModalCategory({})}>
+        </FlexBox>
+        
+        <FlexBox alignItems="Center" style={{ gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <Button icon="add" design="Emphasized" onClick={() => setModalCategory({})} style={{ whiteSpace: 'nowrap' }}>
             Crear Categoría
           </Button>
-          
           <Button 
             icon="edit" 
             design="Transparent" 
@@ -234,7 +253,6 @@ setCategories(list);
           >
             Editar
           </Button>
-          
           <Button 
             icon="accept" 
             design="Positive" 
@@ -250,7 +268,6 @@ setCategories(list);
                 : 'Desactivar'
               : 'Activar'}
           </Button>
-          
           <Button 
             icon="delete" 
             design="Negative" 
@@ -278,8 +295,7 @@ setCategories(list);
         </FlexBox>
       </FlexBox>
 
-      {/* 2. CARD para el contenido de la tabla */}
-      <Card style={{ maxWidth: '100%' }}>
+      <Card style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflowX: 'auto' }}>
         <CardHeader titleText={`Total: ${filteredCategories.length}`} />
         <div style={{ padding: '1rem' }}>
           {/* Mensajes de error */}
@@ -434,6 +450,8 @@ setCategories(list);
           )}
         </div>
       </Card>
+
+      
 
       {/* Modal Detalle Categoría */}
       <CategoriaDetailModal
