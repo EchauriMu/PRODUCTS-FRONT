@@ -77,23 +77,6 @@ const CrearPromocion = () => {
       4: { title: 'Vista previa', subtitle: 'Revisa y confirma antes de crear' }
     };
 
-  // Guardar borrador local (fuera de validaciones)
-  const handleSaveDraft = () => {
-    try {
-      const draft = {
-        step,
-        form,
-        productIds: filteredProducts.map(p => p.SKUID),
-        savedAt: new Date().toISOString()
-      };
-      localStorage.setItem('crearPromocionDraft', JSON.stringify(draft));
-      setDraftSaved(true);
-      setTimeout(() => setDraftSaved(false), 2500);
-    } catch (e) {
-      console.warn('No se pudo guardar el borrador', e);
-    }
-  };
-
 
   // Validar fechas de vigencia
   const validateDates = () => {
@@ -167,15 +150,6 @@ const CrearPromocion = () => {
       setLoading(false);
     }
   };
-
-  // Header with steps indicator
-  const StepDots = () => (
-    <FlexBox alignItems="Center" style={{ gap: '0.35rem' }}>
-      {[1,2,3,4].map(n => (
-        <div key={n} style={{ width: 10, height: 10, borderRadius: '50%', background: n<=step ? '#0f828f' : '#e0e0e0' }} />
-      ))}
-    </FlexBox>
-  );
 
   return (
     <div style={{ padding: 'clamp(0.5rem, 2vw, 1rem)' }}>

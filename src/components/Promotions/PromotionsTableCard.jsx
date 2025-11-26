@@ -147,6 +147,26 @@ const PromotionsTableCard = ({ onPromotionClick, onCreateClick, activeView = 'pr
     if (promo && onPromotionClick) onPromotionClick(promo);
   };
 
+  // Determinar qué acción tomar según el estado de las promociones seleccionadas
+  const getToggleAction = () => {
+    if (selectedIds.size === 0) return null;
+    
+    const selectedPromotions = promotions.filter(p => selectedIds.has(p.IdPromoOK));
+    const activeCount = selectedPromotions.filter(p => p.ACTIVED === true && p.DELETED !== true).length;
+    const inactiveCount = selectedPromotions.length - activeCount;
+    
+    // Si todas están activas, desactivar
+    if (activeCount === selectedPromotions.length) {
+      return { action: 'deactivate', label: 'Desactivar', count: activeCount };
+    }
+    // Si todas están inactivas, activar
+    if (inactiveCount === selectedPromotions.length) {
+      return { action: 'activate', label: 'Activar', count: inactiveCount };
+    }
+    // Si hay mezcla, intercambiar estados
+    return { action: 'toggle', label: 'Activar/Desactivar', activeCount, inactiveCount };
+  };
+
   // Elimina permanentemente de la base de datos (NO reversible)
   const handleDeleteHardSelected = async () => {
     if (selectedIds.size === 0) return;
@@ -159,10 +179,32 @@ const PromotionsTableCard = ({ onPromotionClick, onCreateClick, activeView = 'pr
     
     try {
       setLoading(true);
-      for (const id of selectedIds) {
-        await promoService.deletePromotionHard(id);
+      const idsArray = Array.from(selectedIds);
+      let successCount = 0;
+      let errorCount = 0;
+      const errors = [];
+      
+      // Hacer llamadas individuales para cada ID
+      for (const id of idsArray) {
+        try {
+          await promoService.deletePromotionHard(id);
+          successCount++;
+        } catch (err) {
+          errorCount++;
+          errors.push({ id, error: err.message });
+          console.error(`Error eliminando ${id}:`, err);
+        }
       }
-      setInfo(`Se eliminaron permanentemente ${selectedIds.size} promoción(es)`);
+      
+      // Mostrar mensaje según resultados
+      if (errorCount === 0) {
+        setInfo(`Se eliminaron permanentemente ${successCount} promoción(es) exitosamente`);
+      } else if (successCount === 0) {
+        setError(`Error: No se pudo eliminar ninguna promoción`);
+      } else {
+        setInfo(`Se eliminaron ${successCount} de ${idsArray.length} promoción(es). ${errorCount} fallaron.`);
+      }
+      
       setSelectedIds(new Set());
       await loadPromotions();
     } catch (e) {
@@ -172,49 +214,91 @@ const PromotionsTableCard = ({ onPromotionClick, onCreateClick, activeView = 'pr
     }
   };
 
-  // Activa promociones (ACTIVED: true - reversible con Desactivar)
-  const handleActivateSelected = async () => {
+  // Maneja el toggle de estado: activar, desactivar o intercambiar
+  const handleToggleSelected = async () => {
     if (selectedIds.size === 0) return;
-    const confirmed = await showConfirm(
-      `¿Estás seguro de que quieres activar ${selectedIds.size} promoción(es)?`,
-      'Activar Promociones'
-    );
-    if (!confirmed) return;
     
-    try {
-      setLoading(true);
-      for (const id of selectedIds) {
-        await promoService.updatePromotion(id, { ACTIVED: true });
-      }
-      setInfo(`Se activaron ${selectedIds.size} promoción(es)`);
-      setSelectedIds(new Set());
-      await loadPromotions();
-    } catch (e) {
-      setError(e.message || 'Error activando promociones');
-    } finally {
-      setLoading(false);
+    const toggleAction = getToggleAction();
+    if (!toggleAction) return;
+    
+    // Preparar mensaje de confirmación
+    let confirmMessage = '';
+    let confirmTitle = '';
+    
+    if (toggleAction.action === 'activate') {
+      confirmMessage = `¿Estás seguro de que quieres activar ${toggleAction.count} promoción(es)?`;
+      confirmTitle = 'Activar Promociones';
+    } else if (toggleAction.action === 'deactivate') {
+      confirmMessage = `¿Estás seguro de que quieres desactivar ${toggleAction.count} promoción(es)?`;
+      confirmTitle = 'Desactivar Promociones';
+    } else {
+      confirmMessage = `Se activarán ${toggleAction.inactiveCount} promoción(es) y se desactivarán ${toggleAction.activeCount}. ¿Continuar?`;
+      confirmTitle = 'Intercambiar Estados';
     }
-  };
-
-  // Desactiva promociones (ACTIVED: false, pero NO las elimina - reversible con Activar)
-  const handleDeactivateSelected = async () => {
-    if (selectedIds.size === 0) return;
-    const confirmed = await showConfirm(
-      `¿Estás seguro de que quieres desactivar ${selectedIds.size} promoción(es)? Podrás reactivarlas después.`,
-      'Desactivar Promociones'
-    );
+    
+    const confirmed = await showConfirm(confirmMessage, confirmTitle);
     if (!confirmed) return;
     
     try {
       setLoading(true);
-      for (const id of selectedIds) {
-        await promoService.updatePromotion(id, { ACTIVED: false });
+      const selectedPromotions = promotions.filter(p => selectedIds.has(p.IdPromoOK));
+      let activatedCount = 0;
+      let deactivatedCount = 0;
+      let errorCount = 0;
+      const errors = [];
+      
+      // Procesar cada promoción según su estado actual
+      for (const promo of selectedPromotions) {
+        const isActive = promo.ACTIVED === true && promo.DELETED !== true;
+        
+        try {
+          if (toggleAction.action === 'activate') {
+            // Solo activar
+            await promoService.activatePromotion(promo.IdPromoOK);
+            activatedCount++;
+          } else if (toggleAction.action === 'deactivate') {
+            // Solo desactivar
+            await promoService.deletePromotionLogic(promo.IdPromoOK);
+            deactivatedCount++;
+          } else {
+            // Intercambiar: si está activa, desactivar; si está inactiva, activar
+            if (isActive) {
+              await promoService.deletePromotionLogic(promo.IdPromoOK);
+              deactivatedCount++;
+            } else {
+              await promoService.activatePromotion(promo.IdPromoOK);
+              activatedCount++;
+            }
+          }
+        } catch (err) {
+          errorCount++;
+          errors.push({ id: promo.IdPromoOK, error: err.message });
+          console.error(`Error procesando ${promo.IdPromoOK}:`, err);
+        }
       }
-      setInfo(`Se desactivaron ${selectedIds.size} promoción(es)`);
+      
+      // Mostrar mensaje según resultados
+      if (errorCount === 0) {
+        if (toggleAction.action === 'toggle') {
+          setInfo(`Se activaron ${activatedCount} y se desactivaron ${deactivatedCount} promoción(es) exitosamente`);
+        } else if (toggleAction.action === 'activate') {
+          setInfo(`Se activaron ${activatedCount} promoción(es) exitosamente`);
+        } else {
+          setInfo(`Se desactivaron ${deactivatedCount} promoción(es) exitosamente`);
+        }
+      } else {
+        const totalSuccess = activatedCount + deactivatedCount;
+        if (totalSuccess === 0) {
+          setError(`Error: No se pudo procesar ninguna promoción`);
+        } else {
+          setInfo(`Se procesaron ${totalSuccess} de ${selectedPromotions.length} promoción(es). ${errorCount} fallaron.`);
+        }
+      }
+      
       setSelectedIds(new Set());
       await loadPromotions();
     } catch (e) {
-      setError(e.message || 'Error desactivando promociones');
+      setError(e.message || 'Error procesando promociones');
     } finally {
       setLoading(false);
     }
@@ -416,17 +500,45 @@ const PromotionsTableCard = ({ onPromotionClick, onCreateClick, activeView = 'pr
             Editar
           </Button>
           <Button
-            icon="decline"
-            onClick={handleDeactivateSelected}
+            icon={(() => {
+              const action = getToggleAction();
+              if (!action) return 'activate';
+              if (action.action === 'activate') return 'activate';
+              if (action.action === 'deactivate') return 'decline';
+              return 'switch-views';
+            })()}
+            onClick={handleToggleSelected}
             disabled={selectedIds.size === 0}
             style={{ 
-              backgroundColor: '#FFF3E0',
-              color: '#E65100',
+              backgroundColor: (() => {
+                const action = getToggleAction();
+                if (!action) return '#E8F5E9';
+                if (action.action === 'activate') return '#E8F5E9';
+                if (action.action === 'deactivate') return '#FFF3E0';
+                return '#E3F2FD';
+              })(),
+              color: (() => {
+                const action = getToggleAction();
+                if (!action) return '#2E7D32';
+                if (action.action === 'activate') return '#2E7D32';
+                if (action.action === 'deactivate') return '#E65100';
+                return '#1976D2';
+              })(),
               border: 'none'
             }}
-            tooltip="Desactivar (reversible con Activar)"
+            tooltip={(() => {
+              const action = getToggleAction();
+              if (!action) return '';
+              if (action.action === 'activate') return 'Activar promociones seleccionadas';
+              if (action.action === 'deactivate') return 'Desactivar promociones seleccionadas';
+              return `Intercambiar: activar ${action.inactiveCount} e inactivar ${action.activeCount}`;
+            })()}
           >
-            Desactivar
+            {(() => {
+              const action = getToggleAction();
+              if (!action) return 'Activar';
+              return action.label;
+            })()}
           </Button>
           <Button
             icon="delete"
