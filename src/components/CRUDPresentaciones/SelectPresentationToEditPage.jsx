@@ -16,12 +16,12 @@ import {
 } from '@ui5/webcomponents-react';
 
 import productPresentacionesService from '../../api/productPresentacionesService';
-import PresentationStatus from './PresentationStatus'; // Importamos PresentationStatus
+import PresentationStatus from './PresentationStatus';
 
 const SelectPresentationToEditPage = () => {
   const navigate = useNavigate();
   const { skuid } = useParams();
-  const location = useLocation(); // Hook para acceder al state de la navegación
+  const location = useLocation();
 
   const [presentaciones, setPresentaciones] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,14 +37,12 @@ const SelectPresentationToEditPage = () => {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
-  // ===== cargar presentaciones =====
   useEffect(() => {
     let mounted = true;
     setLoading(true);
     setError('');
     (async () => {
       try {
-        // Si venimos de la página de edición con datos actualizados, los usamos.
         if (location.state?.updatedPresentation) {
           if (mounted) {
             setPresentaciones(prev =>
@@ -67,7 +65,6 @@ const SelectPresentationToEditPage = () => {
     return () => { mounted = false; };
   }, [skuid, location.state?.updatedPresentation]);
 
-  // Callback para actualizar una presentación en el estado local
   const handlePresentationUpdate = (updatedPresentation) => {
     setPresentaciones(prev =>
       prev.map(p =>
@@ -76,11 +73,8 @@ const SelectPresentationToEditPage = () => {
           : p
       )
     );
-    // Opcional: mostrar un mensaje de éxito
   };
 
-
-  // ===== helpers =====
   const nothingSelected = useMemo(() => selectedIds.size === 0, [selectedIds]);
 
   const toggleOne = (id) => {
@@ -100,7 +94,7 @@ const SelectPresentationToEditPage = () => {
     setPendingDelete(presenta);
     setDeleteError('');
     const pop = delPopoverRef.current;
-    const opener = e.currentTarget; // usa currentTarget
+    const opener = e.currentTarget;
     if (!pop || !opener) return;
     if (typeof pop.showAt === 'function') pop.showAt(opener);
     else { pop.opener = opener; pop.open = true; }
@@ -111,7 +105,7 @@ const SelectPresentationToEditPage = () => {
     setDeleting(true); setDeleteError('');
     let ok = false;
     try {
-      await productPresentacionesService.deletePresentacion(pendingDelete.IdPresentaOK); // Hard por defecto
+      await productPresentacionesService.deletePresentacion(pendingDelete.IdPresentaOK);
       ok = true;
       setPresentaciones(prev => prev.filter(p => p.IdPresentaOK !== pendingDelete.IdPresentaOK));
     } catch (err) {
@@ -157,7 +151,6 @@ const SelectPresentationToEditPage = () => {
     }
   };
 
-  // miniatura desde p.files (FILETYPE==='IMG') o fallback a p.IMGURL
   const getThumbSrc = (p) => {
     if (Array.isArray(p.files)) {
       const img = p.files.find(f => f?.FILETYPE === 'IMG' && f?.FILE);
@@ -166,7 +159,6 @@ const SelectPresentationToEditPage = () => {
     return p?.IMGURL || null;
   };
 
-  // ===== UI de tarjeta =====
   const CardItem = ({ p }) => {
     const src = getThumbSrc(p);
     const checked = selectedIds.has(p.IdPresentaOK);
@@ -182,7 +174,6 @@ const SelectPresentationToEditPage = () => {
             alignItems="Center"
             style={{ padding: '0.5rem 0.75rem', gap: 8 }}
           > 
-            {/* IZQUIERDA: checkbox (solo en multi) + título con elipsis */}
             <FlexBox alignItems="Center" style={{ gap: 8, minWidth: 0 }}>
               {multiMode && (
                 <CheckBox
@@ -206,7 +197,6 @@ const SelectPresentationToEditPage = () => {
               </Title>
             </FlexBox>
 
-            {/* DERECHA: acciones */}
             <FlexBox style={{ gap: 4 }}>
               <Button
                 design="Transparent"
@@ -222,7 +212,6 @@ const SelectPresentationToEditPage = () => {
           </FlexBox>
         }
       >
-        {/* Imagen */}
         {src ? (
           <img
             src={src}
@@ -241,13 +230,11 @@ const SelectPresentationToEditPage = () => {
           </FlexBox>
         )}
 
-        {/* Texto */}
         <div style={{ padding: '0.75rem' }}>
           <Title level="H6" style={{ margin: 0 }}>
             {p.NOMBREPRESENTACION || p.IdPresentaOK}
           </Title>
           {p.Descripcion && <Text style={{ color: '#5f6a7d' }}>{p.Descripcion}</Text>}
-          {/* Componente de estado para actualización local */}
           <div onClick={(e) => e.stopPropagation()} style={{ marginTop: '0.75rem', borderTop: '1px solid #eee', paddingTop: '0.75rem' }}>
             <PresentationStatus
               presentation={p}
@@ -259,7 +246,6 @@ const SelectPresentationToEditPage = () => {
     );
   };
 
-  // ===== render =====
   return (
     <div style={{ padding: '1rem 1.25rem' }}>
       <FlexBox justifyContent="SpaceBetween" alignItems="Center" style={{ marginBottom: '1rem' }}>
@@ -269,7 +255,6 @@ const SelectPresentationToEditPage = () => {
         </div>
 
         <FlexBox alignItems="Center" style={{ gap: '0.75rem' }}>
-          {/* Con el Cancel del form usando replace:true, este Volver ya no te lleva al form */}
           <Link onClick={() => navigate(-1)}>Volver</Link>
 
           <FlexBox alignItems="Center" style={{ gap: 4 }}>
@@ -313,7 +298,6 @@ const SelectPresentationToEditPage = () => {
         </div>
       )}
 
-      {/* Popover individual */}
       <ResponsivePopover ref={delPopoverRef} placementType="Bottom">
         <Bar startContent={<Title level="H6">Eliminar presentación</Title>} />
         <div style={{ padding: '1rem', maxWidth: 360 }}>
@@ -332,7 +316,6 @@ const SelectPresentationToEditPage = () => {
         } />
       </ResponsivePopover>
 
-      {/* Popover masivo */}
       <ResponsivePopover ref={bulkPopoverRef} placementType="Bottom">
         <Bar startContent={<Title level="H6">Eliminar seleccionados</Title>} />
         <div style={{ padding: '1rem', maxWidth: 380 }}>

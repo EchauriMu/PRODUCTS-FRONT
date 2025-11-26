@@ -8,14 +8,6 @@ import {
 } from '@ui5/webcomponents-react';
 import productPresentacionesService from '../../api/productPresentacionesService';
 
-/**
- * Props:
- *  - presentation: { IdPresentaOK, ACTIVED, ... }
- *  - onStatusChange(updatedPresentation)
- *
- * El switch SOLO cambia ACTIVED y fuerza DELETED=false (no oculta nada).
- * Muestra un chip verde/rojo MUY visible según el estado.
- */
 const PresentationStatus = ({ presentation, onStatusChange }) => {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -32,13 +24,11 @@ const PresentationStatus = ({ presentation, onStatusChange }) => {
     setErr('');
 
     try {
-      // No usa DeleteLogic; nunca pone DELETED=true
       const updated = await productPresentacionesService.togglePresentacionStatus(
         id,
         targetActive
       );
 
-      // Merge para conservar props locales (ej. files)
       const merged = {
         ...presentation,
         ...updated,
@@ -57,7 +47,6 @@ const PresentationStatus = ({ presentation, onStatusChange }) => {
     }
   };
 
-  // Chip verde/rojo (colores visibles)
   const chipStyle = isActive
     ? {
         backgroundColor: '#e8f8f0',
