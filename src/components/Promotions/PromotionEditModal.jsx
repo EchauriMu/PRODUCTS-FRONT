@@ -196,10 +196,8 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
           NombreProducto: presentacion.producto?.PRODUCTNAME || '',
           NombrePresentacion: presentacion.NOMBREPRESENTACION || '',
           PrecioOriginal: presentacion.Precio || 0
-        });
+        }));
 
-      // Preparar datos para la API - SOLO campos modificables
-      // El campo ACTIVED se actualiza con updatePromotion (el switch controla esto)
       const updateData = {
         Titulo: editData.titulo,
         Descripcion: editData.descripcion,
