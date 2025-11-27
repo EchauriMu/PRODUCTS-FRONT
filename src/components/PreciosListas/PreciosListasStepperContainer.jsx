@@ -410,6 +410,21 @@ const PreciosListasStepperContainer = ({ onClose, lista }) => {
                     </FlexBox>
 
                     <FlexBox direction="Column">
+                      <Label required style={{ fontSize: '0.85rem' }}>Tipo Fórmula</Label>
+                      <Select
+                        value={formData.IDTIPOFORMULAOK || ''}
+                        onChange={(e) => handleInputChange('IDTIPOFORMULAOK', e.target.value)}
+                        style={{ width: '100%', fontSize: '0.9rem' }}
+                      >
+                        <Option value="">Seleccionar fórmula...</Option>
+                        <Option value="FORMULA_DESCUENTO">Formula Descuento</Option>
+                        <Option value="FORMULA_MAYORISTA">Formula Mayorista</Option>
+                        <Option value="FORMULA_ESTANDAR">Formula Estándar</Option>
+                        <Option value="FORMULA_PAQUETE">Formula Paquete</Option>
+                      </Select>
+                    </FlexBox>
+
+                    <FlexBox direction="Column">
                       <Label style={{ fontSize: '0.85rem' }}>Tipo general de lista</Label>
                       <Select
                         value={formData.IDTIPOGENERALISTAOK || ''}

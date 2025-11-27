@@ -399,6 +399,21 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
               </FlexBox>
 
               <FlexBox direction="Column">
+                <Label required style={{ fontSize: '0.85rem' }}>Tipo Fórmula</Label>
+                <Select
+                  value={formData.IDTIPOFORMULAOK || ''}
+                  onChange={(e) => handleInputChange('IDTIPOFORMULAOK', e.target.value)}
+                  style={{ width: '100%', fontSize: '0.9rem' }}
+                >
+                  <Option value="">Seleccionar fórmula...</Option>
+                  <Option value="FORMULA_DESCUENTO">Formula Descuento</Option>
+                  <Option value="FORMULA_MAYORISTA">Formula Mayorista</Option>
+                  <Option value="FORMULA_ESTANDAR">Formula Estándar</Option>
+                  <Option value="FORMULA_PAQUETE">Formula Paquete</Option>
+                </Select>
+              </FlexBox>
+
+              <FlexBox direction="Column">
                 <Label style={{ fontSize: '0.85rem' }}>Tipo General</Label>
                 <Select
                   value={formData.IDTIPOGENERALISTAOK || ''}
@@ -407,22 +422,6 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
                 >
                   <Option value="ESPECIFICA">Específica</Option>
                   <Option value="GENERAL">General</Option>
-                </Select>
-              </FlexBox>
-
-              <FlexBox direction="Column">
-                <Label required style={{ fontSize: '0.85rem' }}>Tipo Fórmula</Label>
-                <Select
-                  value={formData.IDTIPOFORMULAOK || ''}
-                  onChange={(e) => handleInputChange('IDTIPOFORMULAOK', e.target.value)}
-                  style={{ width: '100%', fontSize: '0.9rem' }}
-                >
-                  <Option value="">Seleccionar fórmula...</Option>
-                  <Option value="FIJO">Fijo - Precio fijo directo</Option>
-                  <Option value="PORCENTAJE">Porcentaje - Incremento/Descuento %</Option>
-                  <Option value="DESCUENTO">Descuento - Monto fijo</Option>
-                  <Option value="MARGEN">Margen - Margen sobre costo</Option>
-                  <Option value="ESCALA">Escala - Según cantidad</Option>
                 </Select>
               </FlexBox>
             </FlexBox>
