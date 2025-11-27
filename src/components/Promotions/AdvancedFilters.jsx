@@ -1,3 +1,11 @@
+/*
+ * =================================================================================
+ * Componente: AdvancedFilters
+ * Descripción: Filtros avanzados para selección de presentaciones en promociones
+ * Autores: LAURA PANIAGUA, ALBERTO PARDO
+ * =================================================================================
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -28,7 +36,7 @@ import preciosItemsService from '../../api/preciosItemsService';
 import CustomDialog from '../common/CustomDialog';
 import { useDialog } from '../../hooks/useDialog';
 
-// ===== CONSTANTES PARA ATAJOS =====
+/* CONSTANTES PARA ATAJOS */
 const PRICE_SHORTCUTS = [
   { id: 'low', label: '$0 - $999', min: 0, max: 999 },
   { id: 'mid', label: '$1,000 - $4,999', min: 1000, max: 4999 },
@@ -42,7 +50,6 @@ const DATE_SHORTCUTS = [
   { id: 'thisYear', label: 'Este año' }
 ];
 
-// ===== OPCIONES DE ORDENAMIENTO =====
 const SORT_OPTIONS = [
   { id: 'default', label: 'Orden predeterminado' },
   { id: 'addedFirst', label: 'Primero ya agregados' },
@@ -57,11 +64,10 @@ const AdvancedFilters = ({
   initialFilters = {}, 
   preselectedProducts = new Set(), 
   lockedProducts = new Set(),
-  preselectedPresentaciones = [] // Array de presentaciones pre-seleccionadas
+  preselectedPresentaciones = []
 }) => {
   const { dialogState, showAlert, showSuccess, showError, closeDialog } = useDialog();
   
-  // ===== ESTADOS DE FILTROS =====
   const [filters, setFilters] = useState({
     categorias: [],
     marcas: [],
@@ -72,64 +78,50 @@ const AdvancedFilters = ({
     ...initialFilters
   });
 
-  // Estados para datos reales
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [marcas, setMarcas] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // ===== ESTADOS DE BÚSQUEDA Y PAGINACIÓN =====
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   
-  // ===== ESTADOS DE FILTRO DE VISUALIZACIÓN =====
   const [showOnlyAdded, setShowOnlyAdded] = useState(false);
   const [sortBy, setSortBy] = useState('default');
   const [isManagingSelection, setIsManagingSelection] = useState(false);
   const [productsToRemove, setProductsToRemove] = useState(new Set());
   const [presentacionesToRemove, setPresentacionesToRemove] = useState(new Set());
   
-  // ===== ESTADOS DE SELECCIÓN =====
-  // Selección de la vista actual (temporal, antes de confirmar)
   const [selectedProducts, setSelectedProducts] = useState(new Set());
   const [selectedPresentaciones, setSelectedPresentaciones] = useState(new Set());
   
-  // Selección global acumulada (productos/presentaciones ya agregados a la promoción)
   const [globalSelectedProducts, setGlobalSelectedProducts] = useState(new Set(preselectedProducts));
   const [globalSelectedPresentaciones, setGlobalSelectedPresentaciones] = useState(new Set());
   
-  // Estados para presentaciones
   const [expandedProducts, setExpandedProducts] = useState(new Set());
   const [productPresentaciones, setProductPresentaciones] = useState({});
   const [presentacionesPrecios, setPresentacionesPrecios] = useState({});
   const [lockedPresentaciones, setLockedPresentaciones] = useState(new Set());
   
-  // ===== ESTADOS DE VALIDACIÓN =====
   const [priceError, setPriceError] = useState('');
   
-  // ===== ESTADO PARA TOAST =====
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  //  CARGAR DATOS REALES AL MONTAR COMPONENTE
   useEffect(() => {
     loadData();
   }, []);
   
-  // ===== RESETEAR PÁGINA AL CAMBIAR FILTROS O BÚSQUEDA =====
   useEffect(() => {
     setCurrentPage(1);
   }, [filters, searchTerm, showOnlyAdded, sortBy]);
 
-  // ===== INICIALIZAR SELECCIÓN GLOBAL CON PRESELECCIONADOS =====
   useEffect(() => {
     if (preselectedProducts && preselectedProducts.size > 0) {
       setGlobalSelectedProducts(new Set(preselectedProducts));
     }
-  }, []); // Ejecutar solo una vez al montar
-
-  // ===== CARGAR Y SELECCIONAR PRESENTACIONES PRE-SELECCIONADAS (GLOBAL) =====
+  }, []);
   useEffect(() => {
     const loadPreselectedPresentaciones = async () => {
       if (!preselectedPresentaciones || preselectedPresentaciones.length === 0) {
@@ -139,7 +131,6 @@ const AdvancedFilters = ({
       }
       
       try {
-        // Agrupar presentaciones por SKUID
         const presentacionesPorSKU = {};
         const skuidsUnicos = new Set();
         const idsPresent = new Set();
@@ -152,51 +143,39 @@ const AdvancedFilters = ({
             if (!presentacionesPorSKU[pres.SKUID]) {
               presentacionesPorSKU[pres.SKUID] = [];
             }
-            // Asegurar que la presentación tenga todos los campos necesarios
             const presentacionCompleta = {
               ...pres,
-              ACTIVED: true, // Marcar como activa para que se muestre
+              ACTIVED: true,
               NOMBREPRESENTACION: pres.NOMBREPRESENTACION || pres.NombrePresentacion || 'Sin nombre'
             };
             presentacionesPorSKU[pres.SKUID].push(presentacionCompleta);
           }
         });
 
-        // Marcar productos como expandidos
         setExpandedProducts(skuidsUnicos);
-        
-        // Marcar las presentaciones como bloqueadas PRIMERO
         setLockedPresentaciones(idsPresent);
-        
-        // Actualizar selección global de presentaciones
         setGlobalSelectedPresentaciones(idsPresent);
-        
-        // Cargar TODAS las presentaciones del servidor para cada SKUID
         const presentacionesPromises = Array.from(skuidsUnicos).map(async (skuid) => {
           try {
             const presentaciones = await productPresentacionesService.getPresentacionesBySKUID(skuid);
             return { skuid, presentaciones: presentaciones || [] };
           } catch (error) {
-            console.error(`Error loading presentaciones for ${skuid}:`, error);
             return { skuid, presentaciones: [] };
           }
         });
         
         const presentacionesResults = await Promise.all(presentacionesPromises);
         
-        // Combinar presentaciones del servidor con las bloqueadas
         const presentacionesCombinadas = {};
         presentacionesResults.forEach(({ skuid, presentaciones }) => {
           const presentacionesMap = new Map();
           
-          // Primero agregar las presentaciones bloqueadas
           if (presentacionesPorSKU[skuid]) {
             presentacionesPorSKU[skuid].forEach(p => {
               presentacionesMap.set(p.IdPresentaOK, p);
             });
           }
           
-          // Luego agregar las del servidor (sin sobrescribir las bloqueadas)
           presentaciones.forEach(p => {
             if (!presentacionesMap.has(p.IdPresentaOK)) {
               presentacionesMap.set(p.IdPresentaOK, p);
@@ -206,24 +185,19 @@ const AdvancedFilters = ({
           presentacionesCombinadas[skuid] = Array.from(presentacionesMap.values());
         });
         
-        // Guardar las presentaciones combinadas
         setProductPresentaciones(prev => ({ ...prev, ...presentacionesCombinadas }));
-        
-        // Cargar precios para TODAS las presentaciones
         const todasLasPresentaciones = Object.values(presentacionesCombinadas).flat();
         const preciosPromises = todasLasPresentaciones.map(async (presentacion) => {
           try {
             const precios = await preciosItemsService.getPricesByIdPresentaOK(presentacion.IdPresentaOK);
             return { idPresentaOK: presentacion.IdPresentaOK, precios };
           } catch (error) {
-            console.error(`Error loading prices for ${presentacion.IdPresentaOK}:`, error);
             return { idPresentaOK: presentacion.IdPresentaOK, precios: [] };
           }
         });
         
         const preciosResults = await Promise.all(preciosPromises);
         
-        // Actualizar estado de precios
         setPresentacionesPrecios(prev => {
           const newPrecios = { ...prev };
           preciosResults.forEach(({ idPresentaOK, precios }) => {
@@ -233,33 +207,28 @@ const AdvancedFilters = ({
         });
         
       } catch (error) {
-        console.error('Error cargando presentaciones pre-seleccionadas:', error);
       }
     };
 
     loadPreselectedPresentaciones();
-  }, []); // Ejecutar solo una vez al montar
+  }, []);
 
+  // Cargar productos, categorías y marcas desde API
   const loadData = async () => {
     setLoading(true);
     
     try {
-      // Cargar productos y categorías en paralelo
       const [productosResponse, categoriasResponse] = await Promise.all([
         productService.getAllProducts(),
         categoryService.getAllCategories()
       ]);
 
-      // Extraer datos reales de la estructura conocida de la API
       const productosData = productosResponse?.value?.[0]?.data?.[0]?.dataRes ?? [];
       const categoriasData = categoriasResponse?.data?.[0]?.dataRes ?? [];
 
-      // Filtrar solo categorías activas
       const categoriasActivas = categoriasData.filter(cat => 
         cat.ACTIVED === true && cat.DELETED === false
       );
-
-      // Extraer marcas únicas de los productos ACTIVOS
       const productosActivos = productosData.filter(p => p.ACTIVED && !p.DELETED);
       const marcasUnicas = [...new Set(
         productosActivos
@@ -278,19 +247,19 @@ const AdvancedFilters = ({
       setMarcas(marcasConConteo);
 
     } catch (err) {
-      console.error('Error cargando datos:', err);
+      setError('Error al cargar los datos: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // Actualizar valor de un filtro específico
   const handleFilterChange = (filterKey, value) => {
     setFilters(prev => ({
       ...prev,
       [filterKey]: value
     }));
     
-    // Validar rango de precios
     if (filterKey === 'precioMin' || filterKey === 'precioMax') {
       validatePriceRange(
         filterKey === 'precioMin' ? value : filters.precioMin,
@@ -299,7 +268,7 @@ const AdvancedFilters = ({
     }
   };
   
-  // ===== VALIDACIÓN DE RANGO DE PRECIOS =====
+  // Validar que el rango de precios sea coherente
   const validatePriceRange = (min, max) => {
     const minNum = parseFloat(min);
     const maxNum = parseFloat(max);
@@ -313,7 +282,7 @@ const AdvancedFilters = ({
     return true;
   };
   
-  // ===== ATAJOS DE PRECIO =====
+  // Aplicar atajo al precio
   const applyPriceShortcut = (shortcut) => {
     setFilters(prev => ({
       ...prev,
@@ -323,7 +292,7 @@ const AdvancedFilters = ({
     setPriceError('');
   };
   
-  // ===== ATAJOS DE FECHA =====
+  // Aplicar atajo de fechas
   const applyDateShortcut = (shortcutId) => {
     const today = new Date();
     let desde, hasta;
@@ -355,11 +324,13 @@ const AdvancedFilters = ({
     }));
   };
 
+  // Manejar cambios en selectores múltiples
   const handleMultiSelectChange = (filterKey, selectedItems) => {
     const values = selectedItems.map(item => item.getAttribute('data-value'));
     handleFilterChange(filterKey, values);
   };
 
+  // Limpiar todos los filtros y selecciones
   const clearAllFilters = () => {
     setFilters({
       categorias: [],
@@ -371,11 +342,11 @@ const AdvancedFilters = ({
     });
     setSearchTerm('');
     setPriceError('');
-    setSelectedProducts(new Set()); // Limpiar selección temporal
+    setSelectedProducts(new Set());
     setSelectedPresentaciones(new Set());
   };
   
-  // ===== REMOVER UN FILTRO ESPECÍFICO (para chips) =====
+  // Remover un filtro específico por su clave
   const removeFilter = (filterKey, value) => {
     if (filterKey === 'categorias' || filterKey === 'marcas') {
       setFilters(prev => ({
@@ -400,6 +371,7 @@ const AdvancedFilters = ({
     }
   };
 
+  // Contar cuántos filtros están activos
   const getActiveFiltersCount = () => {
     let count = 0;
     if (filters.categorias.length > 0) count++;
@@ -411,11 +383,9 @@ const AdvancedFilters = ({
     return count;
   };
   
-  // ===== OBTENER ARRAY DE FILTROS ACTIVOS PARA CHIPS =====
+  // Generar chips visuales de los filtros activos
   const getActiveFiltersChips = () => {
     const chips = [];
-    
-    // Categorías
     filters.categorias.forEach(catId => {
       const categoria = categorias.find(c => c.CATID === catId);
       if (categoria) {
@@ -428,7 +398,6 @@ const AdvancedFilters = ({
       }
     });
     
-    // Marcas
     filters.marcas.forEach(marcaNombre => {
       chips.push({
         key: `marca-${marcaNombre}`,
@@ -438,7 +407,6 @@ const AdvancedFilters = ({
       });
     });
     
-    // Precio
     if (filters.precioMin || filters.precioMax) {
       const minLabel = filters.precioMin || '0';
       const maxLabel = filters.precioMax || '∞';
@@ -449,7 +417,6 @@ const AdvancedFilters = ({
       });
     }
     
-    // Fecha
     if (filters.fechaIngresoDesde || filters.fechaIngresoHasta) {
       const desde = filters.fechaIngresoDesde ? new Date(filters.fechaIngresoDesde).toLocaleDateString() : '...';
       const hasta = filters.fechaIngresoHasta ? new Date(filters.fechaIngresoHasta).toLocaleDateString() : '...';
@@ -460,7 +427,6 @@ const AdvancedFilters = ({
       });
     }
     
-    // Búsqueda
     if (searchTerm) {
       chips.push({
         key: 'busqueda',
@@ -472,24 +438,21 @@ const AdvancedFilters = ({
     return chips;
   };
 
-  // ===== OBTENER PRODUCTOS FILTRADOS (con todos los filtros aplicados) =====
+  // Filtrar y ordenar productos según criterios activos
   const getFilteredProducts = () => {
     if (productos.length === 0) return [];
     
     let filtered = productos.filter(producto => {
-      // Solo mostrar productos activos y no eliminados
       if (!producto.ACTIVED || producto.DELETED) {
         return false;
       }
       
-      // Filtro de "solo productos agregados"
       if (showOnlyAdded) {
         if (!globalSelectedProducts.has(producto.SKUID) && !lockedProducts.has(producto.SKUID)) {
           return false;
         }
       }
       
-      // Filtro de búsqueda por texto (inmediato)
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
         const matchesSearch = 
@@ -512,11 +475,9 @@ const AdvancedFilters = ({
         }
       }
       
-      // Filtro por precio
       if (filters.precioMin && producto.PRECIO < parseFloat(filters.precioMin)) return false;
       if (filters.precioMax && producto.PRECIO > parseFloat(filters.precioMax)) return false;
       
-      // Filtro por fecha de ingreso
       if (filters.fechaIngresoDesde) {
         const fechaDesde = new Date(filters.fechaIngresoDesde);
         const fechaProducto = new Date(producto.REGDATE);
@@ -532,10 +493,8 @@ const AdvancedFilters = ({
       return true;
     });
     
-    // ===== APLICAR ORDENAMIENTO =====
     switch (sortBy) {
       case 'addedFirst':
-        // Primero los agregados (global o locked), luego los demás
         filtered.sort((a, b) => {
           const aIsAdded = globalSelectedProducts.has(a.SKUID) || lockedProducts.has(a.SKUID);
           const bIsAdded = globalSelectedProducts.has(b.SKUID) || lockedProducts.has(b.SKUID);
@@ -545,7 +504,6 @@ const AdvancedFilters = ({
         });
         break;
       case 'notAddedFirst':
-        // Primero los NO agregados, luego los agregados
         filtered.sort((a, b) => {
           const aIsAdded = globalSelectedProducts.has(a.SKUID) || lockedProducts.has(a.SKUID);
           const bIsAdded = globalSelectedProducts.has(b.SKUID) || lockedProducts.has(b.SKUID);
@@ -562,11 +520,9 @@ const AdvancedFilters = ({
         break;
       case 'default':
       default:
-        // Sin ordenamiento adicional
         break;
     }
     
-    // Si estamos en modo de gestión, solo mostrar productos agregados
     if (isManagingSelection) {
       filtered = filtered.filter(producto => 
         globalSelectedProducts.has(producto.SKUID)
@@ -576,7 +532,7 @@ const AdvancedFilters = ({
     return filtered;
   };
   
-  // ===== OBTENER PRODUCTOS PAGINADOS =====
+  // Obtener productos de la página actual
   const getPaginatedProducts = () => {
     const allFiltered = getFilteredProducts();
     const startIndex = (currentPage - 1) * pageSize;
@@ -584,7 +540,7 @@ const AdvancedFilters = ({
     return allFiltered.slice(startIndex, endIndex);
   };
   
-  // ===== CALCULAR INFO DE PAGINACIÓN =====
+  // Calcular información de paginación
   const getPaginationInfo = () => {
     const total = getFilteredProducts().length;
     const totalPages = Math.ceil(total / pageSize);
@@ -601,7 +557,7 @@ const AdvancedFilters = ({
     };
   };
   
-  // ===== HELPER PARA RESALTAR COINCIDENCIAS EN BÚSQUEDA =====
+  // Resaltar coincidencias de búsqueda en texto
   const highlightMatch = (text, searchTerm) => {
     if (!searchTerm || !text) return text;
     
@@ -615,9 +571,8 @@ const AdvancedFilters = ({
     );
   };
 
-  // ===== FUNCIONES DE SELECCIÓN TEMPORAL (vista actual) =====
+  // Seleccionar/deseleccionar producto y sus presentaciones
   const toggleProductSelection = async (productId) => {
-    // No permitir deseleccionar productos bloqueados o ya en selección global
     if (lockedProducts.has(productId) || globalSelectedProducts.has(productId)) {
       return;
     }
@@ -625,22 +580,17 @@ const AdvancedFilters = ({
     const isCurrentlySelected = selectedProducts.has(productId);
     
     if (!isCurrentlySelected) {
-      // SELECCIONAR producto
       setSelectedProducts(prev => {
         const newSelection = new Set(prev);
         newSelection.add(productId);
         return newSelection;
       });
       
-      // Cargar presentaciones si no están cargadas Y luego seleccionarlas
       let presentaciones = productPresentaciones[productId] || [];
       
       if (!productPresentaciones[productId] || presentaciones.length === 0) {
-        // Cargar y obtener las presentaciones
         presentaciones = await loadPresentaciones(productId);
       }
-      
-      // Seleccionar todas las presentaciones activas del producto (excepto las globales/bloqueadas)
       const presentacionesActivas = presentaciones.filter(p => 
         p.ACTIVED && 
         !lockedPresentaciones.has(p.IdPresentaOK) &&
@@ -653,14 +603,11 @@ const AdvancedFilters = ({
         return newSel;
       });
     } else {
-      // DESELECCIONAR producto
       setSelectedProducts(prev => {
         const newSelection = new Set(prev);
         newSelection.delete(productId);
         return newSelection;
       });
-      
-      // Deseleccionar todas las presentaciones del producto (excepto las bloqueadas/globales)
       const presentaciones = productPresentaciones[productId] || [];
       setSelectedPresentaciones(prev => {
         const newSel = new Set(prev);
@@ -675,11 +622,11 @@ const AdvancedFilters = ({
     }
   };
 
+  // Seleccionar todos los productos filtrados
   const selectAllProducts = async () => {
     const allProductIds = getFilteredProducts().map(p => p.SKUID);
     const newSelection = new Set([...selectedProducts]);
     
-    // Solo agregar los que no están en global ni bloqueados
     allProductIds.forEach(skuid => {
       if (!globalSelectedProducts.has(skuid) && !lockedProducts.has(skuid)) {
         newSelection.add(skuid);
@@ -688,7 +635,6 @@ const AdvancedFilters = ({
     
     setSelectedProducts(newSelection);
     
-    // Cargar y seleccionar presentaciones para cada producto
     for (const skuid of allProductIds) {
       if (globalSelectedProducts.has(skuid) || lockedProducts.has(skuid)) continue;
       
@@ -712,63 +658,54 @@ const AdvancedFilters = ({
     }
   };
 
+  // Limpiar selección temporal de productos
   const deselectAllProducts = () => {
-    // Limpiar solo la selección temporal (no tocar global ni bloqueados)
     setSelectedProducts(new Set());
     setSelectedPresentaciones(new Set());
   };
   
-  // ===== AGREGAR SELECCIÓN ACTUAL A LA SELECCIÓN GLOBAL =====
+  // Agregar selección temporal a la global
   const addToGlobalSelection = () => {
     if (selectedPresentaciones.size === 0) {
       showAlert('Selección vacía', 'No hay presentaciones seleccionadas para agregar');
       return;
     }
     
-    // Agregar productos a la selección global (evitar duplicados)
     setGlobalSelectedProducts(prev => {
       const newGlobal = new Set(prev);
       selectedProducts.forEach(skuid => newGlobal.add(skuid));
       return newGlobal;
     });
     
-    // Agregar presentaciones a la selección global (evitar duplicados)
     setGlobalSelectedPresentaciones(prev => {
       const newGlobal = new Set(prev);
       selectedPresentaciones.forEach(idPres => newGlobal.add(idPres));
       return newGlobal;
     });
     
-    // Guardar el conteo antes de limpiar
     const count = selectedPresentaciones.size;
-    
-    // Limpiar selección temporal
     setSelectedProducts(new Set());
     setSelectedPresentaciones(new Set());
     
-    // Mostrar toast de éxito
     const message = `Se agregaron ${count} presentación${count !== 1 ? 'es' : ''}`;
     setToastMessage(message);
-    setToastOpen(false); // Cerrar primero si estaba abierto
-    setTimeout(() => setToastOpen(true), 10); // Abrir después de un pequeño delay
+    setToastOpen(false);
+    setTimeout(() => setToastOpen(true), 10);
   };
 
-  // ===== REMOVER PRODUCTO DE LA SELECCIÓN GLOBAL =====
+  // Remover producto de la selección global
   const removeFromGlobalSelection = (productId) => {
-    // No permitir remover productos bloqueados
     if (lockedProducts.has(productId)) {
       showAlert('No se puede remover', 'Este producto ya está en la promoción y no se puede eliminar');
       return;
     }
 
-    // Remover el producto de la selección global
     setGlobalSelectedProducts(prev => {
       const newGlobal = new Set(prev);
       newGlobal.delete(productId);
       return newGlobal;
     });
 
-    // Remover todas las presentaciones de ese producto (excepto las bloqueadas)
     const presentaciones = productPresentaciones[productId] || [];
     setGlobalSelectedPresentaciones(prev => {
       const newGlobal = new Set(prev);
@@ -781,22 +718,18 @@ const AdvancedFilters = ({
     });
   };
 
-  // ===== REMOVER PRESENTACIÓN DE LA SELECCIÓN GLOBAL =====
+  // Remover presentación de la selección global
   const removePresFromGlobalSelection = (presentacionId, productId) => {
-    // No permitir remover presentaciones bloqueadas
     if (lockedPresentaciones.has(presentacionId)) {
       showAlert('No se puede remover', 'Esta presentación ya está en la promoción y no se puede eliminar');
       return;
     }
 
-    // Remover la presentación
     setGlobalSelectedPresentaciones(prev => {
       const newGlobal = new Set(prev);
       newGlobal.delete(presentacionId);
       return newGlobal;
     });
-
-    // Si el producto ya no tiene presentaciones seleccionadas, removerlo también
     const presentaciones = productPresentaciones[productId] || [];
     const remainingSelected = presentaciones.filter(p => 
       globalSelectedPresentaciones.has(p.IdPresentaOK) && 
@@ -813,16 +746,14 @@ const AdvancedFilters = ({
     }
   };
 
-  // ===== FUNCIONES PARA GESTIÓN DE ELIMINACIÓN EN LOTE =====
+  // Marcar/desmarcar producto para eliminar
   const toggleProductToRemove = (productId) => {
     setProductsToRemove(prev => {
       const newSet = new Set(prev);
       const presentaciones = productPresentaciones[productId] || [];
       
       if (newSet.has(productId)) {
-        // DESELECCIONAR producto
         newSet.delete(productId);
-        // También remover las presentaciones de este producto
         setPresentacionesToRemove(prevPres => {
           const newPreSet = new Set(prevPres);
           presentaciones.forEach(p => {
@@ -833,9 +764,7 @@ const AdvancedFilters = ({
           return newPreSet;
         });
       } else {
-        // SELECCIONAR producto
         newSet.add(productId);
-        // También seleccionar todas sus presentaciones que estén en global y no bloqueadas
         setPresentacionesToRemove(prevPres => {
           const newPreSet = new Set(prevPres);
           presentaciones.forEach(p => {
@@ -850,12 +779,12 @@ const AdvancedFilters = ({
     });
   };
 
+  // Marcar/desmarcar presentación para eliminar
   const togglePresentacionToRemove = (presentacionId, productId) => {
     setPresentacionesToRemove(prev => {
       const newSet = new Set(prev);
       if (newSet.has(presentacionId)) {
         newSet.delete(presentacionId);
-        // Si deseleccionamos una presentación, también deseleccionar el producto
         setProductsToRemove(prevProds => {
           const newProds = new Set(prevProds);
           newProds.delete(productId);
@@ -864,19 +793,16 @@ const AdvancedFilters = ({
       } else {
         newSet.add(presentacionId);
         
-        // Verificar si todas las presentaciones del producto están seleccionadas
         const presentaciones = productPresentaciones[productId] || [];
         const presentacionesElegibles = presentaciones.filter(p => 
           globalSelectedPresentaciones.has(p.IdPresentaOK) && 
           !lockedPresentaciones.has(p.IdPresentaOK)
         );
         
-        // Contar cuántas presentaciones elegibles estarán seleccionadas después de este cambio
         const todasSeleccionadas = presentacionesElegibles.every(p => 
           p.IdPresentaOK === presentacionId || newSet.has(p.IdPresentaOK)
         );
         
-        // Si todas las presentaciones están seleccionadas, seleccionar el producto
         if (todasSeleccionadas && presentacionesElegibles.length > 0) {
           setProductsToRemove(prevProds => {
             const newProds = new Set(prevProds);
@@ -889,6 +815,7 @@ const AdvancedFilters = ({
     });
   };
 
+  // Seleccionar todos los productos para eliminar
   const selectAllToRemove = () => {
     const productsToSelect = new Set();
     const presentacionesToSelect = new Set();
@@ -897,7 +824,6 @@ const AdvancedFilters = ({
       if (globalSelectedProducts.has(producto.SKUID) && !lockedProducts.has(producto.SKUID)) {
         productsToSelect.add(producto.SKUID);
         
-        // Seleccionar también sus presentaciones
         const presentaciones = productPresentaciones[producto.SKUID] || [];
         presentaciones.forEach(p => {
           if (globalSelectedPresentaciones.has(p.IdPresentaOK) && !lockedPresentaciones.has(p.IdPresentaOK)) {
@@ -911,17 +837,18 @@ const AdvancedFilters = ({
     setPresentacionesToRemove(presentacionesToSelect);
   };
 
+  // Limpiar selección de eliminación
   const clearRemoveSelection = () => {
     setProductsToRemove(new Set());
     setPresentacionesToRemove(new Set());
   };
 
+  // Ejecutar eliminación de productos seleccionados
   const removeSelectedProducts = () => {
     if (productsToRemove.size === 0 && presentacionesToRemove.size === 0) return;
     
     let removedCount = 0;
     
-    // Remover productos completos
     productsToRemove.forEach(skuid => {
       if (!lockedProducts.has(skuid)) {
         removeFromGlobalSelection(skuid);
@@ -929,10 +856,8 @@ const AdvancedFilters = ({
       }
     });
     
-    // Remover presentaciones individuales
     presentacionesToRemove.forEach(presentacionId => {
       if (!lockedPresentaciones.has(presentacionId)) {
-        // Buscar el producto que contiene esta presentación
         let productId = null;
         for (const [skuid, presentaciones] of Object.entries(productPresentaciones)) {
           if (presentaciones.some(p => p.IdPresentaOK === presentacionId)) {
@@ -948,15 +873,13 @@ const AdvancedFilters = ({
       }
     });
     
-    // Limpiar selección
     clearRemoveSelection();
     setIsManagingSelection(false);
     
-    // Mostrar toast de éxito
     const message = `Se eliminaron ${removedCount} presentación${removedCount !== 1 ? 'es' : ''}`;
     setToastMessage(message);
-    setToastOpen(false); // Cerrar primero si estaba abierto
-    setTimeout(() => setToastOpen(true), 10); // Abrir después de un pequeño delay
+    setToastOpen(false);
+    setTimeout(() => setToastOpen(true), 10);
   };
 
   // FUNCIONES PARA MANEJAR PRESENTACIONES
@@ -1015,21 +938,18 @@ const AdvancedFilters = ({
         [skuid]: presentacionesCombinadas
       }));
       
-      // Cargar precios para cada presentación
       if (presentacionesCombinadas && presentacionesCombinadas.length > 0) {
         const preciosPromises = presentacionesCombinadas.map(async (presentacion) => {
           try {
             const precios = await preciosItemsService.getPricesByIdPresentaOK(presentacion.IdPresentaOK);
             return { idPresentaOK: presentacion.IdPresentaOK, precios };
           } catch (error) {
-            console.error(`Error loading prices for ${presentacion.IdPresentaOK}:`, error);
             return { idPresentaOK: presentacion.IdPresentaOK, precios: [] };
           }
         });
         
         const preciosResults = await Promise.all(preciosPromises);
         
-        // Actualizar estado de precios
         setPresentacionesPrecios(prev => {
           const newPrecios = { ...prev };
           preciosResults.forEach(({ idPresentaOK, precios }) => {
@@ -1042,12 +962,11 @@ const AdvancedFilters = ({
       // RETORNAR las presentaciones cargadas
       return presentacionesCombinadas;
     } catch (error) {
-      console.error(`Error loading presentaciones for ${skuid}:`, error);
       setProductPresentaciones(prev => ({
         ...prev,
         [skuid]: []
       }));
-      return []; // Retornar array vacío en caso de error
+      return [];
     }
   };
 

@@ -1,3 +1,11 @@
+/*
+ * =================================================================================
+ * Página: CrearPromocion
+ * Descripción: Wizard para crear nuevas promociones con selección de presentaciones
+ * Autores: LAURA PANIAGUA, ALBERTO PARDO
+ * =================================================================================
+ */
+
 import React, { useState, useEffect } from 'react';
 import { 
   FlexBox, Title, Text, Button, Card, CardHeader, Label, Input, TextArea, DatePicker, 
@@ -9,6 +17,7 @@ import promoService from '../api/promoService';
 import CustomDialog from '../components/common/CustomDialog';
 import { useDialog } from '../hooks/useDialog';
 
+/* COMPONENTE PRINCIPAL */
 const CrearPromocion = () => {
   const navigate = useNavigate();
   const { dialogState, showSuccess, closeDialog } = useDialog();
@@ -19,7 +28,7 @@ const CrearPromocion = () => {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [draftSaved, setDraftSaved] = useState(false);
 
-  // Form data
+  // Data formularuio
   const [form, setForm] = useState({
     titulo: '',
     descripcion: '',
@@ -33,7 +42,7 @@ const CrearPromocion = () => {
     limiteUsos: null,
   });
 
-  // Plantillas rápidas (mismas del wizard)
+  // Plantillas rápidas
   const PLANTILLAS = [
     { id: 'black-friday', nombre: 'Black Friday', titulo: 'Black Friday 2025 - Ofertas Especiales', descripcion: 'Descuentos increíbles por tiempo limitado. ¡No te lo pierdas!', fechaInicio: getTodayDate(), fechaFin: getDateInDays(5), descuentoSugerido: 25, icono: 'cart' },
     { id: 'navidad', nombre: 'Navidad', titulo: 'Promoción Navideña 2025', descripcion: 'Regalos perfectos con precios especiales para esta Navidad.', fechaInicio: '2025-12-10', fechaFin: '2025-12-25', descuentoSugerido: 20, icono: 'calendar' },
@@ -46,7 +55,7 @@ const CrearPromocion = () => {
   function getTomorrowDate() { const d=new Date(); d.setDate(d.getDate()+1); return d.toISOString().split('T')[0]; }
   function getDateInDays(days) { const d=new Date(); d.setDate(d.getDate()+days); return d.toISOString().split('T')[0]; }
 
-  // Template selection
+  // Plantilla selector
   const handlePlantillaSelect = (plantilla) => {
     setForm(prev => ({
       ...prev,
@@ -62,14 +71,13 @@ const CrearPromocion = () => {
 
   // Filters callback
   const handleFiltersChange = (selectedProducts) => {
-    // AdvancedFilters ahora envía directamente el array de productos seleccionados
     if (Array.isArray(selectedProducts)) {
       setFilteredProducts(selectedProducts);
     } else {
       setFilteredProducts([]);
     }
   };
-    // Info por paso para encabezados/etiquetas
+    // Info por paso
     const STEP_INFO = {
       1: { title: 'Información General', subtitle: 'Completa los datos básicos de la promoción' },
       2: { title: 'Selección de Productos', subtitle: 'Aplica filtros para definir el alcance' },
@@ -87,31 +95,27 @@ const CrearPromocion = () => {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     
-    // Validar que la fecha de inicio no sea anterior a hoy
     if (inicio < hoy) {
-      return { valid: false, message: '⚠️ La fecha de inicio no puede ser anterior a hoy' };
+      return { valid: false, message: 'La fecha de inicio no puede ser anterior a hoy' };
     }
     
-    // Validar que la fecha de fin sea posterior a la de inicio
     if (fin <= inicio) {
-      return { valid: false, message: '⚠️ La fecha de fin debe ser posterior a la fecha de inicio' };
+      return { valid: false, message: 'La fecha de fin debe ser posterior a la fecha de inicio' };
     }
     
-    // Advertir si la duración es muy corta (menos de 1 día)
     const diferenciaDias = (fin - inicio) / (1000 * 60 * 60 * 24);
     if (diferenciaDias < 1) {
-      return { valid: true, warning: '⚠️ La promoción tiene una duración muy corta (menos de 1 día)' };
+      return { valid: true, warning: 'La promoción tiene una duración muy corta (menos de 1 día)' };
     }
     
-    // Advertir si la duración es muy larga (más de 90 días)
     if (diferenciaDias > 90) {
-      return { valid: true, warning: '⚠️ La promoción tiene una duración muy larga (más de 90 días)' };
+      return { valid: true, warning: 'La promoción tiene una duración muy larga (más de 90 días)' };
     }
     
     return { valid: true, message: '' };
   };
 
-  // Validation per step
+  // Validacion por paso                                     
   const canNext = () => {
     if (step === 1) {
       const datesValidation = validateDates();
@@ -119,7 +123,7 @@ const CrearPromocion = () => {
       return form.titulo.trim() !== '' && form.fechaInicio && form.fechaFin;
     }
     if (step === 2) {
-      return filteredProducts.length > 0; // Require at least one product
+      return filteredProducts.length > 0;
     }
     if (step === 3) {
       if (form.tipoDescuento === 'PORCENTAJE') {
@@ -139,7 +143,7 @@ const CrearPromocion = () => {
       const result = await promoService.createPromotionWithProducts(
         form,
         filteredProducts,
-        {} // filters summary is optional here
+        {}
       );
 
       await showSuccess(`Promoción "${form.titulo}" creada exitosamente`, 'Promoción Creada');
@@ -153,7 +157,7 @@ const CrearPromocion = () => {
 
   return (
     <div style={{ padding: 'clamp(0.5rem, 2vw, 1rem)' }}>
-      {/* Encabezado estilo asistente con barra de progreso */}
+      {/* Encabezado*/}
       <Card style={{ marginBottom: '1rem' }}>
         <div style={{ padding: '1rem' }}>
           <FlexBox justifyContent="SpaceBetween" alignItems="Center" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -365,7 +369,7 @@ const CrearPromocion = () => {
                       </div>
                       <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
                         {filteredProducts
-                          .filter(p => p && p.IdPresentaOK) // Filtrar presentaciones válidas
+                          .filter(p => p && p.IdPresentaOK)
                           .slice(0, 50)
                           .map((presentacion, idx) => (
                           <div key={presentacion.IdPresentaOK || idx} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 140px 120px', padding: '0.5rem 0.75rem', borderTop: '1px solid #eef2f5', alignItems: 'center' }}>
@@ -417,7 +421,7 @@ const CrearPromocion = () => {
         </Card>
       )}
 
-      {/* Pie de navegación al estilo del asistente */}
+      {/* Pie de navegación*/}
       <div style={{ 
         position: 'sticky', 
         bottom: 0, 

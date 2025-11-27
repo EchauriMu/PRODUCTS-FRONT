@@ -1,3 +1,11 @@
+/*
+ * =================================================================================
+ * Componente: PromotionCalendar
+ * Descripción: Calendario visual de promociones con vista mensual y agenda
+ * Autores: LAURA PANIAGUA, ALBERTO PARDO
+ * =================================================================================
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -21,6 +29,7 @@ import CustomDialog from '../common/CustomDialog';
 import { useDialog } from '../../hooks/useDialog';
 import PromotionEditModal from './PromotionEditModal';
 
+/* ESTADO Y CONFIGURACIÓN */
 const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange, activeView = 'calendar', onViewChange }) => {
   const { dialogState, showAlert, showError, closeDialog } = useDialog();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -59,10 +68,8 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange, ac
         }
       }
       
-      console.log('Promociones cargadas:', promotionsList);
       setApiPromotions(promotionsList);
     } catch (error) {
-      console.error('Error cargando promociones:', error);
       setApiPromotions([]);
     } finally {
       setLoadingPromotions(false);
@@ -136,17 +143,14 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange, ac
     return apiPromotions.filter(promo => {
       const status = getPromotionStatus(promo);
       
-      // Filtro por estado
       if (filters.estado !== 'all' && status !== filters.estado) return false;
       
-      // Filtro por búsqueda
       if (filters.buscar && !promo.Titulo?.toLowerCase().includes(filters.buscar.toLowerCase())) return false;
       
       return true;
     });
   };
 
-  // Función para exportar promociones a CSV
   const handleExport = async () => {
     const filtered = getFilteredPromotions();
     
@@ -168,13 +172,11 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange, ac
       promo.REGUSER || ''
     ]);
 
-    // Crear CSV
     const csvContent = [
       headers.join(','),
       ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
     ].join('\n');
 
-    // Descargar archivo
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -186,7 +188,7 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange, ac
     document.body.removeChild(link);
   };
 
-  // Obtener color basado en el tipo de promoción
+  // Obtener color 
   const getPromotionColor = (promotion) => {
     if (!promotion) return '#757575';
     const status = getPromotionStatus(promotion);
@@ -196,7 +198,7 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange, ac
     return '#757575';
   };
 
-  // Obtener ícono basado en el tipo de promoción
+  // Obtener ícono
   const getPromotionIcon = (promotion) => {
     if (!promotion) return 'P';
     
@@ -206,19 +208,6 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange, ac
     return '◌';
   };
 
-  // Obtener promociones por mes
-  const getPromotionsForMonth = (year, month) => {
-    return getFilteredPromotions().filter(promo => {
-      if (!promo.FechaIni || !promo.FechaFin) return false;
-      
-      const inicio = new Date(promo.FechaIni);
-      const fin = new Date(promo.FechaFin);
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      
-      return (inicio <= lastDay && fin >= firstDay);
-    });
-  };
 
   // Generar días del calendario
   const generateCalendarDays = () => {
@@ -254,15 +243,11 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange, ac
     return days;
   };
 
-  // Manejar click en promoción - Abre modal informativo
   const handlePromotionClick = (promotion) => {
     setSelectedPromotion(promotion);
     setShowPromotionDetail(true);
   };
 
-
-
-  // Navegación de meses
   const navigateMonth = (direction) => {
     const newDate = new Date(currentDate);
     newDate.setMonth(newDate.getMonth() + direction);
@@ -595,7 +580,6 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange, ac
             {/* Información General - Vista Informativa */}
             <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
               
-              {/* Header con Avatar y Título */}
               <FlexBox alignItems="Center" style={{ gap: '1rem' }}>
                 <Avatar 
                   size="L" 
@@ -626,7 +610,7 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange, ac
                 </FlexBox>
               </FlexBox>
 
-              {/* Tarjetas con información clave */}
+              {/* Tarjetas con información */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
                 {selectedPromotion.FechaIni && (
                   <Card>
@@ -700,7 +684,6 @@ const PromotionCalendar = ({ promotions = [], onPromotionClick, onDateChange, ac
                           productosMap.get(skuid).presentaciones.push(presentacion);
                         });
 
-                        // Convertir a array y renderizar
                         return Array.from(productosMap.values()).map((producto, index) => (
                           <div 
                             key={producto.SKUID || index}

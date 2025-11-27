@@ -1,3 +1,11 @@
+/*
+ * =================================================================================
+ * Componente: PromotionEditModal
+ * Descripción: Modal para editar promociones existentes con gestión de presentaciones
+ * Autores: LAURA PANIAGUA, ALBERTO PARDO
+ * =================================================================================
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -32,6 +40,7 @@ import AdvancedFilters from './AdvancedFilters';
 import CustomDialog from '../common/CustomDialog';
 import { useDialog } from '../../hooks/useDialog';
 
+/* ESTADO Y CONFIGURACIÓN */
 const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
   const { dialogState, showConfirm, showWarning, showSuccess, closeDialog } = useDialog();
   const [currentPage, setCurrentPage] = useState(1);
@@ -114,9 +123,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         skuids: []
       });
 
-      // Establecer presentaciones seleccionadas y guardar las originales
       const presentacionesInPromo = extractPresentacionesFromPromotion(promotion);
-      console.log('📋 Presentaciones originales de la promo:', presentacionesInPromo);
       setSelectedPresentaciones(presentacionesInPromo);
       setOriginalPresentaciones(presentacionesInPromo);
 
@@ -140,7 +147,6 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         ? productosData.filter(p => (p.ACTIVED !== false) && (p.DELETED !== true))
         : [];
     } catch (err) {
-      console.error('Error loading products:', err);
       setError('Error al cargar productos: ' + (err.message || 'desconocido'));
     } finally {
       setLoading(false);
@@ -190,9 +196,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
           NombreProducto: presentacion.producto?.PRODUCTNAME || '',
           NombrePresentacion: presentacion.NOMBREPRESENTACION || '',
           PrecioOriginal: presentacion.Precio || 0
-        }));
-
-      console.log('Presentaciones a enviar:', presentacionesAplicables);
+        });
 
       // Preparar datos para la API - SOLO campos modificables
       // El campo ACTIVED se actualiza con updatePromotion (el switch controla esto)
@@ -215,17 +219,11 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
         updateData.DescuentoPorcentaje = 0;
       }
 
-      console.log('Enviando actualización:', updateData);
-
-      // Llamar al servicio de actualización
       const response = await promoService.updatePromotion(promotion.IdPromoOK, updateData);
-      
-      console.log('Promoción actualizada:', response);
 
       onSave && onSave({ ...promotion, ...updateData });
       onClose();
     } catch (err) {
-      console.error('Error al guardar:', err);
       setError(err.message || 'Error al guardar la promoción');
     } finally {
       setSaving(false);
@@ -244,15 +242,11 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
 
     setDeleting(true);
     try {
-      // Llamar al servicio de eliminación física
       const response = await promoService.deletePromotionHard(promotion.IdPromoOK);
-      
-      console.log('Promoción eliminada permanentemente:', response);
       
       onDelete && onDelete(promotion);
       onClose();
     } catch (err) {
-      console.error('Error al eliminar permanentemente:', err);
       setError('Error al eliminar permanentemente la promoción: ' + err.message);
     } finally {
       setDeleting(false);
@@ -261,13 +255,9 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
 
 
 
-  // Función para recibir presentaciones filtradas del componente AdvancedFilters
   const handleFiltersChange = (filteredPresentaciones) => {
-    console.log('Presentaciones filtradas recibidas:', filteredPresentaciones);
     if (Array.isArray(filteredPresentaciones)) {
-      // Las presentaciones nuevas son las que vienen del filtro
       setFilteredProductsToAdd(filteredPresentaciones);
-      console.log('Presentaciones a trabajar:', filteredPresentaciones.length);
     } else {
       setFilteredProductsToAdd([]);
     }
@@ -286,7 +276,6 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
     
     const updatedPresentaciones = [...selectedPresentaciones, ...newPresentaciones];
     
-    console.log('Presentaciones actualizadas:', updatedPresentaciones);
     setSelectedPresentaciones(updatedPresentaciones);
     setOriginalPresentaciones(updatedPresentaciones); // Actualizar originales
     setShowAddProductsModal(false);
@@ -364,7 +353,7 @@ const PromotionEditModal = ({ open, promotion, onClose, onSave, onDelete }) => {
             [skuid]: presentaciones || []
           }));
         } catch (error) {
-          console.error('Error al cargar presentaciones:', error);
+          setProductPresentacionesInList(prev => ({ ...prev, [skuid]: [] }));
         } finally {
           setLoadingPresentacionesInList(prev => ({ ...prev, [skuid]: false }));
         }

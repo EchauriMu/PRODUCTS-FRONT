@@ -1,3 +1,11 @@
+/*
+ * =================================================================================
+ * Componente: PromotionsTableCard
+ * Descripción: Tabla de promociones con filtros, paginación y acciones masivas
+ * Autores: LAURA PANIAGUA, ALBERTO PARDO
+ * =================================================================================
+ */
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Card,
@@ -24,6 +32,7 @@ import promoService from '../../api/promoService';
 import CustomDialog from '../common/CustomDialog';
 import { useDialog } from '../../hooks/useDialog';
 
+/* ESTADO Y CONFIGURACIÓN */
 const PromotionsTableCard = ({ onPromotionClick, onCreateClick, activeView = 'promotions', onViewChange }) => {
   const { dialogState, showConfirm, showWarning, closeDialog } = useDialog();
   const [promotions, setPromotions] = useState([]);
@@ -66,8 +75,6 @@ const PromotionsTableCard = ({ onPromotionClick, onCreateClick, activeView = 'pr
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Error al cargar promociones';
       setError(`Error al obtener promociones: ${errorMessage}`);
-      console.error('Error loading promotions:', err);
-      console.error('Error response:', err.response?.data);
     } finally {
       setLoading(false);
     }
@@ -192,7 +199,6 @@ const PromotionsTableCard = ({ onPromotionClick, onCreateClick, activeView = 'pr
         } catch (err) {
           errorCount++;
           errors.push({ id, error: err.message });
-          console.error(`Error eliminando ${id}:`, err);
         }
       }
       
@@ -273,7 +279,6 @@ const PromotionsTableCard = ({ onPromotionClick, onCreateClick, activeView = 'pr
         } catch (err) {
           errorCount++;
           errors.push({ id: promo.IdPromoOK, error: err.message });
-          console.error(`Error procesando ${promo.IdPromoOK}:`, err);
         }
       }
       
@@ -390,9 +395,7 @@ const PromotionsTableCard = ({ onPromotionClick, onCreateClick, activeView = 'pr
 
   const handleRowClick = useCallback((promotion) => {
     setSelectedPromotion(promotion);
-    console.log('Selected promotion:', promotion);
     
-    // Llamar al callback del componente padre si existe
     if (onPromotionClick) {
       onPromotionClick(promotion);
     }
