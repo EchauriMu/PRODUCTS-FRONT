@@ -153,7 +153,7 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
         ...prev,
         SKUSIDS: skusArray
       }));
-      console.log('✅ Productos actualizados en modal:', skusArray);
+      console.log('Productos actualizados en modal:', skusArray);
     }
     
     // Guardar fechas de filtro

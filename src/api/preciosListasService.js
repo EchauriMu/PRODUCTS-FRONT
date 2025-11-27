@@ -43,7 +43,7 @@ const preciosListasService = {
       }
       return true;
     } catch (error) {
-      console.error('❌ Error al desactivar la lista:', error);
+      console.error('Error al desactivar la lista:', error);
       throw error;
     }
   },
@@ -70,7 +70,7 @@ const preciosListasService = {
       const listas = Array.isArray(dataRes) ? dataRes : (dataRes ? [dataRes] : []);
       return listas;
     } catch (error) {
-      console.error('❌ Error al obtener las listas de precios:', error);
+      console.error('Error al obtener las listas de precios:', error);
       throw error;
     }
   },
@@ -92,7 +92,7 @@ const preciosListasService = {
       const dataRes = unwrapCAP(res);
       return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
     } catch (error) {
-      console.error(`❌ Error al obtener la lista de precios con ID ${idListaOK}:`, error);
+      console.error(`Error al obtener la lista de precios con ID ${idListaOK}:`, error);
       throw error;
     }
   },
@@ -139,7 +139,7 @@ const preciosListasService = {
       // El backend retorna los datos creados
       return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
     } catch (error) {
-      console.error('❌ Error al crear la lista de precios:', error);
+      console.error('Error al crear la lista de precios:', error);
       throw error;
     }
   },
@@ -152,7 +152,7 @@ const preciosListasService = {
   async update(idListaOK, payload) { //aqui inicia el update 
     try {
       // PASO 1: Log para debugging (puedes verlo en Console del navegador)
-      console.log('📝 Actualizando lista de precios:', { idListaOK, payload });
+      console.log('Actualizando lista de precios:', { idListaOK, payload });
       
       // PASO 2: Preparar payload limpio con solo los campos necesarios
       const cleanPayload = {
@@ -196,10 +196,10 @@ const preciosListasService = {
       }
 
       // PASO 8: Log de éxito
-      console.log('✅ Lista de precios actualizada exitosamente:', dataRes);
+      console.log('Lista de precios actualizada exitosamente:', dataRes);
       return dataRes;
     } catch (error) {
-      console.error(`❌ Error al actualizar la lista de precios con ID ${idListaOK}:`, error);
+      console.error(`Error al actualizar la lista de precios con ID ${idListaOK}:`, error);
       throw error;
     }
   },
@@ -212,7 +212,7 @@ const preciosListasService = {
   async delete(idListaOK) { //aqui inicia el delete del serv
     try {
       // PASO 1: Log para debugging
-      console.log('🗑️ Eliminando lista de precios:', idListaOK);
+      console.log('Eliminando lista de precios:', idListaOK);
       
       // PASO 2: Crear parámetros de URL para indicar ProcessType=DeleteHard
       const params = new URLSearchParams({
@@ -224,7 +224,6 @@ const preciosListasService = {
       console.log('Enviando petición de eliminación...');
 
       // PASO 4: Realizar POST sin body
-      // URL: /ztprecios-listas/preciosListasCRUD?ProcessType=DeleteHard&IDLISTAOK=<id>
       const res = await axiosInstance.post(
         `/ztprecios-listas/preciosListasCRUD?${params}`
       );
@@ -238,10 +237,10 @@ const preciosListasService = {
       }
 
       // PASO 7: Log de éxito
-      console.log('✅ Lista de precios eliminada correctamente');
+      console.log('Lista de precios eliminada correctamente');
       return true;
     } catch (error) {
-      console.error(`❌ Error al eliminar la lista de precios con ID ${idListaOK}:`, {
+      console.error(`Error al eliminar la lista de precios con ID ${idListaOK}:`, {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status
@@ -273,7 +272,7 @@ const preciosListasService = {
       const dataRes = unwrapCAP(res);
       return Array.isArray(dataRes) ? dataRes[0] || null : (dataRes || null);
     } catch (error) {
-      console.error(`❌ Error al activar la lista de precios con ID ${idListaOK}:`, error);
+      console.error(`Error al activar la lista de precios con ID ${idListaOK}:`, error);
       throw error;
     }
   },
@@ -302,7 +301,7 @@ const preciosListasService = {
       const dataRes = unwrapCAP(res);
       return Array.isArray(dataRes) ? dataRes : (dataRes ? [dataRes] : []);
     } catch (error) {
-      console.error(`❌ Error al obtener listas por SKUID ${skuid}:`, error);
+      console.error(`Error al obtener listas por SKUID ${skuid}:`, error);
       throw error;
     }
   }

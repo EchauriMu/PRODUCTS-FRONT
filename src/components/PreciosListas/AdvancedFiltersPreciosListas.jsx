@@ -385,7 +385,7 @@ const AdvancedFiltersPreciosListas = ({ onFiltersChange, initialFilters = {}, pr
       }));
 
       setMarcas(marcasConConteo);
-      console.log(`✅ Datos cargados: ${productosData.length} productos, ${categoriasData.length} categorías, ${marcasConConteo.length} marcas`);
+      console.log(`Datos cargados: ${productosData.length} productos, ${categoriasData.length} categorías, ${marcasConConteo.length} marcas`);
 
     } catch (err) {
       console.error('Error cargando datos:', err);

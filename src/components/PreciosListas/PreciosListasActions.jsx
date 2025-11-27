@@ -95,7 +95,7 @@ export const createActionHandlers = (setEditingLista, setIsModalOpen, setError, 
           await preciosListasService.update(setEditingLista.IDLISTAOK, listaData);
         }
       } else {
-        // 🆕 MODO CREACIÓN: Es una lista nueva
+        // MODO CREACIÓN: Es una lista nueva
         // Ejecutar create() 
         await preciosListasService.create(listaData); //AQUI SE GUARDA
       }
@@ -143,10 +143,10 @@ export const createActionHandlers = (setEditingLista, setIsModalOpen, setError, 
       // Ejecutar la acción en cada lista seleccionada
       for (const listaId of selectedListas) {
         if (shouldActivate) {
-          // ACTIVAR: ejecuta activate() ← ⭐ LÍNEA 93-95
+          // ACTIVAR: ejecuta activate
           await preciosListasService.activate(listaId);
         } else {
-          // DESACTIVAR: ejecuta deleteLogic() ← ⭐ LÍNEA 96-99
+          // DESACTIVAR: ejecuta deleteLogic
           await preciosListasService.deleteLogic(listaId);
         }
       }
