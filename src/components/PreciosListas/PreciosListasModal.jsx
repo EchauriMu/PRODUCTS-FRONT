@@ -97,12 +97,18 @@ const PreciosListasModal = ({ open, onClose, onSave, lista }) => {
   useEffect(() => {
     if (open && lista) {
       // MODO EDICIÓN: cargar datos de la lista existente
+      // Primero cargamos TODO de lista, luego solo completamos lo que falta con initialState
       setFormData({
-        ...initialState,
-        ...lista,
+        IDLISTAOK: lista.IDLISTAOK || '',
+        SKUSIDS: Array.isArray(lista.SKUSIDS) ? lista.SKUSIDS : (lista.SKUSIDS ? JSON.parse(lista.SKUSIDS) : []),
+        IDINSTITUTOOK: lista.IDINSTITUTOOK || '',
+        DESLISTA: lista.DESLISTA || '',
         FECHAEXPIRAINI: formatDateForPicker(lista.FECHAEXPIRAINI),
         FECHAEXPIRAFIN: formatDateForPicker(lista.FECHAEXPIRAFIN),
-        SKUSIDS: Array.isArray(lista.SKUSIDS) ? lista.SKUSIDS : (lista.SKUSIDS ? JSON.parse(lista.SKUSIDS) : []),
+        IDTIPOLISTAOK: lista.IDTIPOLISTAOK || '',
+        IDTIPOGENERALISTAOK: lista.IDTIPOGENERALISTAOK || 'ESPECIFICA',
+        IDTIPOFORMULAOK: lista.IDTIPOFORMULAOK || 'FIJO',
+        ACTIVED: lista.ACTIVED !== undefined ? lista.ACTIVED : true,
       });
       setFilteredSKUs(new Set(Array.isArray(lista.SKUSIDS) ? lista.SKUSIDS : []));
       setActiveTab('config');
