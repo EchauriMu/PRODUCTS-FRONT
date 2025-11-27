@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// Autor: Lucia López
+import { useState, useEffect, useCallback } from 'react';
 import {
   FlexBox,
   Label,
@@ -9,11 +10,11 @@ import {
   MessageStrip
 } from '@ui5/webcomponents-react';
 import preciosItemsService from '../../api/preciosItemsService';
-// ❌ IMPORTACIÓN ELIMINADA: Ya no se necesita AddPresentationPriceModalNuevo
 
-// --- HELPERS ---
-
-// Función para formato de moneda (ajusta la localización si es necesario)
+/**
+ * @author Lucia López
+ * Helpers
+ */
 const formatCurrency = (value) => {
   if (value === null || value === undefined || typeof value !== 'number') {
     return 'N/D';
@@ -24,32 +25,28 @@ const formatCurrency = (value) => {
   })}`;
 };
 
-// Función para calcular el resultado de la Fórmula o el Costo Inicial
-// Solo reconoce la variable 'COSTO'
 const calculateFormulaResult = (costoIni, formula) => {
   const costoBase = Number(costoIni) || 0;
   if (formula) {
     try {
-      // CRÍTICO: SOLO REEMPLAZA 'COSTO' con el valor de costoBase
       const formulaEval = formula.replace(/COSTO/g, costoBase);
       
-      // Asegúrate de que no haya divisiones por cero o NaN
       const result = eval(formulaEval); 
       if (isNaN(result) || !isFinite(result)) {
         return costoBase;
       }
       return parseFloat(result.toFixed(2));
     } catch (e) {
-      // Si la fórmula es inválida, devuelve el costo base
       return costoBase; 
     }
   }
-  // Si no hay fórmula, el valor base es el Costo Inicial
   return costoBase; 
 };
 
-
-// --- COMPONENTE PRINCIPAL ---
+/**
+ * @author Lucia López
+ * Componente Principal
+ */
 
 const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
   const [currentPrice, setCurrentPrice] = useState(null); 
@@ -59,7 +56,6 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // 1. Obtener el precio actual
   const fetchCurrentPrice = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -71,7 +67,6 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
       
       setCurrentPrice(price);
       
-      // Calcular el precio inicial si hay fórmula, sino usar el Precio de Venta guardado
       const calculatedInitialPrice = initialPrice.Formula 
         ? calculateFormulaResult(Number(initialPrice.CostoIni) || 0, initialPrice.Formula)
         : (Number(initialPrice.Precio) || 0);
@@ -79,7 +74,6 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
       setEditingValues({
         CostoIni: Number(initialPrice.CostoIni) || 0,
         Formula: initialPrice.Formula || '',
-        // El precio inicial del estado debe ser el calculado o el guardado
         Precio: calculatedInitialPrice,
       });
 
@@ -96,15 +90,11 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
     fetchCurrentPrice();
   }, [fetchCurrentPrice]);
 
-
-  // 2. EFECTO PARA EL CÁLCULO AUTOMÁTICO del Precio de Venta
   useEffect(() => {
       const { CostoIni, Formula } = editingValues;
       
-      // Obtiene el resultado de la fórmula (o CostoIni si no hay fórmula)
       const newCalculatedPrice = calculateFormulaResult(CostoIni || 0, Formula || '');
       
-      // Si el precio calculado es diferente al valor actual del Precio, actualiza el estado.
       if (Math.abs(editingValues.Precio - newCalculatedPrice) > 0.001) {
         setEditingValues(prev => ({ 
           ...prev, 
@@ -114,11 +104,8 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
       
   }, [editingValues.CostoIni, editingValues.Formula]);
 
-
-  // Manejador para el cambio en los Inputs (solo CostoIni y Formula)
   const handleEditChange = (e) => {
     const { name, value } = e.target;
-    // Solo permitimos editar CostoIni y Formula
     if (name === 'CostoIni' || name === 'Formula') {
         const val = (name === 'Formula' || value === '') ? value : parseFloat(value);
         setEditingValues(prev => ({ ...prev, [name]: val }));
@@ -126,24 +113,20 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
     }
   };
 
-  // Manejador para recargar (usado después de guardar/añadir)
   const handlePriceActionCompleted = () => {
     setError(''); 
     setRefreshKey(prev => prev + 1); 
   };
 
-  // Determinar si hay cambios para habilitar los botones
   const isChanged = currentPrice 
     ? (editingValues.CostoIni !== (Number(currentPrice.CostoIni) || 0) ||
        editingValues.Formula !== (currentPrice.Formula || '') ||
-       // CRÍTICO: Se compara el Precio calculado con el Precio guardado
        Math.abs(editingValues.Precio - (Number(currentPrice.Precio) || 0)) > 0.001) 
     : (editingValues.CostoIni !== 0 || editingValues.Formula !== '' || editingValues.Precio !== 0);
 
   const hasPrice = currentPrice && currentPrice.IdPrecioOK;
   
-
-  // --- Lógica de Guardar/Añadir (Unificada) ---
+  /** @author Lucia López */
   const handleSave = async () => {
     const { CostoIni, Formula, Precio } = editingValues;
 
@@ -159,14 +142,12 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
     setIsSaving(true);
     setError('');
     
-    // 1. Calcular CostoFin
     const CostoFin = Formula 
         ? calculateFormulaResult(CostoIni, Formula) 
         : CostoIni; 
     
-    // 2. Definir campos comunes (incluyendo los críticos)
-    const loggedUser = localStorage.getItem('user') || 'admin'; // Obtener usuario logueado
-    const tipoFormula = Formula ? 'FORM001' : ''; // Asumimos 'FORM001' si hay fórmula
+    const loggedUser = localStorage.getItem('user') || 'admin';
+    const tipoFormula = Formula ? 'FORM001' : '';
     
     const dataToSave = {
         CostoIni: CostoIni,
@@ -178,12 +159,10 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
         SKUID: skuid, 
         ACTIVED: true, 
         
-        // CRÍTICO: CAMPOS FALTANTES QUE CAUSAN EL ERROR 500
         IdTipoFormulaOK: tipoFormula,
         REGUSER: loggedUser, 
     };
 
-    // 3. MODO EDITAR: Si ya existe un precio
     if (hasPrice) {
       try {
         const dataToUpdate = {
@@ -200,15 +179,13 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
         setIsSaving(false);
       }
     } 
-    // 4. MODO AÑADIR (Directo)
     else {
       try {
-        // CRÍTICO: Generar el IdPrecioOK antes de crear (patrón del modal anterior)
         const generatedIdPrecioOK = `PRECIOS-${Date.now()}`;
 
         const dataToCreate = {
             ...dataToSave,
-            IdPrecioOK: generatedIdPrecioOK, // ¡Este era crítico!
+            IdPrecioOK: generatedIdPrecioOK,
         };
 
         const newPrice = await preciosItemsService.createPrice(dataToCreate);
@@ -218,7 +195,6 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
         setTimeout(() => handlePriceActionCompleted(), 1000); 
 
       } catch (err) {
-        // Mejor manejo del error de backend
         const errorMessage = err.response?.data?.message || err.message || 'Error desconocido en el servidor.';
         setError(`❌ Error al añadir precio: ${errorMessage}`);
       } finally {
@@ -227,8 +203,6 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
     }
 };
 
-  // --- Renderizado ---
-
   if (loading) {
     return <BusyIndicator active size="Small" style={{ margin: '1rem' }} />;
   }
@@ -236,7 +210,6 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
   return (
     <FlexBox direction="Column" style={{ width: '100%', padding: '0.5rem' }}>
       
-      {/* Mensaje de Error/Éxito */}
       {error && (
           <MessageStrip 
             type={error.startsWith('✅') ? 'Positive' : 'Negative'} 
@@ -246,10 +219,8 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
           </MessageStrip>
       )}
 
-      {/* Row de Inputs y Botones */}
       <FlexBox direction="Row" alignItems="End" style={{ gap: '0.5rem' }}>
         
-        {/* Costo Inicial */}
         <FlexBox direction="Column" style={{ flex: 1, minWidth: '80px' }}>
           <Label style={{ fontSize: '0.75rem', color: '#666' }}>Costo Inicial</Label>
           <Input 
@@ -263,7 +234,6 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
           />
         </FlexBox>
 
-        {/* Fórmula Aplicada */}
         <FlexBox direction="Column" style={{ flex: 2, minWidth: '150px' }}>
           <Label style={{ fontSize: '0.75rem', color: '#666' }}>Fórmula Aplicada</Label>
           <Input 
@@ -276,21 +246,19 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
           />
         </FlexBox>
 
-        {/* Precio de Venta (Calculado, en Azul y con Formato Moneda) */}
         <FlexBox direction="Column" style={{ flex: 1, minWidth: '80px' }}>
           <Label style={{ fontSize: '0.75rem', color: '#666' }}>Precio de Venta</Label>
           
           <Text 
             style={{ 
               fontWeight: 'bold', 
-              color: '#0A6ED1', // Color Azul
+              color: '#0A6ED1',
               fontSize: '1rem',
-              // CRÍTICO: Estos estilos alinean el 'Text' con los 'Input'
-              padding: '0.5625rem 0.625rem', // Ajustado para igualar la altura del Input
-              border: '1px solid #959595', // Borde más oscuro similar al Input
+              padding: '0.5625rem 0.625rem',
+              border: '1px solid #959595',
               borderRadius: '0.25rem',
-              backgroundColor: '#f5f5f5', // Fondo ligero para indicar 'solo lectura'
-              height: '2.5rem', // Altura fija si es necesario para la alineación
+              backgroundColor: '#f5f5f5',
+              height: '2.5rem',
               display: 'flex',
               alignItems: 'center'
             }}
@@ -301,22 +269,19 @@ const PrecioListaPresentacionActions = ({ idPresentaOK, skuid, idListaOK }) => {
 
         </FlexBox>
         
-        {/* Botones de Acción */}
         <FlexBox style={{ alignSelf: 'flex-end', gap: '0.2rem' }}>
           {isChanged && (
             <>
-              {/* Botón de Guardar/Añadir */}
               <Button
                 design="Emphasized"
                 icon={hasPrice ? "edit" : "add"} 
-                onClick={handleSave} // Llama a la lógica unificada
+                onClick={handleSave}
                 title={hasPrice ? "Guardar Edición" : "Añadir Precio"}
                 disabled={isSaving}
               >
                 {isSaving ? <BusyIndicator active size="Small" /> : (hasPrice ? 'Editar' : 'Añadir')}
               </Button>
 
-              {/* Botón de Cancelar */}
               <Button
                 design="Transparent"
                 icon="sys-cancel"

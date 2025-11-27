@@ -1,3 +1,4 @@
+// Autor: Lucia López
 import { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -23,7 +24,6 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
   const [savingPrice, setSavingPrice] = useState(false);
   const [priceError, setPriceError] = useState('');
 
-  // Sincronizar selectedListId cuando cambia el prop
   useEffect(() => {
     setNewPrice(prev => ({
       ...prev,
@@ -31,7 +31,6 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
     }));
   }, [selectedListId]);
 
-  // Resetear el formulario cuando se abre el modal
   useEffect(() => {
     if (open) {
       setNewPrice({
@@ -58,7 +57,6 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
       const result = Function('"use strict"; return (' + formulaProcessed + ')')();
       return isFinite(result) ? parseFloat(result.toFixed(2)) : 0;
     } catch (err) {
-      console.warn('Error al calcular fórmula:', err);
       return 0;
     }
   };
@@ -91,7 +89,6 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
   };
 
   const handleSaveNewPrice = async () => {
-    // Validaciones
     if (!newPrice.selectedListId) {
       setPriceError('Debe seleccionar una lista de precios.');
       return;
@@ -116,7 +113,6 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
     setPriceError('');
 
     try {
-      // Preparar datos para guardar con todos los campos requeridos por el backend
       const generatedIdPrecioOK = `PRECIOS-${Date.now()}`;
       const loggedUser = localStorage.getItem('user') || 'admin';
 
@@ -125,7 +121,7 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
         IdListaOK: newPrice.selectedListId,
         IdPresentaOK: idPresentaOK,
         SKUID: skuid,
-        IdTipoFormulaOK: 'FORM001', // Valor por defecto; ajusta según tu lógica
+        IdTipoFormulaOK: 'FORM001',
         Formula: newPrice.Formula,
         CostoIni: newPrice.CostoIni,
         CostoFin: newPrice.CostoFin,
@@ -133,27 +129,17 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
         REGUSER: loggedUser
       };
 
-      // Llamar al servicio para agregar el precio
       const createdPrice = await preciosItemsService.createPrice(dataToSave);
 
-      // Notificar al componente padre
       if (onPriceAdded) {
         onPriceAdded(createdPrice);
       }
 
-      // Cerrar modal y resetear estado
       handleCancel();
     } catch (err) {
-      // Mejorar el mensaje de error con la respuesta del servidor (si existe)
       const errorDetails = err?.response?.data?.value?.[0];
       const serverMsg = errorDetails?.message || err?.response?.data?.message || err?.response?.data?.error?.message || err?.message;
       setPriceError(`Error al crear el precio: ${serverMsg || 'Intente nuevamente.'}`);
-      console.error('Error al crear precio (detalles):', {
-        message: err.message,
-        status: err.response?.status,
-        response: err.response?.data,
-        errorDetails: errorDetails
-      });
     } finally {
       setSavingPrice(false);
     }
@@ -195,7 +181,6 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
         )}
 
         <FlexBox direction="Column" style={{ gap: '1.5rem' }}>
-          {/* Sección: Lista de Precios (Solo Lectura) */}
           <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
             <Label style={{ fontWeight: 'bold' }}>Lista de Precios</Label>
             <div style={{
@@ -212,7 +197,6 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
             </div>
           </FlexBox>
 
-          {/* Sección: Costo Inicial */}
           <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
             <Label style={{ fontWeight: 'bold' }}>Costo Inicial</Label>
             <Input
@@ -225,7 +209,6 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
             />
           </FlexBox>
 
-          {/* Sección: Fórmula */}
           <FlexBox direction="Column" style={{ gap: '0.5rem' }}>
             <Label style={{ fontWeight: 'bold' }}>Fórmula de Cálculo</Label>
             <Input
@@ -239,10 +222,8 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
             </Text>
           </FlexBox>
 
-          {/* Separador */}
           <div style={{ borderTop: '1px solid #e0e0e0', padding: '0.5rem 0' }} />
 
-          {/* Sección: Precio de Venta (Resultado) */}
           <FlexBox direction="Column" style={{ gap: '0.5rem', background: '#e8f5e9', padding: '1rem', borderRadius: '8px' }}>
             <Label style={{ fontWeight: 'bold', color: '#2e7d32' }}>Precio de Venta (Resultado)</Label>
             <Title level="H3" style={{ color: '#1b5e20', marginTop: '0.25rem' }}>
@@ -253,7 +234,6 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
             </Text>
           </FlexBox>
 
-          {/* Sección: Costo Final (Resultado) */}
           <FlexBox direction="Column" style={{ gap: '0.5rem', background: '#f3e5f5', padding: '1rem', borderRadius: '8px' }}>
             <Label style={{ fontWeight: 'bold', color: '#6a1b9a' }}>Costo Final (Resultado)</Label>
             <Title level="H3" style={{ color: '#4a148c', marginTop: '0.25rem' }}>
@@ -264,7 +244,6 @@ const AddPresentationPriceModal = ({ open, onClose, skuid, idPresentaOK, selecte
             </Text>
           </FlexBox>
 
-          {/* Información de referencia */}
           <div style={{ background: '#f7f8fa', padding: '1rem', borderRadius: '8px' }}>
             <Title level="H5" style={{ marginTop: 0, marginBottom: '0.75rem' }}>Información de Referencia</Title>
             <FlexBox direction="Column" style={{ gap: '0.75rem' }}>
